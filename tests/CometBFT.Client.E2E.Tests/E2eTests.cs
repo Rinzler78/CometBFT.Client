@@ -158,6 +158,52 @@ public sealed class E2eTests
 
     [Fact]
     [Trait("Category", "E2E")]
+    public async Task WebSocket_Flow_Receives_Vote_Event()
+    {
+        var wsUrl = EndpointConfiguration.Require("COMETBFT_WS_URL");
+
+        var services = new ServiceCollection();
+        services.AddCometBftWebSocket(options => options.BaseUrl = wsUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftWebSocketClient>();
+
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.VoteReceived += (_, args) =>
+        {
+            if (args.Value.Height > 0 && args.Value.ValidatorAddress.Length > 0)
+            {
+                completion.TrySetResult(true);
+            }
+        };
+
+        await client.ConnectAsync();
+        await client.SubscribeVoteAsync();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await completion.Task.WaitAsync(timeout.Token);
+        await client.DisconnectAsync();
+    }
+
+    [Fact]
+    [Trait("Category", "E2E")]
+    public async Task WebSocket_Flow_SubscribeValidatorSetUpdates_DoesNotThrow()
+    {
+        // ValidatorSetUpdates are rare — verify subscription lifecycle only.
+        var wsUrl = EndpointConfiguration.Require("COMETBFT_WS_URL");
+
+        var services = new ServiceCollection();
+        services.AddCometBftWebSocket(options => options.BaseUrl = wsUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftWebSocketClient>();
+
+        await client.ConnectAsync();
+        var ex = await Record.ExceptionAsync(() => client.SubscribeValidatorSetUpdatesAsync());
+        Assert.Null(ex);
+        await client.DisconnectAsync();
+    }
+
+    [Fact]
+    [Trait("Category", "E2E")]
     public async Task Rest_Unsafe_DialSeeds_CallsThrough()
     {
         var rpcUrl = EndpointConfiguration.Require("COMETBFT_UNSAFE_RPC_URL");
