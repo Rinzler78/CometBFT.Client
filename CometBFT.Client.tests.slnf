@@ -1,0 +1,18 @@
+{
+  "solution": {
+    "path": "CometBFT.Client.sln",
+    "projects": [
+      "src\\CometBFT.Client.Core\\CometBFT.Client.Core.csproj",
+      "src\\CometBFT.Client.Rest\\CometBFT.Client.Rest.csproj",
+      "src\\CometBFT.Client.WebSocket\\CometBFT.Client.WebSocket.csproj",
+      "src\\CometBFT.Client.Grpc\\CometBFT.Client.Grpc.csproj",
+      "src\\CometBFT.Client.Extensions\\CometBFT.Client.Extensions.csproj",
+      "tests\\CometBFT.Client.Core.Tests\\CometBFT.Client.Core.Tests.csproj",
+      "tests\\CometBFT.Client.Rest.Tests\\CometBFT.Client.Rest.Tests.csproj",
+      "tests\\CometBFT.Client.WebSocket.Tests\\CometBFT.Client.WebSocket.Tests.csproj",
+      "tests\\CometBFT.Client.Grpc.Tests\\CometBFT.Client.Grpc.Tests.csproj",
+      "tests\\CometBFT.Client.Integration.Tests\\CometBFT.Client.Integration.Tests.csproj",
+      "tests\\CometBFT.Client.E2E.Tests\\CometBFT.Client.E2E.Tests.csproj"
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>CometBFT/Tendermint WebSocket subscription client. Protocol version v0.38.9.</Description>
+    <PackageTags>tendermint;cometbft;blockchain;websocket;realtime</PackageTags>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CometBFT.Client.Core\CometBFT.Client.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Websocket.Client" Version="5.3.0" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>CometBFT/Tendermint gRPC client implementation. Protocol version v0.38.9.</Description>
+    <PackageTags>tendermint;cometbft;blockchain;grpc;protobuf</PackageTags>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CometBFT.Client.Core\CometBFT.Client.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>CometBFT.Client.Grpc.Tests</_Parameter1>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>DynamicProxyGenAssembly2</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Grpc.Net.Client" Version="2.76.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.34.1" />
+    <PackageReference Include="Grpc.Tools" Version="2.80.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- CometBFT v0.38.9 gRPC broadcast service proto -->
+    <Protobuf Include="Proto\cometbft\rpc\grpc\grpc.proto" GrpcServices="Client" />
+    <!-- Legacy Tendermint Core gRPC broadcast service proto (backward compat) -->
+    <Protobuf Include="Proto\tendermint\rpc\grpc\grpc.proto" GrpcServices="Client" />
+  </ItemGroup>
+
+</Project>

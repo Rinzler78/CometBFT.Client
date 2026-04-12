@@ -1,0 +1,45 @@
+// Legacy Tendermint Core gRPC broadcast service definition.
+// Source: https://github.com/tendermint/tendermint — Tendermint Core up to v0.37
+// Kept for backward compatibility with nodes that have not migrated to CometBFT.
+
+syntax = "proto3";
+
+package tendermint.rpc.grpc;
+
+option csharp_namespace = "Tendermint.Client.Grpc.LegacyProto";
+option go_package = "github.com/tendermint/tendermint/rpc/grpc;coregrpc";
+
+// BroadcastAPI exposes the Tendermint Core gRPC broadcast endpoint.
+service BroadcastAPI {
+    // Ping verifies the gRPC connection to the Tendermint node.
+    rpc Ping(RequestPing) returns (ResponsePing);
+    // BroadcastTx submits a raw transaction and returns the ABCI check result.
+    rpc BroadcastTx(RequestBroadcastTx) returns (ResponseBroadcastTx);
+}
+
+// RequestPing is the request type for the Ping RPC.
+message RequestPing {}
+
+// ResponsePing is the response type for the Ping RPC.
+message ResponsePing {}
+
+// RequestBroadcastTx carries the raw transaction bytes.
+message RequestBroadcastTx {
+    bytes tx = 1;
+}
+
+// ResponseBroadcastTx carries the ABCI CheckTx response.
+message ResponseBroadcastTx {
+    ResponseCheckTx check_tx = 1;
+}
+
+// ResponseCheckTx is the ABCI CheckTx result returned during broadcast.
+message ResponseCheckTx {
+    uint32 code       = 1;
+    bytes  data       = 2;
+    string log        = 3;
+    string info       = 4;
+    int64  gas_wanted = 5;
+    int64  gas_used   = 6;
+    string codespace  = 7;
+}

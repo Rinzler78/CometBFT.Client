@@ -1,0 +1,46 @@
+{
+  "metadata": [
+    {
+      "src": [
+        {
+          "files": ["src/**/**.csproj"],
+          "exclude": ["**/obj/**", "**/bin/**"]
+        }
+      ],
+      "dest": "api",
+      "disableGitFeatures": false,
+      "disableDefaultFilter": false
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": ["api/**.yml", "api/index.md"]
+      },
+      {
+        "files": ["docs/**.md", "docs/**/toc.yml", "toc.yml", "*.md"],
+        "exclude": ["obj/**", "_site/**"]
+      }
+    ],
+    "resource": [
+      {
+        "files": ["images/**"]
+      }
+    ],
+    "output": "_site",
+    "globalMetadata": {
+      "_appName": "Tendermint.Client",
+      "_appTitle": "Tendermint.Client Documentation",
+      "_enableSearch": true,
+      "_gitContribute": {
+        "repo": "https://github.com/Rinzler78/Tendermint.Client",
+        "branch": "develop"
+      }
+    },
+    "template": ["default", "modern"],
+    "postProcessors": [],
+    "noLangKeyword": false,
+    "overwrite": [],
+    "externalReference": []
+  }
+}

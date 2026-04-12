@@ -1,0 +1,14 @@
+repos:
+  - repo: local
+    hooks:
+      - id: dotnet-format
+        name: dotnet format
+        language: system
+        entry: dotnet format Tendermint.Client.sln --verify-no-changes
+        pass_filenames: false
+      - id: detect-secrets
+        name: detect secrets
+        language: python
+        entry: detect-secrets-hook
+        args: ["--baseline", ".secrets.baseline"]
+        pass_filenames: true

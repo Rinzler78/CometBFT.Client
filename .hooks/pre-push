@@ -1,0 +1,22 @@
+#!/bin/bash
+# Pre-push hook: block direct pushes to master and develop branches.
+# Install to .git/hooks/pre-push (copy or symlink this file) and chmod +x.
+#
+# To install:
+#   cp .hooks/pre-push .git/hooks/pre-push
+#   chmod +x .git/hooks/pre-push
+
+PROTECTED_BRANCHES=("master" "develop")
+
+while read local_ref local_sha remote_ref remote_sha; do
+    branch=$(echo "$remote_ref" | sed 's|refs/heads/||')
+    for protected in "${PROTECTED_BRANCHES[@]}"; do
+        if [ "$branch" = "$protected" ]; then
+            echo "ERROR: Direct push to '$protected' is not allowed."
+            echo "Please create a feature/bugfix/hotfix branch and open a pull request."
+            exit 1
+        fi
+    done
+done
+
+exit 0
