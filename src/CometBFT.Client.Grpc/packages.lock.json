@@ -50,7 +50,7 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0"
         }
       },
-      "tendermint.client.core": {
+      "cometbft.client.core": {
         "type": "Project"
       }
     }

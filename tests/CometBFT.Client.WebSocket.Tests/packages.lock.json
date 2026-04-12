@@ -224,13 +224,13 @@
           "xunit.v3.runner.common": "[3.2.2]"
         }
       },
-      "tendermint.client.core": {
+      "cometbft.client.core": {
         "type": "Project"
       },
-      "tendermint.client.websocket": {
+      "cometbft.client.websocket": {
         "type": "Project",
         "dependencies": {
-          "Tendermint.Client.Core": "[0.1.0, )",
+          "CometBFT.Client.Core": "[0.1.0, )",
           "Websocket.Client": "[5.3.0, )"
         }
       }

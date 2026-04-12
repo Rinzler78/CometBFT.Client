@@ -77,7 +77,7 @@ internal sealed class DashboardService : BackgroundService
         await _ws.DisposeAsync();
     }
 
-    private void OnNewBlock(object? sender, TendermintEventArgs<Block> e)
+    private void OnNewBlock(object? sender, CometBftEventArgs<Block> e)
     {
         var block = e.Value;
         var addr = block.Proposer.Length > 0
@@ -86,14 +86,14 @@ internal sealed class DashboardService : BackgroundService
         _state.PrependBlock($"[bold]{block.Height:N0}[/] {block.Time:HH:mm:ss} proposer=[dim]{Markup.Escape(addr)}[/] txs={block.Txs.Count}");
     }
 
-    private void OnTx(object? sender, TendermintEventArgs<TxResult> e)
+    private void OnTx(object? sender, CometBftEventArgs<TxResult> e)
     {
         var tx = e.Value;
         var hashPfx = tx.Hash.Length > 0 ? tx.Hash[..Math.Min(16, tx.Hash.Length)] : "?";
         _state.PrependTx($"[dim]{Markup.Escape(hashPfx)}…[/] h={tx.Height} code={tx.Code} gas={tx.GasUsed}/{tx.GasWanted}");
     }
 
-    private void OnVote(object? sender, TendermintEventArgs<Vote> e)
+    private void OnVote(object? sender, CometBftEventArgs<Vote> e)
     {
         var vote = e.Value;
         var addrPfx = vote.ValidatorAddress.Length > 0
@@ -102,13 +102,13 @@ internal sealed class DashboardService : BackgroundService
         _state.AddLog($"[dim]VOTE[/] h={vote.Height} r={vote.Round} val=[dim]{Markup.Escape(addrPfx)}[/]");
     }
 
-    private void OnNewBlockHeader(object? sender, TendermintEventArgs<BlockHeader> e)
+    private void OnNewBlockHeader(object? sender, CometBftEventArgs<BlockHeader> e)
     {
         var header = e.Value;
         _state.Header = $"Height: [bold]{header.Height:N0}[/]\nChain: {Markup.Escape(header.ChainId)}\nTime: {header.Time:HH:mm:ss}\nProposer: [dim]{Markup.Escape(header.ProposerAddress)}[/]";
     }
 
-    private void OnValidatorSetUpdated(object? sender, TendermintEventArgs<IReadOnlyList<Validator>> e)
+    private void OnValidatorSetUpdated(object? sender, CometBftEventArgs<IReadOnlyList<Validator>> e)
     {
         var validators = e.Value;
         _state.ValidatorUpdates = $"Validators in update: [bold]{validators.Count}[/]\n" +

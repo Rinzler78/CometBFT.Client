@@ -142,7 +142,7 @@
           "Polly": "7.1.0"
         }
       },
-      "tendermint.client.core": {
+      "cometbft.client.core": {
         "type": "Project"
       }
     }

@@ -6,6 +6,6 @@ services:
     working_dir: /workspace
     environment:
       - NUGET_API_KEY
-      - TENDERMINT_RPC_URL
-      - TENDERMINT_WS_URL
-      - TENDERMINT_GRPC_URL
+      - COMETBFT_RPC_URL
+      - COMETBFT_WS_URL
+      - COMETBFT_GRPC_URL

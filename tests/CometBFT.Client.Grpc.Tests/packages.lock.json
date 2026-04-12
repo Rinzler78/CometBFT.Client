@@ -231,15 +231,15 @@
           "xunit.v3.runner.common": "[3.2.2]"
         }
       },
-      "tendermint.client.core": {
+      "cometbft.client.core": {
         "type": "Project"
       },
-      "tendermint.client.grpc": {
+      "cometbft.client.grpc": {
         "type": "Project",
         "dependencies": {
+          "CometBFT.Client.Core": "[0.1.0, )",
           "Google.Protobuf": "[3.34.1, )",
-          "Grpc.Net.Client": "[2.76.0, )",
-          "Tendermint.Client.Core": "[0.1.0, )"
+          "Grpc.Net.Client": "[2.76.0, )"
         }
       }
     }

@@ -11,7 +11,7 @@ public sealed class TxResultTests
     [Fact]
     public void Constructor_SetsAllProperties()
     {
-        var events = new List<TendermintEvent>().AsReadOnly();
+        var events = new List<CometBftEvent>().AsReadOnly();
         var tx = new TxResult("HASH", 10L, 0, "TXBYTES", 0u, "DATA", "LOG", "INFO", 100L, 90L, events, null);
 
         Assert.Equal("HASH", tx.Hash);
@@ -28,14 +28,14 @@ public sealed class TxResultTests
     [Fact]
     public void Code_Zero_IsSuccess()
     {
-        var tx = new TxResult("H", 1L, 0, "B", 0u, null, null, null, 0, 0, new List<TendermintEvent>().AsReadOnly(), null);
+        var tx = new TxResult("H", 1L, 0, "B", 0u, null, null, null, 0, 0, new List<CometBftEvent>().AsReadOnly(), null);
         Assert.Equal(0u, tx.Code);
     }
 
     [Fact]
     public void Code_NonZero_IsError()
     {
-        var tx = new TxResult("H", 1L, 0, "B", 1u, null, "error", null, 0, 0, new List<TendermintEvent>().AsReadOnly(), "sdk");
+        var tx = new TxResult("H", 1L, 0, "B", 1u, null, "error", null, 0, 0, new List<CometBftEvent>().AsReadOnly(), "sdk");
         Assert.NotEqual(0u, tx.Code);
         Assert.Equal("sdk", tx.Codespace);
     }
