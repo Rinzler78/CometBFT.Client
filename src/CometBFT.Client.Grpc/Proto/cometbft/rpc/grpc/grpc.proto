@@ -6,7 +6,7 @@ syntax = "proto3";
 
 package cometbft.rpc.grpc;
 
-option csharp_namespace = "Tendermint.Client.Grpc.Proto";
+option csharp_namespace = "CometBFT.Client.Grpc.Proto";
 option go_package = "github.com/cometbft/cometbft/rpc/grpc;coregrpc";
 
 // BroadcastAPI exposes the CometBFT gRPC broadcast endpoint.

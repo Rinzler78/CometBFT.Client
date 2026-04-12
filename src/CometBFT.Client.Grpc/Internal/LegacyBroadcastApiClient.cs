@@ -1,6 +1,6 @@
 using Google.Protobuf;
 using Grpc.Net.Client;
-using CometBFT.Client.Grpc.LegacyProto;
+using Tendermint.Client.Grpc.LegacyProto;
 
 namespace CometBFT.Client.Grpc.Internal;
 
