@@ -4,6 +4,7 @@ using CometBFT.Client.Core.Events;
 using CometBFT.Client.Core.Options;
 using CometBFT.Client.WebSocket;
 using CometBFT.Client.WebSocket.Internal;
+using Microsoft.Extensions.Options;
 using Websocket.Client;
 using Xunit;
 
@@ -407,7 +408,7 @@ public sealed class WebSocketMessageParserTests
     public void OnMessageReceived_NewBlock_FiresNewBlockReceivedEvent()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
         Block? received = null;
         client.NewBlockReceived += (_, args) => received = args.Value;
 
@@ -436,7 +437,7 @@ public sealed class WebSocketMessageParserTests
     public void OnMessageReceived_NewBlockHeader_FiresNewBlockHeaderReceivedEvent()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
         BlockHeader? received = null;
         client.NewBlockHeaderReceived += (_, args) => received = args.Value;
 
@@ -471,7 +472,7 @@ public sealed class WebSocketMessageParserTests
     public void OnMessageReceived_Tx_FiresTxExecutedEvent()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
         TxResult? received = null;
         client.TxExecuted += (_, args) => received = args.Value;
 
@@ -502,7 +503,7 @@ public sealed class WebSocketMessageParserTests
     public void OnMessageReceived_Vote_FiresVoteReceivedEvent()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
         Vote? received = null;
         client.VoteReceived += (_, args) => received = args.Value;
 
@@ -534,7 +535,7 @@ public sealed class WebSocketMessageParserTests
     public void OnMessageReceived_ValidatorSetUpdates_FiresValidatorSetUpdatedEvent()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
         IReadOnlyList<Validator>? received = null;
         client.ValidatorSetUpdated += (_, args) => received = args.Value;
 
@@ -563,7 +564,7 @@ public sealed class WebSocketMessageParserTests
     public void OnMessageReceived_UnknownEventType_NoEventFired()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
         var eventFired = false;
         client.NewBlockReceived += (_, _) => eventFired = true;
         client.NewBlockHeaderReceived += (_, _) => eventFired = true;
@@ -582,7 +583,7 @@ public sealed class WebSocketMessageParserTests
     public void OnMessageReceived_EmptyResult_NoEventFired()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
         var eventFired = false;
         client.NewBlockReceived += (_, _) => eventFired = true;
 
@@ -596,7 +597,7 @@ public sealed class WebSocketMessageParserTests
     public void OnMessageReceived_MalformedJson_DoesNotThrow()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
 
         var ex = Record.Exception(() =>
             client.OnMessageReceived(ResponseMessage.TextMessage("not valid json {{{")));
@@ -608,7 +609,7 @@ public sealed class WebSocketMessageParserTests
     public void OnMessageReceived_EmptyText_DoesNotThrow()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
 
         var ex = Record.Exception(() =>
             client.OnMessageReceived(ResponseMessage.TextMessage("   ")));

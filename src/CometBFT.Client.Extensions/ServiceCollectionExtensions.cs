@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Polly;
 using Polly.Extensions.Http;
 using CometBFT.Client.Core.Interfaces;
@@ -28,15 +29,18 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
 
-        var options = new CometBftRestOptions();
-        configure(options);
+        // Validate eagerly at registration time using a temporary instance.
+        var tempOptions = new CometBftRestOptions();
+        configure(tempOptions);
+        tempOptions.Validate();
 
-        services.AddSingleton(options);
+        services.Configure<CometBftRestOptions>(configure);
 
         services
-            .AddHttpClient<ICometBftRestClient, CometBftRestClient>(client =>
+            .AddHttpClient<ICometBftRestClient, CometBftRestClient>((sp, client) =>
             {
-                client.BaseAddress = new Uri(options.BaseUrl);
+                var opts = sp.GetRequiredService<IOptions<CometBftRestOptions>>().Value;
+                client.BaseAddress = new Uri(opts.BaseUrl);
                 // Disable HttpClient-level timeout: Polly TimeoutAsync governs per-attempt timeouts.
                 // A fixed HttpClient.Timeout would absorb the full retry backoff and fire as
                 // TaskCanceledException before Polly can exhaust its retry count.
@@ -46,15 +50,16 @@ public static class ServiceCollectionExtensions
             {
                 PooledConnectionLifetime = TimeSpan.FromMinutes(2),
             })
-            .AddPolicyHandler(Policy.TimeoutAsync<HttpResponseMessage>(options.Timeout))
+            // Polly policies use values captured from the validated temp options at registration time.
+            .AddPolicyHandler(Policy.TimeoutAsync<HttpResponseMessage>(tempOptions.Timeout))
             .AddPolicyHandler(HttpPolicyExtensions
                 .HandleTransientHttpError()
                 .WaitAndRetryAsync(
-                    retryCount: options.MaxRetryAttempts,
+                    retryCount: tempOptions.MaxRetryAttempts,
                     sleepDurationProvider: attempt =>
                     {
                         var jitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, 100));
-                        return TimeSpan.FromTicks((long)(options.RetryDelay.Ticks * Math.Pow(2, attempt - 1))) + jitter;
+                        return TimeSpan.FromTicks((long)(tempOptions.RetryDelay.Ticks * Math.Pow(2, attempt - 1))) + jitter;
                     }))
             .AddPolicyHandler(HttpPolicyExtensions
                 .HandleTransientHttpError()
@@ -79,10 +84,12 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
 
-        var options = new CometBftWebSocketOptions();
-        configure(options);
+        // Validate eagerly at registration time using a temporary instance.
+        var tempOptions = new CometBftWebSocketOptions();
+        configure(tempOptions);
+        tempOptions.Validate();
 
-        services.AddSingleton(options);
+        services.Configure<CometBftWebSocketOptions>(configure);
         services.AddSingleton<ICometBftWebSocketClient, CometBftWebSocketClient>();
 
         return services;
@@ -102,10 +109,12 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
 
-        var options = new CometBftGrpcOptions();
-        configure(options);
+        // Validate eagerly at registration time using a temporary instance.
+        var tempOptions = new CometBftGrpcOptions();
+        configure(tempOptions);
+        tempOptions.Validate();
 
-        services.AddSingleton(options);
+        services.Configure<CometBftGrpcOptions>(configure);
         services.AddSingleton<ICometBftGrpcClient, CometBftGrpcClient>();
 
         return services;

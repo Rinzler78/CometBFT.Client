@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using CometBFT.Client.Core.Events;
 using CometBFT.Client.Core.Exceptions;
@@ -22,7 +23,7 @@ public sealed class CometBftWebSocketClientTests
     public void Constructor_ValidOptions_DoesNotThrow()
     {
         var opts = new CometBftWebSocketOptions();
-        var ex = Record.Exception(() => new CometBftWebSocketClient(opts));
+        var ex = Record.Exception(() => new CometBftWebSocketClient(Options.Create(opts)));
         Assert.Null(ex);
     }
 
@@ -30,7 +31,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task ConnectAsync_InvalidUrl_ThrowsCometBftWebSocketException()
     {
         var opts = new CometBftWebSocketOptions { BaseUrl = "not-a-valid-uri" };
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
 
         await Assert.ThrowsAsync<CometBftWebSocketException>(() => client.ConnectAsync());
     }
@@ -39,7 +40,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task SubscribeNewBlockAsync_WithoutConnection_ThrowsCometBftWebSocketException()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
 
         await Assert.ThrowsAsync<CometBftWebSocketException>(() => client.SubscribeNewBlockAsync());
     }
@@ -48,7 +49,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task SubscribeTxAsync_WithoutConnection_ThrowsCometBftWebSocketException()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
 
         await Assert.ThrowsAsync<CometBftWebSocketException>(() => client.SubscribeTxAsync());
     }
@@ -57,7 +58,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task SubscribeVoteAsync_WithoutConnection_ThrowsCometBftWebSocketException()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
 
         await Assert.ThrowsAsync<CometBftWebSocketException>(() => client.SubscribeVoteAsync());
     }
@@ -66,7 +67,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task SubscribeValidatorSetUpdatesAsync_WithoutConnection_ThrowsCometBftWebSocketException()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
 
         await Assert.ThrowsAsync<CometBftWebSocketException>(
             () => client.SubscribeValidatorSetUpdatesAsync());
@@ -76,7 +77,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task UnsubscribeAllAsync_WithoutConnection_ThrowsCometBftWebSocketException()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
 
         await Assert.ThrowsAsync<CometBftWebSocketException>(() => client.UnsubscribeAllAsync());
     }
@@ -85,7 +86,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task DisposeAsync_CanBeCalledMultipleTimes_NoThrow()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
 
         await client.DisposeAsync();
         var ex = await Record.ExceptionAsync(client.DisposeAsync().AsTask);
@@ -96,7 +97,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task ConnectAsync_AfterDispose_ThrowsObjectDisposedException()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
         await client.DisposeAsync();
 
         await Assert.ThrowsAsync<ObjectDisposedException>(() => client.ConnectAsync());
@@ -106,7 +107,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task NewBlockReceived_EventCanBeSubscribed()
     {
         var opts = new CometBftWebSocketOptions();
-        await using var client = new CometBftWebSocketClient(opts);
+        await using var client = new CometBftWebSocketClient(Options.Create(opts));
 
         var handler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.Block>>>();
         client.NewBlockReceived += handler;
@@ -117,7 +118,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task TxExecuted_EventCanBeSubscribed()
     {
         var opts = new CometBftWebSocketOptions();
-        await using var client = new CometBftWebSocketClient(opts);
+        await using var client = new CometBftWebSocketClient(Options.Create(opts));
 
         var handler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.TxResult>>>();
         client.TxExecuted += handler;
@@ -128,7 +129,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task NewBlockHeaderReceived_EventCanBeSubscribed()
     {
         var opts = new CometBftWebSocketOptions();
-        await using var client = new CometBftWebSocketClient(opts);
+        await using var client = new CometBftWebSocketClient(Options.Create(opts));
 
         var handler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.BlockHeader>>>();
         client.NewBlockHeaderReceived += handler;
@@ -139,7 +140,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task SubscribeNewBlockHeaderAsync_WithoutConnection_ThrowsCometBftWebSocketException()
     {
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
 
         await Assert.ThrowsAsync<CometBftWebSocketException>(
             () => client.SubscribeNewBlockHeaderAsync());
@@ -149,7 +150,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task VoteReceived_EventCanBeSubscribed()
     {
         var opts = new CometBftWebSocketOptions();
-        await using var client = new CometBftWebSocketClient(opts);
+        await using var client = new CometBftWebSocketClient(Options.Create(opts));
 
         var handler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.Vote>>>();
         client.VoteReceived += handler;
@@ -160,7 +161,7 @@ public sealed class CometBftWebSocketClientTests
     public async Task ValidatorSetUpdated_EventCanBeSubscribed()
     {
         var opts = new CometBftWebSocketOptions();
-        await using var client = new CometBftWebSocketClient(opts);
+        await using var client = new CometBftWebSocketClient(Options.Create(opts));
 
         var handler = Substitute.For<EventHandler<CometBftEventArgs<IReadOnlyList<Core.Domain.Validator>>>>();
         client.ValidatorSetUpdated += handler;
@@ -172,7 +173,7 @@ public sealed class CometBftWebSocketClientTests
     {
         // Verify that all 5 subscribe methods enforce the connection-required guard.
         var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(opts);
+        var client = new CometBftWebSocketClient(Options.Create(opts));
 
         await Assert.ThrowsAsync<CometBftWebSocketException>(() => client.SubscribeNewBlockAsync());
         await Assert.ThrowsAsync<CometBftWebSocketException>(() => client.SubscribeNewBlockHeaderAsync());
@@ -189,7 +190,7 @@ public sealed class CometBftWebSocketClientTests
     {
         // Verify that all 5 event handlers can be wired up and removed without error.
         var opts = new CometBftWebSocketOptions();
-        await using var client = new CometBftWebSocketClient(opts);
+        await using var client = new CometBftWebSocketClient(Options.Create(opts));
 
         var blockHandler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.Block>>>();
         var headerHandler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.BlockHeader>>>();

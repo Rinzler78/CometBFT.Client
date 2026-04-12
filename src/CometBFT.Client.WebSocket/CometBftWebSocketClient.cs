@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using CometBFT.Client.Core.Domain;
@@ -6,6 +7,7 @@ using CometBFT.Client.Core.Exceptions;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Core.Options;
 using CometBFT.Client.WebSocket.Internal;
+using Microsoft.Extensions.Options;
 using Websocket.Client;
 
 namespace CometBFT.Client.WebSocket;
@@ -17,8 +19,9 @@ namespace CometBFT.Client.WebSocket;
 public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 {
     private readonly CometBftWebSocketOptions _options;
+    private readonly IWebSocketClientFactory _factory;
     private readonly SemaphoreSlim _connectLock = new(1, 1);
-    private readonly HashSet<string> _activeSubscriptions = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, byte> _activeSubscriptions = new(StringComparer.Ordinal);
     private WebsocketClient? _client;
     private IDisposable? _messageSubscription;
     private IDisposable? _reconnectionSubscription;
@@ -40,14 +43,29 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
     /// <inheritdoc />
     public event EventHandler<CometBftEventArgs<IReadOnlyList<Validator>>>? ValidatorSetUpdated;
 
+    /// <inheritdoc />
+    public event EventHandler<CometBftEventArgs<Exception>>? ErrorOccurred;
+
     /// <summary>
     /// Initializes a new instance of <see cref="CometBftWebSocketClient"/>.
     /// </summary>
     /// <param name="options">The WebSocket configuration options.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> is <c>null</c>.</exception>
-    public CometBftWebSocketClient(CometBftWebSocketOptions options)
+    public CometBftWebSocketClient(IOptions<CometBftWebSocketOptions> options)
+        : this(options, new DefaultWebSocketClientFactory())
     {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="CometBftWebSocketClient"/> with a custom WebSocket client factory.
+    /// </summary>
+    /// <param name="options">The WebSocket configuration options.</param>
+    /// <param name="factory">The factory used to create the underlying WebSocket client.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> or <paramref name="factory"/> is <c>null</c>.</exception>
+    internal CometBftWebSocketClient(IOptions<CometBftWebSocketOptions> options, IWebSocketClientFactory factory)
+    {
+        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _factory = factory ?? throw new ArgumentNullException(nameof(factory));
     }
 
     /// <inheritdoc />
@@ -78,11 +96,7 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
             IDisposable? newReconnectSub = null;
             try
             {
-                newClient = new WebsocketClient(uri)
-                {
-                    ReconnectTimeout = _options.ReconnectTimeout,
-                    ErrorReconnectTimeout = _options.ErrorReconnectTimeout,
-                };
+                newClient = _factory.Create(uri, _options);
 
                 newMessageSub = newClient.MessageReceived.Subscribe(OnMessageReceived);
                 newReconnectSub = newClient.ReconnectionHappened.Subscribe(OnReconnected);
@@ -110,56 +124,57 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
     /// <inheritdoc />
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
-        if (_client is null)
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        await _connectLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            return;
+            if (_client is null)
+            {
+                return;
+            }
+
+            await _client.Stop(
+                System.Net.WebSockets.WebSocketCloseStatus.NormalClosure,
+                "Client disconnecting").ConfigureAwait(false);
+
+            _reconnectionSubscription?.Dispose();
+            _reconnectionSubscription = null;
+            _messageSubscription?.Dispose();
+            _messageSubscription = null;
+            _client.Dispose();
+            _client = null;
+            _activeSubscriptions.Clear();
         }
-
-        await _client.Stop(
-            System.Net.WebSockets.WebSocketCloseStatus.NormalClosure,
-            "Client disconnecting").ConfigureAwait(false);
-
-        _reconnectionSubscription?.Dispose();
-        _reconnectionSubscription = null;
-        _messageSubscription?.Dispose();
-        _messageSubscription = null;
-        _client.Dispose();
-        _client = null;
-        _activeSubscriptions.Clear();
+        finally
+        {
+            _connectLock.Release();
+        }
     }
 
     /// <inheritdoc />
-    public async Task SubscribeNewBlockAsync(CancellationToken cancellationToken = default)
-    {
-        await SendSubscribeAsync("tm.event='NewBlock'", cancellationToken).ConfigureAwait(false);
-    }
+    public Task SubscribeNewBlockAsync(CancellationToken cancellationToken = default) =>
+        SendSubscribeAsync("tm.event='NewBlock'", cancellationToken);
 
     /// <inheritdoc />
-    public async Task SubscribeNewBlockHeaderAsync(CancellationToken cancellationToken = default)
-    {
-        await SendSubscribeAsync("tm.event='NewBlockHeader'", cancellationToken).ConfigureAwait(false);
-    }
+    public Task SubscribeNewBlockHeaderAsync(CancellationToken cancellationToken = default) =>
+        SendSubscribeAsync("tm.event='NewBlockHeader'", cancellationToken);
 
     /// <inheritdoc />
-    public async Task SubscribeTxAsync(CancellationToken cancellationToken = default)
-    {
-        await SendSubscribeAsync("tm.event='Tx'", cancellationToken).ConfigureAwait(false);
-    }
+    public Task SubscribeTxAsync(CancellationToken cancellationToken = default) =>
+        SendSubscribeAsync("tm.event='Tx'", cancellationToken);
 
     /// <inheritdoc />
-    public async Task SubscribeVoteAsync(CancellationToken cancellationToken = default)
-    {
-        await SendSubscribeAsync("tm.event='Vote'", cancellationToken).ConfigureAwait(false);
-    }
+    public Task SubscribeVoteAsync(CancellationToken cancellationToken = default) =>
+        SendSubscribeAsync("tm.event='Vote'", cancellationToken);
 
     /// <inheritdoc />
-    public async Task SubscribeValidatorSetUpdatesAsync(CancellationToken cancellationToken = default)
-    {
-        await SendSubscribeAsync("tm.event='ValidatorSetUpdates'", cancellationToken).ConfigureAwait(false);
-    }
+    public Task SubscribeValidatorSetUpdatesAsync(CancellationToken cancellationToken = default) =>
+        SendSubscribeAsync("tm.event='ValidatorSetUpdates'", cancellationToken);
 
     /// <inheritdoc />
-    public async Task UnsubscribeAllAsync(CancellationToken cancellationToken = default)
+    public Task UnsubscribeAllAsync(CancellationToken cancellationToken = default)
     {
         EnsureConnected();
         var id = Interlocked.Increment(ref _requestId);
@@ -172,7 +187,7 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
         });
         _client!.Send(payload);
         _activeSubscriptions.Clear();
-        await Task.CompletedTask.ConfigureAwait(false);
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc />
@@ -209,10 +224,10 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
     // ── Private helpers ──────────────────────────────────────────────────────
 
-    private async Task SendSubscribeAsync(string query, CancellationToken cancellationToken)
+    private Task SendSubscribeAsync(string query, CancellationToken cancellationToken)
     {
         EnsureConnected();
-        _activeSubscriptions.Add(query);
+        _activeSubscriptions.TryAdd(query, 0);
         var id = Interlocked.Increment(ref _requestId);
         var payload = JsonSerializer.Serialize(new
         {
@@ -222,7 +237,7 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
             @params = new { query },
         });
         _client!.Send(payload);
-        await Task.CompletedTask.ConfigureAwait(false);
+        return Task.CompletedTask;
     }
 
     private void EnsureConnected()
@@ -312,10 +327,17 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
                     break;
             }
         }
-        catch (Exception)
+        catch (JsonException ex)
         {
-            // Swallow all exceptions to keep the Rx pipeline alive.
-            // A malformed or unexpected message must never kill the subscription loop.
+            // Parsing errors are non-fatal: the message is malformed or unexpected.
+            // Keep the Rx pipeline alive and notify observers.
+            ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(ex));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            // Unexpected error in dispatch or event handler — keep the pipeline alive
+            // but surface the exception so callers can react.
+            ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(ex));
         }
     }
 

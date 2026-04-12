@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Core.Options;
 using CometBFT.Client.Extensions;
@@ -19,7 +20,7 @@ public sealed class ServiceCollectionExtensionsTests
         var provider = services.BuildServiceProvider();
 
         Assert.NotNull(provider.GetRequiredService<ICometBftWebSocketClient>());
-        Assert.Equal("ws://localhost:26657/websocket", provider.GetRequiredService<CometBftWebSocketOptions>().BaseUrl);
+        Assert.Equal("ws://localhost:26657/websocket", provider.GetRequiredService<IOptions<CometBftWebSocketOptions>>().Value.BaseUrl);
     }
 
     [Fact]
@@ -30,7 +31,7 @@ public sealed class ServiceCollectionExtensionsTests
         var provider = services.BuildServiceProvider();
 
         Assert.NotNull(provider.GetRequiredService<ICometBftGrpcClient>());
-        Assert.Equal("https://localhost:9090", provider.GetRequiredService<CometBftGrpcOptions>().BaseUrl);
+        Assert.Equal("https://localhost:9090", provider.GetRequiredService<IOptions<CometBftGrpcOptions>>().Value.BaseUrl);
     }
 
     [Fact]

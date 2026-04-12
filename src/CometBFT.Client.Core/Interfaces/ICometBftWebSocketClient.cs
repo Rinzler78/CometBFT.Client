@@ -35,6 +35,12 @@ public interface ICometBftWebSocketClient : IAsyncDisposable
     event EventHandler<CometBftEventArgs<IReadOnlyList<Validator>>>? ValidatorSetUpdated;
 
     /// <summary>
+    /// Raised when an error occurs while processing a received WebSocket message.
+    /// The subscription loop is kept alive — this event is purely informational.
+    /// </summary>
+    event EventHandler<CometBftEventArgs<Exception>>? ErrorOccurred;
+
+    /// <summary>
     /// Connects to the WebSocket endpoint and begins receiving messages.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>

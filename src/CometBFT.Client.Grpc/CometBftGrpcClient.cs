@@ -5,6 +5,7 @@ using CometBFT.Client.Core.Exceptions;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Core.Options;
 using CometBFT.Client.Grpc.Internal;
+using Microsoft.Extensions.Options;
 
 namespace CometBFT.Client.Grpc;
 
@@ -21,7 +22,9 @@ namespace CometBFT.Client.Grpc;
 public sealed class CometBftGrpcClient : ICometBftGrpcClient
 {
     private readonly GrpcChannel _channel;
-    private readonly Lazy<Task<IBroadcastApiClient>> _apiClientTask;
+    private readonly Func<CancellationToken, Task<IBroadcastApiClient>>? _clientFactory;
+    private readonly SemaphoreSlim _initLock = new(1, 1);
+    private IBroadcastApiClient? _apiClient;
     private bool _disposed;
     private GrpcProtocol? _detectedProtocol;
 
@@ -37,29 +40,18 @@ public sealed class CometBftGrpcClient : ICometBftGrpcClient
     /// </summary>
     /// <param name="options">The gRPC client configuration options.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> is <c>null</c>.</exception>
-    public CometBftGrpcClient(CometBftGrpcOptions options)
+    public CometBftGrpcClient(IOptions<CometBftGrpcOptions> options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        _channel = GrpcChannel.ForAddress(NormalizeGrpcAddress(options.BaseUrl));
-        var protocol = options.Protocol;
+        var resolvedOptions = options.Value;
+        _channel = GrpcChannel.ForAddress(NormalizeGrpcAddress(resolvedOptions.BaseUrl));
+        var protocol = resolvedOptions.Protocol;
         if (protocol != GrpcProtocol.Auto)
         {
             _detectedProtocol = protocol;
         }
 
-        _apiClientTask = new Lazy<Task<IBroadcastApiClient>>(
-            () => BroadcastApiClientFactory.CreateAsync(_channel, protocol, CancellationToken.None)
-                  .ContinueWith(t =>
-                  {
-                      if (t.IsCompletedSuccessfully)
-                      {
-                          _detectedProtocol ??= t.Result is LegacyBroadcastApiClient
-                              ? GrpcProtocol.TendermintLegacy
-                              : GrpcProtocol.CometBft;
-                      }
-
-                      return t.Result;
-                  }, TaskScheduler.Default));
+        _clientFactory = ct => CreateAndDetectAsync(_channel, protocol, ct);
     }
 
     /// <summary>
@@ -72,7 +64,7 @@ public sealed class CometBftGrpcClient : ICometBftGrpcClient
     {
         _channel = channel ?? throw new ArgumentNullException(nameof(channel));
         ArgumentNullException.ThrowIfNull(apiClient);
-        _apiClientTask = new Lazy<Task<IBroadcastApiClient>>(Task.FromResult(apiClient));
+        _apiClient = apiClient;
     }
 
     /// <summary>
@@ -85,7 +77,7 @@ public sealed class CometBftGrpcClient : ICometBftGrpcClient
     {
         _channel = channel ?? throw new ArgumentNullException(nameof(channel));
         ArgumentNullException.ThrowIfNull(apiClientFactory);
-        _apiClientTask = new Lazy<Task<IBroadcastApiClient>>(apiClientFactory);
+        _clientFactory = _ => apiClientFactory();
     }
 
     /// <inheritdoc />
@@ -94,7 +86,7 @@ public sealed class CometBftGrpcClient : ICometBftGrpcClient
         ObjectDisposedException.ThrowIf(_disposed, this);
         try
         {
-            var client = await _apiClientTask.Value.ConfigureAwait(false);
+            var client = await GetOrCreateClientAsync(cancellationToken).ConfigureAwait(false);
             return await client.PingAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (CometBftGrpcException)
@@ -115,7 +107,7 @@ public sealed class CometBftGrpcClient : ICometBftGrpcClient
 
         try
         {
-            var client = await _apiClientTask.Value.ConfigureAwait(false);
+            var client = await GetOrCreateClientAsync(cancellationToken).ConfigureAwait(false);
             var (code, data, log, gasWanted, gasUsed, codespace, hash) =
                 await client.BroadcastTxAsync(txBytes, cancellationToken).ConfigureAwait(false);
             return new BroadcastTxResult(code, data, log, codespace, hash, gasWanted, gasUsed);
@@ -146,8 +138,45 @@ public sealed class CometBftGrpcClient : ICometBftGrpcClient
         }
 
         _disposed = true;
+        _initLock.Dispose();
         await _channel.ShutdownAsync().ConfigureAwait(false);
         _channel.Dispose();
+    }
+
+    private async Task<IBroadcastApiClient> GetOrCreateClientAsync(CancellationToken cancellationToken)
+    {
+        if (_apiClient is not null)
+        {
+            return _apiClient;
+        }
+
+        await _initLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (_apiClient is not null)
+            {
+                return _apiClient;
+            }
+
+            _apiClient = _clientFactory is not null
+                ? await _clientFactory(cancellationToken).ConfigureAwait(false)
+                : throw new InvalidOperationException("No API client or factory configured.");
+
+            return _apiClient;
+        }
+        finally
+        {
+            _initLock.Release();
+        }
+    }
+
+    private async Task<IBroadcastApiClient> CreateAndDetectAsync(GrpcChannel channel, GrpcProtocol protocol, CancellationToken cancellationToken)
+    {
+        var client = await BroadcastApiClientFactory.CreateAsync(channel, protocol, cancellationToken).ConfigureAwait(false);
+        _detectedProtocol ??= client is LegacyBroadcastApiClient
+            ? GrpcProtocol.TendermintLegacy
+            : GrpcProtocol.CometBft;
+        return client;
     }
 
     private static string NormalizeGrpcAddress(string baseUrl)

@@ -1,5 +1,6 @@
 using Grpc.Core;
 using Grpc.Net.Client;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using CometBFT.Client.Core.Exceptions;
@@ -186,10 +187,10 @@ public sealed class CometBftGrpcClientTests
     [Fact]
     public async Task PublicConstructor_NormalizesBareHostAndCanDispose()
     {
-        await using var client = new CometBftGrpcClient(new CometBftGrpcOptions
+        await using var client = new CometBftGrpcClient(Options.Create(new CometBftGrpcOptions
         {
             BaseUrl = "localhost:9090",
-        });
+        }));
 
         var ex = await Record.ExceptionAsync(client.DisposeAsync().AsTask);
         Assert.Null(ex);
@@ -198,7 +199,7 @@ public sealed class CometBftGrpcClientTests
     [Fact]
     public void PublicConstructor_NullOptions_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => new CometBftGrpcClient((CometBftGrpcOptions)null!));
+        Assert.Throws<ArgumentNullException>(() => new CometBftGrpcClient((IOptions<CometBftGrpcOptions>)null!));
     }
 
     [Fact]
@@ -206,11 +207,11 @@ public sealed class CometBftGrpcClientTests
     {
         var apiClient = Substitute.For<IBroadcastApiClient>();
         var channel = CreateTestChannel();
-        await using var client = new CometBftGrpcClient(new CometBftGrpcOptions
+        await using var client = new CometBftGrpcClient(Options.Create(new CometBftGrpcOptions
         {
             BaseUrl = "localhost:9090",
             Protocol = GrpcProtocol.CometBft,
-        });
+        }));
 
         Assert.Equal(GrpcProtocol.CometBft, client.DetectedProtocol);
     }
@@ -218,11 +219,11 @@ public sealed class CometBftGrpcClientTests
     [Fact]
     public async Task Protocol_TendermintLegacy_DetectedProtocolIsSetImmediately()
     {
-        await using var client = new CometBftGrpcClient(new CometBftGrpcOptions
+        await using var client = new CometBftGrpcClient(Options.Create(new CometBftGrpcOptions
         {
             BaseUrl = "localhost:9090",
             Protocol = GrpcProtocol.TendermintLegacy,
-        });
+        }));
 
         Assert.Equal(GrpcProtocol.TendermintLegacy, client.DetectedProtocol);
     }

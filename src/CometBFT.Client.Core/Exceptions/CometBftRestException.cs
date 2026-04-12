@@ -49,9 +49,20 @@ public sealed class CometBftRestException : CometBftClientException
     /// </summary>
     /// <param name="message">The error message.</param>
     /// <param name="rpcErrorCode">The JSON-RPC error code.</param>
+    public CometBftRestException(string message, int rpcErrorCode)
+        : base(message)
+    {
+        RpcErrorCode = rpcErrorCode;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="CometBftRestException"/> with RPC error context and an inner exception.
+    /// </summary>
+    /// <param name="message">The error message.</param>
+    /// <param name="rpcErrorCode">The JSON-RPC error code.</param>
     /// <param name="innerException">The inner exception.</param>
-    public CometBftRestException(string message, int rpcErrorCode, Exception? innerException = null)
-        : base(message, innerException!)
+    public CometBftRestException(string message, int rpcErrorCode, Exception innerException)
+        : base(message, innerException)
     {
         RpcErrorCode = rpcErrorCode;
     }
