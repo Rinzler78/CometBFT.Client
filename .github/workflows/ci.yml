@@ -191,4 +191,4 @@ jobs:
       - name: Validate Docker test wrapper
         run: |
           chmod +x scripts/docker/test.sh
-          ./scripts/docker/test.sh --filter "Category!=Integration&Category!=E2E"
+          ./scripts/docker/test.sh
