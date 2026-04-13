@@ -387,6 +387,9 @@
       "cometbft.client.core": {
         "type": "Project"
       },
+      "cometbft.client.demo.shared": {
+        "type": "Project"
+      },
       "cometbft.client.extensions": {
         "type": "Project",
         "dependencies": {
