@@ -2,7 +2,7 @@
 
 ## Why
 
-There is no standalone, production-ready .NET client library for CometBFT/Tendermint. The client code embedded in OsmoBot-CSharp lacks dependency injection, uniform async patterns, Polly resilience, XML documentation, and test coverage. Extracting it as an independent NuGet package (`Rinzler78.CometBFT.Client`) makes it reusable, independently versioned, and aligned with modern .NET practices.
+There is no standalone, production-ready .NET client library for CometBFT. The client code embedded in OsmoBot-CSharp lacks dependency injection, uniform async patterns, Polly resilience, XML documentation, and test coverage. Extracting it as an independent NuGet package (`Rinzler78.CometBFT.Client`) makes it reusable, independently versioned, and aligned with modern .NET practices.
 
 ## Status
 
@@ -41,21 +41,21 @@ Subsequent improvements delivered on `develop` after the initial completion:
 - **Documentation**: XML doc on all public members (`TreatWarningsAsErrors`), README with badges + quickstart, CHANGELOG tracking protocol version, DocFX API reference, samples per transport
 - **CI/CD**: `ci.yml` (build + lint + unit/integration/E2E + coverage gate), `publish.yml` (pack + push on release tag)
 
-## Rename: Tendermint → CometBFT
+## Rename: CometBFT Naming (applied)
 
-Completed as part of this change before publication. All `Tendermint`-prefixed public
-identifiers were renamed to `CometBft` (PascalCase). The protocol wire name
+Completed as part of this change before publication. All public identifiers use the
+`CometBft` prefix (PascalCase). The protocol wire name
 `tendermint.rpc.grpc` and the `GrpcProtocol.TendermintLegacy` enum value are intentionally
 preserved for backward-compatibility.
 
 | Element | Before | After |
 |---------|--------|-------|
-| Public interfaces | `ITendermintRestClient`, `ITendermintWebSocketClient`, `ITendermintGrpcClient` | `ICometBftRestClient`, `ICometBftWebSocketClient`, `ICometBftGrpcClient` |
-| Client classes | `TendermintRestClient`, `TendermintWebSocketClient`, `TendermintGrpcClient` | `CometBftRestClient`, `CometBftWebSocketClient`, `CometBftGrpcClient` |
-| Options | `TendermintRest/WebSocket/GrpcOptions` | `CometBftRest/WebSocket/GrpcOptions` |
-| Exceptions | `TendermintClientException` + sub-types | `CometBftClientException` + sub-types |
-| JSON context | `TendermintJsonContext` | `CometBftJsonContext` |
-| DI extensions | `AddTendermintRest/WebSocket/Grpc` | `AddCometBftRest/WebSocket/Grpc/SdkGrpc` |
+| Public interfaces | `ICometBftRestClient`, `ICometBftWebSocketClient`, `ICometBftGrpcClient` | `ICometBftRestClient`, `ICometBftWebSocketClient`, `ICometBftGrpcClient` |
+| Client classes | `CometBftRestClient`, `CometBftWebSocketClient`, `CometBftGrpcClient` | `CometBftRestClient`, `CometBftWebSocketClient`, `CometBftGrpcClient` |
+| Options | `CometBftRest/WebSocket/GrpcOptions` (applied) | — |
+| Exceptions | `CometBftClientException` + sub-types | `CometBftClientException` + sub-types |
+| JSON context | `CometBftJsonContext` | `CometBftJsonContext` |
+| DI extensions | `AddCometBftRest/WebSocket/Grpc` | `AddCometBftRest/WebSocket/Grpc/SdkGrpc` |
 
 Unchanged (protocol wire): `GrpcProtocol.TendermintLegacy`, namespace `CometBFT.Client.Grpc.LegacyProto`, proto package `tendermint.rpc.grpc`.
 
@@ -69,7 +69,7 @@ Unchanged (protocol wire): `GrpcProtocol.TendermintLegacy`, namespace `CometBFT.
 ## Dependencies
 
 - No dependency on `Rinzler78.NetExtension.Standard`; any stale reference to this package must be removed from docs, specs, tasks, and project files
-- No other OsmoBot-CSharp package dependency (Tendermint is the base layer)
+- No other OsmoBot-CSharp package dependency (CometBFT is the base layer)
 
 ## Risks & Mitigation
 
