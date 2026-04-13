@@ -234,8 +234,9 @@ public sealed class IntegrationTests
             Assert.NotNull(genesis);
         }
         catch (CometBFT.Client.Core.Exceptions.CometBftRestException ex)
-            when (ex.Message.Contains("500", StringComparison.Ordinal) ||
-                  ex.Message.Contains("Internal Server Error", StringComparison.OrdinalIgnoreCase))
+            when (ex.StatusCode == System.Net.HttpStatusCode.InternalServerError ||
+                  (ex.InnerException is System.Net.Http.HttpRequestException httpEx &&
+                   httpEx.StatusCode == System.Net.HttpStatusCode.InternalServerError))
         {
             // The /genesis endpoint is commonly disabled or rate-limited on public nodes
             // because genesis files for mature chains can be hundreds of MB.
