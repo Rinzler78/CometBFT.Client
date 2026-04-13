@@ -542,11 +542,42 @@ scripts/
 
 ---
 
+## Phase 10 — Rename Tendermint → CometBFT
+
+> Réalisé dans les commits `1cf06f1`, `02f1df5`, `5dd4b4e` avant publication.
+
+### 10.1 Identifiants C# (namespaces + API publique)
+- [x] 10.1.1 `ITendermintRestClient` → `ICometBftRestClient` (+ impl + usages)
+- [x] 10.1.2 `ITendermintWebSocketClient` → `ICometBftWebSocketClient`
+- [x] 10.1.3 `ITendermintGrpcClient` → `ICometBftGrpcClient`
+- [x] 10.1.4 `TendermintRestClient` → `CometBftRestClient`
+- [x] 10.1.5 `TendermintWebSocketClient` → `CometBftWebSocketClient`
+- [x] 10.1.6 `TendermintGrpcClient` → `CometBftGrpcClient`
+- [x] 10.1.7 `TendermintRest/WebSocket/GrpcOptions` → `CometBftRest/WebSocket/GrpcOptions`
+- [x] 10.1.8 `TendermintClientException` → `CometBftClientException` (+ sous-types)
+- [x] 10.1.9 `TendermintJsonContext` → `CometBftJsonContext`
+- [x] 10.1.10 `AddTendermintRest/WebSocket/Grpc` → `AddCometBftRest/WebSocket/Grpc` (+ `AddCometBftSdkGrpc`)
+- [x] 10.1.11 `dotnet build CometBFT.Client.sln --warnaserror` → 0 erreur après rename
+
+### 10.2 Scripts, CI/CD, documentation
+- [x] 10.2.1 `scripts/*.sh` et `scripts/docker/*.sh` — chemins et noms alignés
+- [x] 10.2.2 `.github/workflows/ci.yml` et `publish.yml` — noms de solution et projets
+- [x] 10.2.3 `README.md`, `CHANGELOG.md`, `src/*/README.md`, `samples/*/README.md` — noms de packages et exemples
+- [x] 10.2.4 `tools/CometBFT.Client.CoverageGate/Program.cs` — `excludedPrefixes/Suffixes`
+
+### 10.3 Validation rename
+- [x] 10.3.1 `grep -r "Tendermint\.Client" src/ tests/ --include="*.cs" | grep -v LegacyProto` → 0 résultat
+- [x] 10.3.2 `git remote -v` → `https://github.com/Rinzler78/CometBFT.Client.git`
+- [x] 10.3.3 `./scripts/test.sh` → verts + coverage ≥ 90 % (réel : 97 %)
+- [x] 10.3.4 Démos REST + WS + gRPC → démarrent sans erreur après rename
+
+---
+
 ## Validation finale
 
 - [x] V.1 `dotnet build` passe sans warnings ; validation complète refaite en Docker avec suites live Integration/E2E vertes sur le set d'endpoints `Lava`
 - [x] V.2 `dotnet format --verify-no-changes` passe
-- [x] V.3 `./scripts/test.sh` — gate de couverture fonctionnelle, couverture ligne globale ≥ 90 % et par fichier ≥ 90 %
+- [x] V.3 `./scripts/test.sh` — gate de couverture fonctionnelle, couverture ligne globale ≥ 90 % et par fichier ≥ 90 % (réel : 97 %)
 - [x] V.4 `./scripts/publish.sh --dry-run` — paquet généré sans erreur
 - [x] V.5 Tous les endpoints publics CometBFT couverts (vs `/rpc/openapi/openapi.yaml`)
 - [x] V.6 `dotnet list package --outdated` — zéro package direct obsolète

@@ -33,13 +33,31 @@ Subsequent improvements delivered on `develop` after the initial completion:
 - **Git Flow**: `.gitflow` config, pre-commit hooks (format + secret detection + conventional commits), pre-push branch protection
 - **Scripts**: `build.sh`, `test.sh` (coverage gate ≥ 90 % global line + ≥ 90 % per source file line), `publish.sh` (pack + NuGet push)
 - **Domain Core** (`CometBFT.Client.Core`): Immutable `record` types — `Block`, `BlockHeader`, `TxResult`, `Event`, `Attribute`, `NodeInfo`, `SyncInfo`, `Validator`; segregated interfaces per service
-- **REST client** (`CometBFT.Client.Rest`): All public CometBFT RPC HTTP endpoints (health, status, block, block_results, block_by_hash, validators, tx, tx_search, broadcast_tx_sync/async/commit, abci_info, abci_query); `HttpClient` + Polly retry + circuit breaker; `TendermintRestOptions`; `TendermintRestException`
-- **WebSocket client** (`CometBFT.Client.WebSocket`): All event types (NewBlock, NewBlockHeader, Tx, Vote, ValidatorSetUpdates); `ITendermintWebSocketClient`; subscription management; `TendermintWebSocketOptions`; `TendermintWebSocketException`
-- **gRPC client** (`CometBFT.Client.Grpc`): Proto compilation from latest CometBFT release (`/proto/cometbft/`); `ITendermintGrpcClient`; `TendermintGrpcOptions`; `TendermintGrpcException`
-- **DI Extensions** (`CometBFT.Client.Extensions`): `AddTendermintRest()`, `AddTendermintWebSocket()`, `AddTendermintGrpc()` extension methods on `IServiceCollection`
-- **Tests ≥ 90 %**: Unit tests with WireMock.Net (REST), NSubstitute (gRPC/WebSocket); integration tests and E2E tests against real public CometBFT endpoints, with CI pinned to a validated Cosmos Hub endpoint set
+- **REST client** (`CometBFT.Client.Rest`): All public CometBFT RPC HTTP endpoints; `HttpClient` + Polly retry + circuit breaker; `CometBftRestOptions`; `CometBftRestException`
+- **WebSocket client** (`CometBFT.Client.WebSocket`): All event types (NewBlock, NewBlockHeader, Tx, Vote, ValidatorSetUpdates); `ICometBftWebSocketClient`; `CometBftWebSocketOptions`; `CometBftWebSocketException`
+- **gRPC client** (`CometBFT.Client.Grpc`): Proto from CometBFT `v0.38.9`; `ICometBftGrpcClient` (`PingAsync`, `BroadcastTxAsync`); `ICometBftSdkGrpcClient` targeting Cosmos SDK `cosmos.tx.v1beta1`; `CometBftGrpcOptions`; `CometBftGrpcException`
+- **DI Extensions** (`CometBFT.Client.Extensions`): `AddCometBftRest()`, `AddCometBftWebSocket()`, `AddCometBftGrpc()`, `AddCometBftSdkGrpc()` on `IServiceCollection`
+- **Tests ≥ 90 %**: Unit tests with WireMock.Net (REST), NSubstitute (gRPC/WebSocket); integration tests and E2E tests against real public CometBFT endpoints, with CI pinned to a validated Cosmos Hub endpoint set; effective coverage 97 %
 - **Documentation**: XML doc on all public members (`TreatWarningsAsErrors`), README with badges + quickstart, CHANGELOG tracking protocol version, DocFX API reference, samples per transport
 - **CI/CD**: `ci.yml` (build + lint + unit/integration/E2E + coverage gate), `publish.yml` (pack + push on release tag)
+
+## Rename: Tendermint → CometBFT
+
+Completed as part of this change before publication. All `Tendermint`-prefixed public
+identifiers were renamed to `CometBft` (PascalCase). The protocol wire name
+`tendermint.rpc.grpc` and the `GrpcProtocol.TendermintLegacy` enum value are intentionally
+preserved for backward-compatibility.
+
+| Element | Before | After |
+|---------|--------|-------|
+| Public interfaces | `ITendermintRestClient`, `ITendermintWebSocketClient`, `ITendermintGrpcClient` | `ICometBftRestClient`, `ICometBftWebSocketClient`, `ICometBftGrpcClient` |
+| Client classes | `TendermintRestClient`, `TendermintWebSocketClient`, `TendermintGrpcClient` | `CometBftRestClient`, `CometBftWebSocketClient`, `CometBftGrpcClient` |
+| Options | `TendermintRest/WebSocket/GrpcOptions` | `CometBftRest/WebSocket/GrpcOptions` |
+| Exceptions | `TendermintClientException` + sub-types | `CometBftClientException` + sub-types |
+| JSON context | `TendermintJsonContext` | `CometBftJsonContext` |
+| DI extensions | `AddTendermintRest/WebSocket/Grpc` | `AddCometBftRest/WebSocket/Grpc/SdkGrpc` |
+
+Unchanged (protocol wire): `GrpcProtocol.TendermintLegacy`, namespace `CometBFT.Client.Grpc.LegacyProto`, proto package `tendermint.rpc.grpc`.
 
 ## Impact
 
