@@ -2,13 +2,19 @@
 
 ## Why
 
-There is no standalone, production-ready .NET client library for CometBFT/Tendermint. The client code embedded in OsmoBot-CSharp lacks dependency injection, uniform async patterns, Polly resilience, XML documentation, and test coverage. Extracting it as an independent NuGet package (`Rinzler78.CometBFT.Client`) makes it reusable, independently versioned, and aligned with modern .NET practices.
+There is no standalone, production-ready .NET client library for CometBFT. The client code embedded in OsmoBot-CSharp lacks dependency injection, uniform async patterns, Polly resilience, XML documentation, and test coverage. Extracting it as an independent NuGet package (`Rinzler78.CometBFT.Client`) makes it reusable, independently versioned, and aligned with modern .NET practices.
 
 ## Status
 
-As of 2026-04-10, the repository implementation is largely complete and validated end-to-end, but this change is not ready to archive yet because some OpenSpec refinements and a few explicit follow-up expectations still need to be tracked cleanly.
+As of 2026-04-13, this change is **complete**. All `tasks.md` items are checked.
+The repository is fully validated end-to-end with real CometBFT endpoints.
 
-The repository already ships the scaffold, source projects, tests, demos, CI workflows, and protocol-version traceability. The remaining work is concentrated in explicit manual GitHub configuration, full transport-surface completion across REST/WebSocket/gRPC clients with matching tests and demos, and Docker wrapper hardening tasks that are intentionally kept visible in `tasks.md`.
+Subsequent improvements delivered on `develop` after the initial completion:
+
+- **WebSocketMessageParser extraction** (`8826ee4`): parsing logic decoupled from `CometBftWebSocketClient` into a dedicated `WebSocketMessageParser` with unit tests.
+- **SOLID/clean-code remediation phases 1–9** (`319d110`): single-responsibility split, dependency inversion via internal interfaces, dead-code removal, and naming consistency across all source projects.
+- **Cosmos SDK gRPC client** (`344c572`): added `ICometBftSdkGrpcClient` / `CometBftSdkGrpcClient` targeting the Cosmos SDK `cosmos.tx.v1beta1` gRPC surface; demo-grpc extended with full block-polling and Cosmos TX panels; `AddCometBftSdkGrpc` DI extension added.
+- **Coverage at 97 %** (`0769c8e`): URL scheme fix, clean shutdown, and test suite expansion raised global line coverage from 90 % to 97 %.
 
 ## Reality Gaps Closed During Reconciliation
 
@@ -27,13 +33,31 @@ The repository already ships the scaffold, source projects, tests, demos, CI wor
 - **Git Flow**: `.gitflow` config, pre-commit hooks (format + secret detection + conventional commits), pre-push branch protection
 - **Scripts**: `build.sh`, `test.sh` (coverage gate ≥ 90 % global line + ≥ 90 % per source file line), `publish.sh` (pack + NuGet push)
 - **Domain Core** (`CometBFT.Client.Core`): Immutable `record` types — `Block`, `BlockHeader`, `TxResult`, `Event`, `Attribute`, `NodeInfo`, `SyncInfo`, `Validator`; segregated interfaces per service
-- **REST client** (`CometBFT.Client.Rest`): All public CometBFT RPC HTTP endpoints (health, status, block, block_results, block_by_hash, validators, tx, tx_search, broadcast_tx_sync/async/commit, abci_info, abci_query); `HttpClient` + Polly retry + circuit breaker; `TendermintRestOptions`; `TendermintRestException`
-- **WebSocket client** (`CometBFT.Client.WebSocket`): All event types (NewBlock, NewBlockHeader, Tx, Vote, ValidatorSetUpdates); `ITendermintWebSocketClient`; subscription management; `TendermintWebSocketOptions`; `TendermintWebSocketException`
-- **gRPC client** (`CometBFT.Client.Grpc`): Proto compilation from latest CometBFT release (`/proto/cometbft/`); `ITendermintGrpcClient`; `TendermintGrpcOptions`; `TendermintGrpcException`
-- **DI Extensions** (`CometBFT.Client.Extensions`): `AddTendermintRest()`, `AddTendermintWebSocket()`, `AddTendermintGrpc()` extension methods on `IServiceCollection`
-- **Tests ≥ 90 %**: Unit tests with WireMock.Net (REST), NSubstitute (gRPC/WebSocket); integration tests and E2E tests against real public CometBFT endpoints, with CI pinned to a validated Cosmos Hub endpoint set
+- **REST client** (`CometBFT.Client.Rest`): All public CometBFT RPC HTTP endpoints; `HttpClient` + Polly retry + circuit breaker; `CometBftRestOptions`; `CometBftRestException`
+- **WebSocket client** (`CometBFT.Client.WebSocket`): All event types (NewBlock, NewBlockHeader, Tx, Vote, ValidatorSetUpdates); `ICometBftWebSocketClient`; `CometBftWebSocketOptions`; `CometBftWebSocketException`
+- **gRPC client** (`CometBFT.Client.Grpc`): Proto from CometBFT `v0.38.9`; `ICometBftGrpcClient` (`PingAsync`, `BroadcastTxAsync`); `ICometBftSdkGrpcClient` targeting Cosmos SDK `cosmos.tx.v1beta1`; `CometBftGrpcOptions`; `CometBftGrpcException`
+- **DI Extensions** (`CometBFT.Client.Extensions`): `AddCometBftRest()`, `AddCometBftWebSocket()`, `AddCometBftGrpc()`, `AddCometBftSdkGrpc()` on `IServiceCollection`
+- **Tests ≥ 90 %**: Unit tests with WireMock.Net (REST), NSubstitute (gRPC/WebSocket); integration tests and E2E tests against real public CometBFT endpoints, with CI pinned to a validated Cosmos Hub endpoint set; effective coverage 97 %
 - **Documentation**: XML doc on all public members (`TreatWarningsAsErrors`), README with badges + quickstart, CHANGELOG tracking protocol version, DocFX API reference, samples per transport
 - **CI/CD**: `ci.yml` (build + lint + unit/integration/E2E + coverage gate), `publish.yml` (pack + push on release tag)
+
+## Rename: CometBFT Naming (applied)
+
+Completed as part of this change before publication. All public identifiers use the
+`CometBft` prefix (PascalCase). The protocol wire name
+`tendermint.rpc.grpc` and the `GrpcProtocol.TendermintLegacy` enum value are intentionally
+preserved for backward-compatibility.
+
+| Element | Before | After |
+|---------|--------|-------|
+| Public interfaces | `ICometBftRestClient`, `ICometBftWebSocketClient`, `ICometBftGrpcClient` | `ICometBftRestClient`, `ICometBftWebSocketClient`, `ICometBftGrpcClient` |
+| Client classes | `CometBftRestClient`, `CometBftWebSocketClient`, `CometBftGrpcClient` | `CometBftRestClient`, `CometBftWebSocketClient`, `CometBftGrpcClient` |
+| Options | `CometBftRest/WebSocket/GrpcOptions` (applied) | — |
+| Exceptions | `CometBftClientException` + sub-types | `CometBftClientException` + sub-types |
+| JSON context | `CometBftJsonContext` | `CometBftJsonContext` |
+| DI extensions | `AddCometBftRest/WebSocket/Grpc` | `AddCometBftRest/WebSocket/Grpc/SdkGrpc` |
+
+Unchanged (protocol wire): `GrpcProtocol.TendermintLegacy`, namespace `CometBFT.Client.Grpc.LegacyProto`, proto package `tendermint.rpc.grpc`.
 
 ## Impact
 
@@ -45,7 +69,7 @@ The repository already ships the scaffold, source projects, tests, demos, CI wor
 ## Dependencies
 
 - No dependency on `Rinzler78.NetExtension.Standard`; any stale reference to this package must be removed from docs, specs, tasks, and project files
-- No other OsmoBot-CSharp package dependency (Tendermint is the base layer)
+- No other OsmoBot-CSharp package dependency (CometBFT is the base layer)
 
 ## Risks & Mitigation
 

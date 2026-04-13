@@ -4,12 +4,13 @@ using Spectre.Console;
 using Spectre.Console.Rendering;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Extensions;
+using CometBFT.Client.Demo.Shared;
 
 // ── Config ───────────────────────────────────────────────────────────────────
 var rpcUrl = args.FirstOrDefault(a => a.StartsWith("--rpc-url=", StringComparison.OrdinalIgnoreCase))
                  ?.Split('=', 2)[1]
               ?? Environment.GetEnvironmentVariable("COMETBFT_RPC_URL")
-              ?? "https://cosmoshub.tendermintrpc.lava.build:443";
+              ?? DemoDefaults.RpcUrl;
 
 // --unsafe flag: enables display of Unsafe endpoint diagnostics.
 // Only works against a node started with --rpc.unsafe=true.
@@ -44,7 +45,7 @@ internal sealed class DashboardService : BackgroundService
     {
         _client = client;
         _unsafeMode = config.UnsafeMode;
-        _rpcUrl = Environment.GetEnvironmentVariable("COMETBFT_RPC_URL") ?? "https://cosmoshub.tendermintrpc.lava.build:443";
+        _rpcUrl = Environment.GetEnvironmentVariable("COMETBFT_RPC_URL") ?? DemoDefaults.RpcUrl;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

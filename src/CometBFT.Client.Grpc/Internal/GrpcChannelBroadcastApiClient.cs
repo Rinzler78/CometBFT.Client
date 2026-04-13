@@ -1,4 +1,5 @@
 using Google.Protobuf;
+using Grpc.Core;
 using Grpc.Net.Client;
 using CometBFT.Client.Grpc.Proto;
 
@@ -36,7 +37,11 @@ internal sealed class GrpcChannelBroadcastApiClient : IBroadcastApiClient
                 .ConfigureAwait(false);
             return true;
         }
-        catch
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (RpcException)
         {
             return false;
         }
@@ -52,18 +57,8 @@ internal sealed class GrpcChannelBroadcastApiClient : IBroadcastApiClient
             .ConfigureAwait(false);
 
         var checkTx = response.CheckTx;
-
-        // Use hex encoding of tx bytes as the local hash (the real hash would be returned
-        // by the node via a higher-level ABCI result not present in the v0.38.9 gRPC proto).
-        var hash = Convert.ToHexString(txBytes);
-
-        return (
-            checkTx.Code,
-            checkTx.Data.IsEmpty ? null : Convert.ToBase64String(checkTx.Data.ToByteArray()),
-            string.IsNullOrEmpty(checkTx.Log) ? null : checkTx.Log,
-            checkTx.GasWanted,
-            checkTx.GasUsed,
-            string.IsNullOrEmpty(checkTx.Codespace) ? null : checkTx.Codespace,
-            hash);
+        return BroadcastApiClientBase.BuildResult(
+            checkTx.Code, checkTx.Data, checkTx.Log,
+            checkTx.GasWanted, checkTx.GasUsed, checkTx.Codespace, txBytes);
     }
 }

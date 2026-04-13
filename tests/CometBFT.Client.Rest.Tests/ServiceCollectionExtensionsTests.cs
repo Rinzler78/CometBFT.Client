@@ -1,7 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Core.Options;
 using CometBFT.Client.Extensions;
+using CometBFT.Client.Rest;
 using Xunit;
 
 namespace CometBFT.Client.Rest.Tests;
@@ -12,6 +14,56 @@ namespace CometBFT.Client.Rest.Tests;
 public sealed class ServiceCollectionExtensionsTests
 {
     [Fact]
+    public void AddCometBftRest_RegistersClientAndOptions()
+    {
+        var services = new ServiceCollection();
+        services.AddCometBftRest(options => options.BaseUrl = "https://localhost:26657");
+        var provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetRequiredService<ICometBftRestClient>());
+        Assert.Equal("https://localhost:26657", provider.GetRequiredService<IOptions<CometBftRestOptions>>().Value.BaseUrl);
+    }
+
+    [Fact]
+    public void AddCometBftRest_NullServices_ThrowsArgumentNullException()
+    {
+        IServiceCollection services = null!;
+        Assert.Throws<ArgumentNullException>(() => services.AddCometBftRest(o => o.BaseUrl = "https://localhost:26657"));
+    }
+
+    [Fact]
+    public void AddCometBftRest_NullConfigure_ThrowsArgumentNullException()
+    {
+        var services = new ServiceCollection();
+        Assert.Throws<ArgumentNullException>(() => services.AddCometBftRest(null!));
+    }
+
+    [Fact]
+    public void AddCometBftSdkGrpc_RegistersClientAndOptions()
+    {
+        var services = new ServiceCollection();
+        services.AddCometBftSdkGrpc(options => options.BaseUrl = "localhost:9090");
+        var provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetRequiredService<ICometBftSdkGrpcClient>());
+        Assert.Equal("localhost:9090", provider.GetRequiredService<IOptions<CometBftSdkGrpcOptions>>().Value.BaseUrl);
+    }
+
+    [Fact]
+    public void AddCometBftSdkGrpc_NullServices_ThrowsArgumentNullException()
+    {
+        IServiceCollection services = null!;
+        Assert.Throws<ArgumentNullException>(() => services.AddCometBftSdkGrpc(o => o.BaseUrl = "localhost:9090"));
+    }
+
+    [Fact]
+    public void AddCometBftSdkGrpc_NullConfigure_ThrowsArgumentNullException()
+    {
+        var services = new ServiceCollection();
+        Assert.Throws<ArgumentNullException>(() => services.AddCometBftSdkGrpc(null!));
+    }
+
+    [Fact]
     public void AddCometBftWebSocket_RegistersClientAndOptions()
     {
         var services = new ServiceCollection();
@@ -19,7 +71,7 @@ public sealed class ServiceCollectionExtensionsTests
         var provider = services.BuildServiceProvider();
 
         Assert.NotNull(provider.GetRequiredService<ICometBftWebSocketClient>());
-        Assert.Equal("ws://localhost:26657/websocket", provider.GetRequiredService<CometBftWebSocketOptions>().BaseUrl);
+        Assert.Equal("ws://localhost:26657/websocket", provider.GetRequiredService<IOptions<CometBftWebSocketOptions>>().Value.BaseUrl);
     }
 
     [Fact]
@@ -30,7 +82,7 @@ public sealed class ServiceCollectionExtensionsTests
         var provider = services.BuildServiceProvider();
 
         Assert.NotNull(provider.GetRequiredService<ICometBftGrpcClient>());
-        Assert.Equal("https://localhost:9090", provider.GetRequiredService<CometBftGrpcOptions>().BaseUrl);
+        Assert.Equal("https://localhost:9090", provider.GetRequiredService<IOptions<CometBftGrpcOptions>>().Value.BaseUrl);
     }
 
     [Fact]

@@ -13,6 +13,30 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  language-check:
+    name: English-only language check (cspell)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install cspell
+        run: npm install -g cspell@8.19.4
+
+      - name: Run cspell
+        run: |
+          cspell \
+            "src/**/*.cs" \
+            "tests/**/*.cs" \
+            "samples/**/*.cs" \
+            "scripts/**/*.sh" \
+            "*.md" \
+            ".github/**/*.yml" \
+            --config .cspell.json \
+            --no-progress \
+            --no-summary
+
   build-and-test:
     name: Build & Test (.NET 10)
     runs-on: ubuntu-latest

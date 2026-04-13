@@ -16,7 +16,7 @@ var excludedSuffixes = new[]
     "CometBFT.Client.Grpc/Internal/GrpcChannelBroadcastApiClient.cs",
     "CometBFT.Client.Grpc/Internal/LegacyBroadcastApiClient.cs",
     "CometBFT.Client.Grpc/Internal/BroadcastApiClientFactory.cs",
-    "CometBFT.Client.WebSocket/TendermintWebSocketClient.cs",
+    "CometBFT.Client.WebSocket/CometBftWebSocketClient.cs",
 };
 
 if (!Directory.Exists(root))

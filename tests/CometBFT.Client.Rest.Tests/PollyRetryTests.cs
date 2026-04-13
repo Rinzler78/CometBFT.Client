@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.Extensions.Options;
 using Polly;
 using Polly.Extensions.Http;
 using CometBFT.Client.Core.Options;
@@ -60,7 +61,7 @@ public sealed class PollyRetryTests
         var handler = new PolicyDelegatingHandler(retryPolicy, fakeHandler);
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://fake") };
         var options = new CometBftRestOptions { BaseUrl = "http://fake" };
-        return (new CometBftRestClient(httpClient, options), httpClient);
+        return (new CometBftRestClient(httpClient, Options.Create(options)), httpClient);
     }
 
     [Fact]

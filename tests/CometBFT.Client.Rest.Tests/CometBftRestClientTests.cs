@@ -2,6 +2,7 @@ using System.Net;
 using CometBFT.Client.Core.Exceptions;
 using CometBFT.Client.Core.Options;
 using CometBFT.Client.Rest;
+using Microsoft.Extensions.Options;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using WireMock.Server;
@@ -26,7 +27,7 @@ public sealed class CometBftRestClientTests : IDisposable
         _server = WireMockServer.Start();
         var options = new CometBftRestOptions { BaseUrl = _server.Url! };
         _http = new HttpClient { BaseAddress = new Uri(_server.Url!) };
-        _client = new CometBftRestClient(_http, options);
+        _client = new CometBftRestClient(_http, Options.Create(options));
     }
 
     /// <inheritdoc />

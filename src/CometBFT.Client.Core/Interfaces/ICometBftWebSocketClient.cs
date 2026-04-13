@@ -11,28 +11,34 @@ public interface ICometBftWebSocketClient : IAsyncDisposable
     /// <summary>
     /// Raised when a new block is committed to the chain.
     /// </summary>
-    event EventHandler<TendermintEventArgs<Block>>? NewBlockReceived;
+    event EventHandler<CometBftEventArgs<Block>>? NewBlockReceived;
 
     /// <summary>
     /// Raised when a new block header is received (tm.event='NewBlockHeader').
     /// Fires before the full block data is available and carries only the header.
     /// </summary>
-    event EventHandler<TendermintEventArgs<BlockHeader>>? NewBlockHeaderReceived;
+    event EventHandler<CometBftEventArgs<BlockHeader>>? NewBlockHeaderReceived;
 
     /// <summary>
     /// Raised when a transaction has been executed in a block.
     /// </summary>
-    event EventHandler<TendermintEventArgs<TxResult>>? TxExecuted;
+    event EventHandler<CometBftEventArgs<TxResult>>? TxExecuted;
 
     /// <summary>
     /// Raised when a vote is received during consensus.
     /// </summary>
-    event EventHandler<TendermintEventArgs<Vote>>? VoteReceived;
+    event EventHandler<CometBftEventArgs<Vote>>? VoteReceived;
 
     /// <summary>
     /// Raised when the validator set is updated.
     /// </summary>
-    event EventHandler<TendermintEventArgs<IReadOnlyList<Validator>>>? ValidatorSetUpdated;
+    event EventHandler<CometBftEventArgs<IReadOnlyList<Validator>>>? ValidatorSetUpdated;
+
+    /// <summary>
+    /// Raised when an error occurs while processing a received WebSocket message.
+    /// The subscription loop is kept alive — this event is purely informational.
+    /// </summary>
+    event EventHandler<CometBftEventArgs<Exception>>? ErrorOccurred;
 
     /// <summary>
     /// Connects to the WebSocket endpoint and begins receiving messages.

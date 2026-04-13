@@ -17,6 +17,16 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.5"
         }
       },
+      "Microsoft.Extensions.Options": {
+        "type": "Direct",
+        "requested": "[10.0.5, )",
+        "resolved": "10.0.5",
+        "contentHash": "MDaQMdUplw0AIRhWWmbLA7yQEXaLIHb+9CTroTiNS8OlI0LMXS4LCxtopqauiqGCWlRgJ+xyraVD8t6veRAFbw==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.5",
+          "Microsoft.Extensions.Primitives": "10.0.5"
+        }
+      },
       "Microsoft.NET.Test.Sdk": {
         "type": "Direct",
         "requested": "[18.4.0, )",
@@ -917,15 +927,6 @@
         "resolved": "8.0.11",
         "contentHash": "6ApKcHNJigXBfZa6XlDQ8feJpq7SG1ogZXg6M4FiNzgd6irs3LUAzo0Pfn4F2ZI9liGnH1XIBR/OtSbZmJAV5w=="
       },
-      "Microsoft.Extensions.Options": {
-        "type": "Transitive",
-        "resolved": "10.0.5",
-        "contentHash": "MDaQMdUplw0AIRhWWmbLA7yQEXaLIHb+9CTroTiNS8OlI0LMXS4LCxtopqauiqGCWlRgJ+xyraVD8t6veRAFbw==",
-        "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.5",
-          "Microsoft.Extensions.Primitives": "10.0.5"
-        }
-      },
       "Microsoft.Extensions.Options.ConfigurationExtensions": {
         "type": "Transitive",
         "resolved": "10.0.5",
@@ -1428,40 +1429,44 @@
         "resolved": "16.3.0",
         "contentHash": "SgMOdxbz8X65z8hraIs6hOEdnkH6hESTAIUa7viEngHOYaH+6q5XJmwr1+yb9vJpNQ19hCQY69xbFsLtXpobQA=="
       },
-      "tendermint.client.core": {
+      "cometbft.client.core": {
         "type": "Project"
       },
-      "tendermint.client.extensions": {
+      "cometbft.client.extensions": {
         "type": "Project",
         "dependencies": {
+          "CometBFT.Client.Core": "[0.1.0, )",
+          "CometBFT.Client.Grpc": "[0.1.0, )",
+          "CometBFT.Client.Rest": "[0.1.0, )",
+          "CometBFT.Client.WebSocket": "[0.1.0, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.5, )",
           "Microsoft.Extensions.Http.Polly": "[10.0.5, )",
-          "Tendermint.Client.Core": "[0.1.0, )",
-          "Tendermint.Client.Grpc": "[0.1.0, )",
-          "Tendermint.Client.Rest": "[0.1.0, )",
-          "Tendermint.Client.WebSocket": "[0.1.0, )"
+          "Microsoft.Extensions.Options": "[10.0.5, )"
         }
       },
-      "tendermint.client.grpc": {
+      "cometbft.client.grpc": {
         "type": "Project",
         "dependencies": {
+          "CometBFT.Client.Core": "[0.1.0, )",
           "Google.Protobuf": "[3.34.1, )",
           "Grpc.Net.Client": "[2.76.0, )",
-          "Tendermint.Client.Core": "[0.1.0, )"
+          "Microsoft.Extensions.Options": "[10.0.5, )"
         }
       },
-      "tendermint.client.rest": {
+      "cometbft.client.rest": {
         "type": "Project",
         "dependencies": {
+          "CometBFT.Client.Core": "[0.1.0, )",
           "Microsoft.Extensions.Http": "[10.0.5, )",
           "Microsoft.Extensions.Http.Polly": "[10.0.5, )",
-          "Tendermint.Client.Core": "[0.1.0, )"
+          "Microsoft.Extensions.Options": "[10.0.5, )"
         }
       },
-      "tendermint.client.websocket": {
+      "cometbft.client.websocket": {
         "type": "Project",
         "dependencies": {
-          "Tendermint.Client.Core": "[0.1.0, )",
+          "CometBFT.Client.Core": "[0.1.0, )",
+          "Microsoft.Extensions.Options": "[10.0.5, )",
           "Websocket.Client": "[5.3.0, )"
         }
       }

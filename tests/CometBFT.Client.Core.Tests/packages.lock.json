@@ -191,7 +191,7 @@
           "xunit.v3.runner.common": "[3.2.2]"
         }
       },
-      "tendermint.client.core": {
+      "cometbft.client.core": {
         "type": "Project"
       }
     }

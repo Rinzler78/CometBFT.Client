@@ -325,6 +325,83 @@ public sealed class IntegrationTests
 
     [Fact]
     [Trait("Category", "Integration")]
+    public async Task WebSocket_LiveNode_ReceivesVoteEvent()
+    {
+        var wsUrl = EndpointConfiguration.RequireWs();
+
+        var services = new ServiceCollection();
+        services.AddCometBftWebSocket(options => options.BaseUrl = wsUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftWebSocketClient>();
+
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.VoteReceived += (_, args) =>
+        {
+            // Type 1 = Prevote, Type 2 = Precommit — both are valid.
+            if (args.Value.Height > 0 && args.Value.ValidatorAddress.Length > 0)
+            {
+                completion.TrySetResult(true);
+            }
+        };
+
+        await client.ConnectAsync();
+        await client.SubscribeVoteAsync();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await completion.Task.WaitAsync(timeout.Token);
+        await client.DisconnectAsync();
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task WebSocket_LiveNode_ReceivesTxEvent()
+    {
+        var wsUrl = EndpointConfiguration.RequireWs();
+
+        var services = new ServiceCollection();
+        services.AddCometBftWebSocket(options => options.BaseUrl = wsUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftWebSocketClient>();
+
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.TxExecuted += (_, args) =>
+        {
+            if (args.Value.Height > 0)
+            {
+                completion.TrySetResult(true);
+            }
+        };
+
+        await client.ConnectAsync();
+        await client.SubscribeTxAsync();
+
+        // Tx events depend on actual network activity — allow a generous window.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+        await completion.Task.WaitAsync(timeout.Token);
+        await client.DisconnectAsync();
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task WebSocket_LiveNode_SubscribeValidatorSetUpdates_DoesNotThrow()
+    {
+        // ValidatorSetUpdates are rare (only on validator set changes), so we only
+        // verify that the subscription wire-up and clean disconnect succeed.
+        var wsUrl = EndpointConfiguration.RequireWs();
+
+        var services = new ServiceCollection();
+        services.AddCometBftWebSocket(options => options.BaseUrl = wsUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftWebSocketClient>();
+
+        await client.ConnectAsync();
+        var ex = await Record.ExceptionAsync(() => client.SubscribeValidatorSetUpdatesAsync());
+        Assert.Null(ex);
+        await client.DisconnectAsync();
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
     public async Task DialSeeds_UnsafeNode_ThrowsOrSucceeds_DependingOnNodeConfig()
     {
         // This test requires a CometBFT node started with --rpc.unsafe=true.

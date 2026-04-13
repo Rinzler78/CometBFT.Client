@@ -26,5 +26,5 @@ public sealed record TxResult(
     string? Info,
     long GasWanted,
     long GasUsed,
-    IReadOnlyList<TendermintEvent> Events,
+    IReadOnlyList<CometBftEvent> Events,
     string? Codespace);

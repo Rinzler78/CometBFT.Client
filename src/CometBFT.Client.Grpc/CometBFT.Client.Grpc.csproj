@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.5" />
     <PackageReference Include="Grpc.Net.Client" Version="2.76.0" />
     <PackageReference Include="Google.Protobuf" Version="3.34.1" />
     <PackageReference Include="Grpc.Tools" Version="2.80.0">
@@ -33,6 +34,8 @@
     <Protobuf Include="Proto\cometbft\rpc\grpc\grpc.proto" GrpcServices="Client" />
     <!-- Legacy Tendermint Core gRPC broadcast service proto (backward compat) -->
     <Protobuf Include="Proto\tendermint\rpc\grpc\grpc.proto" GrpcServices="Client" />
+    <!-- Cosmos SDK gRPC: cosmos.base.tendermint.v1beta1.Service (widely available on port 9090) -->
+    <Protobuf Include="Proto\cosmos\base\tendermint\v1beta1\query.proto" GrpcServices="Client" />
   </ItemGroup>
 
 </Project>
