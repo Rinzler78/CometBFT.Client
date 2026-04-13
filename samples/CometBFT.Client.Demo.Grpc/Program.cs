@@ -144,10 +144,10 @@ internal sealed class DashboardService : BackgroundService
         new Rows(
             new Panel(new Markup("[bold cyan]CometBFT.Client.Demo.Grpc[/]  [dim](cosmos.base.tendermint.v1beta1.Service)[/]")) { Border = BoxBorder.Rounded },
             new Columns(
-                new Panel(new Markup(s.Status))     { Header = new PanelHeader("Health / Status"),  Border = BoxBorder.Rounded },
-                new Panel(new Markup(s.Block))      { Header = new PanelHeader("Latest Block"),      Border = BoxBorder.Rounded }),
-            new Panel(new Markup(s.Validators))     { Header = new PanelHeader("Validators"),        Border = BoxBorder.Rounded },
-            new Panel(new Markup(s.Log))            { Header = new PanelHeader("Log"),               Border = BoxBorder.Rounded });
+                new Panel(new Markup(s.Status)) { Header = new PanelHeader("Health / Status"), Border = BoxBorder.Rounded },
+                new Panel(new Markup(s.Block)) { Header = new PanelHeader("Latest Block"), Border = BoxBorder.Rounded }),
+            new Panel(new Markup(s.Validators)) { Header = new PanelHeader("Validators"), Border = BoxBorder.Rounded },
+            new Panel(new Markup(s.Log)) { Header = new PanelHeader("Log"), Border = BoxBorder.Rounded });
 }
 
 internal sealed class GrpcState
@@ -155,8 +155,8 @@ internal sealed class GrpcState
     private const int MaxLog = 20;
     private readonly Queue<string> _log = new();
 
-    public string Status     { get; set; } = "[dim]…[/]";
-    public string Block      { get; set; } = "[dim]…[/]";
+    public string Status { get; set; } = "[dim]…[/]";
+    public string Block { get; set; } = "[dim]…[/]";
     public string Validators { get; set; } = "[dim]…[/]";
     public string Log => _log.Count > 0 ? string.Join("\n", _log.Reverse()) : "[dim](empty)[/]";
 

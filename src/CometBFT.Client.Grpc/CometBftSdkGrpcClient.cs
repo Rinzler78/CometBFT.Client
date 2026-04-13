@@ -7,7 +7,7 @@ using CometBFT.Client.Core.Options;
 using CometBFT.Client.Grpc.Proto.CosmosBase.Tendermint.V1beta1;
 using Microsoft.Extensions.Options;
 // Alias proto-generated names that clash with Core.Domain names.
-using DomainBlock     = CometBFT.Client.Core.Domain.Block;
+using DomainBlock = CometBFT.Client.Core.Domain.Block;
 using DomainValidator = CometBFT.Client.Core.Domain.Validator;
 
 namespace CometBFT.Client.Grpc;
@@ -59,21 +59,21 @@ public sealed class CometBftSdkGrpcClient : ICometBftSdkGrpcClient
             var callOptions = new CallOptions(cancellationToken: cancellationToken, deadline: deadline);
 
             var nodeInfoTask = _client.GetNodeInfoAsync(new GetNodeInfoRequest(), callOptions).ResponseAsync;
-            var syncingTask  = _client.GetSyncingAsync(new GetSyncingRequest(), callOptions).ResponseAsync;
+            var syncingTask = _client.GetSyncingAsync(new GetSyncingRequest(), callOptions).ResponseAsync;
 
             await Task.WhenAll(nodeInfoTask, syncingTask).ConfigureAwait(false);
 
             var nodeInfoResp = await nodeInfoTask.ConfigureAwait(false);
-            var syncingResp  = await syncingTask.ConfigureAwait(false);
+            var syncingResp = await syncingTask.ConfigureAwait(false);
 
             var dni = nodeInfoResp.DefaultNodeInfo;
             var nodeInfo = new NodeInfo(
-                Id:              dni?.DefaultNodeId ?? string.Empty,
-                ListenAddr:      dni?.ListenAddr    ?? string.Empty,
-                Network:         dni?.Network       ?? string.Empty,
-                Version:         dni?.Version       ?? string.Empty,
-                Channels:        dni?.Channels      != null ? Convert.ToHexString(dni.Channels.ToByteArray()) : string.Empty,
-                Moniker:         dni?.Moniker        ?? string.Empty,
+                Id: dni?.DefaultNodeId ?? string.Empty,
+                ListenAddr: dni?.ListenAddr ?? string.Empty,
+                Network: dni?.Network ?? string.Empty,
+                Version: dni?.Version ?? string.Empty,
+                Channels: dni?.Channels != null ? Convert.ToHexString(dni.Channels.ToByteArray()) : string.Empty,
+                Moniker: dni?.Moniker ?? string.Empty,
                 ProtocolVersion: dni?.ProtocolVersion is { } pv
                     ? new ProtocolVersion(pv.P2P, pv.Block, pv.App)
                     : new ProtocolVersion(0, 0, 0));
@@ -81,15 +81,15 @@ public sealed class CometBftSdkGrpcClient : ICometBftSdkGrpcClient
             // GetSyncing returns only the syncing bool; populate SyncInfo with what we have.
             // Height/hashes are not available from this call — use GetLatestBlock for those.
             var syncInfo = new SyncInfo(
-                LatestBlockHash:      string.Empty,
-                LatestAppHash:        string.Empty,
-                LatestBlockHeight:    0,
-                LatestBlockTime:      DateTimeOffset.MinValue,
-                EarliestBlockHash:    string.Empty,
-                EarliestAppHash:      string.Empty,
-                EarliestBlockHeight:  0,
-                EarliestBlockTime:    DateTimeOffset.MinValue,
-                CatchingUp:           syncingResp.Syncing);
+                LatestBlockHash: string.Empty,
+                LatestAppHash: string.Empty,
+                LatestBlockHeight: 0,
+                LatestBlockTime: DateTimeOffset.MinValue,
+                EarliestBlockHash: string.Empty,
+                EarliestAppHash: string.Empty,
+                EarliestBlockHeight: 0,
+                EarliestBlockTime: DateTimeOffset.MinValue,
+                CatchingUp: syncingResp.Syncing);
 
             return (nodeInfo, syncInfo);
         }
@@ -125,7 +125,7 @@ public sealed class CometBftSdkGrpcClient : ICometBftSdkGrpcClient
                 .ConfigureAwait(false);
 
             var header = resp.Block?.Header;
-            var data   = resp.Block?.Data;
+            var data = resp.Block?.Data;
 
             var time = header?.Time != null
                 ? DateTimeOffset.FromUnixTimeSeconds(header.Time.Seconds)
@@ -142,11 +142,11 @@ public sealed class CometBftSdkGrpcClient : ICometBftSdkGrpcClient
                 ?? [];
 
             return new DomainBlock(
-                Height:   header?.Height ?? 0,
-                Hash:     string.Empty,   // not provided by GetLatestBlock
-                Time:     time,
+                Height: header?.Height ?? 0,
+                Hash: string.Empty,   // not provided by GetLatestBlock
+                Time: time,
                 Proposer: proposer,
-                Txs:      txs);
+                Txs: txs);
         }
         catch (OperationCanceledException)
         {
@@ -186,9 +186,9 @@ public sealed class CometBftSdkGrpcClient : ICometBftSdkGrpcClient
 
             return resp.Validators
                 .Select(v => new DomainValidator(
-                    Address:         v.Address,
-                    PubKey:          v.PubKey?.Value != null ? Convert.ToBase64String(v.PubKey.Value.ToByteArray()) : string.Empty,
-                    VotingPower:     v.VotingPower,
+                    Address: v.Address,
+                    PubKey: v.PubKey?.Value != null ? Convert.ToBase64String(v.PubKey.Value.ToByteArray()) : string.Empty,
+                    VotingPower: v.VotingPower,
                     ProposerPriority: v.ProposerPriority))
                 .ToList()
                 .AsReadOnly();
