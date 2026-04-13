@@ -6,9 +6,15 @@ There is no standalone, production-ready .NET client library for CometBFT/Tender
 
 ## Status
 
-As of 2026-04-10, the repository implementation is largely complete and validated end-to-end, but this change is not ready to archive yet because some OpenSpec refinements and a few explicit follow-up expectations still need to be tracked cleanly.
+As of 2026-04-13, this change is **complete**. All `tasks.md` items are checked.
+The repository is fully validated end-to-end with real CometBFT endpoints.
 
-The repository already ships the scaffold, source projects, tests, demos, CI workflows, and protocol-version traceability. The remaining work is concentrated in explicit manual GitHub configuration, full transport-surface completion across REST/WebSocket/gRPC clients with matching tests and demos, and Docker wrapper hardening tasks that are intentionally kept visible in `tasks.md`.
+Subsequent improvements delivered on `develop` after the initial completion:
+
+- **WebSocketMessageParser extraction** (`8826ee4`): parsing logic decoupled from `CometBftWebSocketClient` into a dedicated `WebSocketMessageParser` with unit tests.
+- **SOLID/clean-code remediation phases 1–9** (`319d110`): single-responsibility split, dependency inversion via internal interfaces, dead-code removal, and naming consistency across all source projects.
+- **Cosmos SDK gRPC client** (`344c572`): added `ICometBftSdkGrpcClient` / `CometBftSdkGrpcClient` targeting the Cosmos SDK `cosmos.tx.v1beta1` gRPC surface; demo-grpc extended with full block-polling and Cosmos TX panels; `AddCometBftSdkGrpc` DI extension added.
+- **Coverage at 97 %** (`0769c8e`): URL scheme fix, clean shutdown, and test suite expansion raised global line coverage from 90 % to 97 %.
 
 ## Reality Gaps Closed During Reconciliation
 
