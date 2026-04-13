@@ -89,6 +89,10 @@ public sealed class CometBftGrpcClient : ICometBftGrpcClient
             var client = await GetOrCreateClientAsync(cancellationToken).ConfigureAwait(false);
             return await client.PingAsync(cancellationToken).ConfigureAwait(false);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (CometBftGrpcException)
         {
             throw;
@@ -111,6 +115,10 @@ public sealed class CometBftGrpcClient : ICometBftGrpcClient
             var (code, data, log, gasWanted, gasUsed, codespace, hash) =
                 await client.BroadcastTxAsync(txBytes, cancellationToken).ConfigureAwait(false);
             return new BroadcastTxResult(code, data, log, codespace, hash, gasWanted, gasUsed);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (CometBftGrpcException)
         {

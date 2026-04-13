@@ -289,4 +289,85 @@ public sealed class CometBftGrpcClientTests
 
         await Assert.ThrowsAsync<CometBftGrpcException>(() => client.BroadcastTxAsync(new byte[] { 0x01 }));
     }
+
+    [Fact]
+    public async Task PingAsync_PropagatesOperationCanceledException_WithoutWrapping()
+    {
+        var apiClient = Substitute.For<IBroadcastApiClient>();
+        apiClient.PingAsync(Arg.Any<CancellationToken>())
+            .Throws(new OperationCanceledException());
+
+        var channel = CreateTestChannel();
+        await using var client = new CometBftGrpcClient(channel, apiClient);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => client.PingAsync());
+    }
+
+    [Fact]
+    public async Task BroadcastTxAsync_PropagatesOperationCanceledException_WithoutWrapping()
+    {
+        var apiClient = Substitute.For<IBroadcastApiClient>();
+        apiClient.BroadcastTxAsync(Arg.Any<byte[]>(), Arg.Any<CancellationToken>())
+            .Throws(new OperationCanceledException());
+
+        var channel = CreateTestChannel();
+        await using var client = new CometBftGrpcClient(channel, apiClient);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => client.BroadcastTxAsync(new byte[] { 0x01 }));
+    }
+
+    // ── Lines 134 / 136: generic Exception in BroadcastTxAsync ──────────────
+
+    [Fact]
+    public async Task BroadcastTxAsync_ThrowsCometBftGrpcException_OnGenericException()
+    {
+        // Covers lines 134 + 136: catch (Exception ex) → throw new CometBftGrpcException(…, ex)
+        var apiClient = Substitute.For<IBroadcastApiClient>();
+        apiClient.BroadcastTxAsync(Arg.Any<byte[]>(), Arg.Any<CancellationToken>())
+            .Throws(new InvalidOperationException("unexpected failure"));
+
+        var channel = CreateTestChannel();
+        await using var client = new CometBftGrpcClient(channel, apiClient);
+
+        var ex = await Assert.ThrowsAsync<CometBftGrpcException>(
+            () => client.BroadcastTxAsync(new byte[] { 0x01 }));
+
+        Assert.NotNull(ex.InnerException);
+        Assert.IsType<InvalidOperationException>(ex.InnerException);
+    }
+
+    // ── Line 166: double-checked lock inner branch ───────────────────────────
+
+    [Fact]
+    public async Task GetOrCreateClient_FactoryCalledOnce_WhenConcurrentCallsRace()
+    {
+        // Covers line 166: the inner "_apiClient is not null" check inside the lock
+        // when two tasks race past the outer null-check simultaneously.
+        var factoryCallCount = 0;
+        var barrier = new SemaphoreSlim(0, 1); // holds the first caller until we release
+        var apiClient = Substitute.For<IBroadcastApiClient>();
+        apiClient.PingAsync(Arg.Any<CancellationToken>()).Returns(true);
+
+        var channel = CreateTestChannel();
+        await using var client = new CometBftGrpcClient(
+            channel,
+            async () =>
+            {
+                factoryCallCount++;
+                await barrier.WaitAsync().ConfigureAwait(false);
+                return apiClient;
+            });
+
+        // Start two concurrent pings; the factory blocks until we release the barrier.
+        var t1 = client.PingAsync();
+        var t2 = client.PingAsync();
+
+        // Release the factory — one caller wins the lock, the other sees _apiClient != null on re-entry.
+        barrier.Release();
+
+        await Task.WhenAll(t1, t2);
+
+        // Factory must have been called exactly once even though two calls raced.
+        Assert.Equal(1, factoryCallCount);
+    }
 }

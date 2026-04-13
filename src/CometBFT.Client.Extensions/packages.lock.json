@@ -19,6 +19,16 @@
           "Polly.Extensions.Http": "3.0.0"
         }
       },
+      "Microsoft.Extensions.Options": {
+        "type": "Direct",
+        "requested": "[10.0.5, )",
+        "resolved": "10.0.5",
+        "contentHash": "MDaQMdUplw0AIRhWWmbLA7yQEXaLIHb+9CTroTiNS8OlI0LMXS4LCxtopqauiqGCWlRgJ+xyraVD8t6veRAFbw==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.5",
+          "Microsoft.Extensions.Primitives": "10.0.5"
+        }
+      },
       "Google.Protobuf": {
         "type": "Transitive",
         "resolved": "3.34.1",
@@ -130,15 +140,6 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.5"
         }
       },
-      "Microsoft.Extensions.Options": {
-        "type": "Transitive",
-        "resolved": "10.0.5",
-        "contentHash": "MDaQMdUplw0AIRhWWmbLA7yQEXaLIHb+9CTroTiNS8OlI0LMXS4LCxtopqauiqGCWlRgJ+xyraVD8t6veRAFbw==",
-        "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.5",
-          "Microsoft.Extensions.Primitives": "10.0.5"
-        }
-      },
       "Microsoft.Extensions.Options.ConfigurationExtensions": {
         "type": "Transitive",
         "resolved": "10.0.5",
@@ -197,7 +198,8 @@
         "dependencies": {
           "CometBFT.Client.Core": "[0.1.0, )",
           "Google.Protobuf": "[3.34.1, )",
-          "Grpc.Net.Client": "[2.76.0, )"
+          "Grpc.Net.Client": "[2.76.0, )",
+          "Microsoft.Extensions.Options": "[10.0.5, )"
         }
       },
       "cometbft.client.rest": {
@@ -205,13 +207,15 @@
         "dependencies": {
           "CometBFT.Client.Core": "[0.1.0, )",
           "Microsoft.Extensions.Http": "[10.0.5, )",
-          "Microsoft.Extensions.Http.Polly": "[10.0.5, )"
+          "Microsoft.Extensions.Http.Polly": "[10.0.5, )",
+          "Microsoft.Extensions.Options": "[10.0.5, )"
         }
       },
       "cometbft.client.websocket": {
         "type": "Project",
         "dependencies": {
           "CometBFT.Client.Core": "[0.1.0, )",
+          "Microsoft.Extensions.Options": "[10.0.5, )",
           "Websocket.Client": "[5.3.0, )"
         }
       }
