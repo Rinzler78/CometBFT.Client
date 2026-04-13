@@ -35,8 +35,9 @@ public sealed class CometBftGrpcOptions
 
         if (string.IsNullOrWhiteSpace(BaseUrl))
             errors.Add($"{nameof(BaseUrl)} must not be empty.");
-        else if (!Uri.TryCreate(BaseUrl, UriKind.Absolute, out _))
-            errors.Add($"{nameof(BaseUrl)} '{BaseUrl}' is not a valid absolute URI.");
+        else if (!IsValidGrpcAddress(BaseUrl))
+            errors.Add($"{nameof(BaseUrl)} '{BaseUrl}' is not a valid gRPC address. " +
+                       "Expected an absolute URI (e.g. 'https://host:9090') or a bare host[:port] (e.g. 'host:9090').");
 
         if (Timeout <= TimeSpan.Zero)
             errors.Add($"{nameof(Timeout)} must be positive.");
@@ -44,5 +45,22 @@ public sealed class CometBftGrpcOptions
         if (errors.Count > 0)
             throw new InvalidOperationException(
                 $"{nameof(CometBftGrpcOptions)} validation failed:{Environment.NewLine}{string.Join(Environment.NewLine, errors)}");
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> when <paramref name="url"/> is either a valid absolute URI
+    /// (e.g. <c>https://host:9090</c>) or a bare host[:port] accepted by gRPC channels
+    /// (e.g. <c>host:9090</c> or <c>host</c>).
+    /// </summary>
+    private static bool IsValidGrpcAddress(string url)
+    {
+        if (Uri.TryCreate(url, UriKind.Absolute, out _))
+            return true;
+
+        // Bare host or host:port — no scheme, no path segment containing '/'
+        if (url.Contains('/', StringComparison.Ordinal))
+            return false;
+
+        return Uri.TryCreate($"https://{url}", UriKind.Absolute, out _);
     }
 }
