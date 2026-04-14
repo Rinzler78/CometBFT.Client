@@ -317,7 +317,7 @@ The repository SHALL enforce a strict release lifecycle: tags are the single sou
 | `v<x.y.z>-alpha.<n>` | Alpha pre-release (e.g. `v1.2.0-alpha.1`) | `nuget.org` pre-release | Published, marked pre-release |
 | `v<x.y.z>-rc.<n>` | Release candidate (e.g. `v1.2.0-rc.1`) | `nuget.org` pre-release | Published, marked pre-release |
 
-Tags MUST be created **only on `master`** (stable) or directly from a `release/*` branch before merging to `master` (pre-release). Tags on `develop` or feature branches are forbidden.
+Tags MUST be created **only on `master`** for both stable and pre-release publications. Tags on `develop`, `release/*`, or feature branches are forbidden — `publish.yml` rejects any tag not reachable from `master`.
 
 #### SemVer rules (conventional commits driven)
 
@@ -331,29 +331,28 @@ Tags MUST be created **only on `master`** (stable) or directly from a `release/*
 
 | Branch | Required checks before merge | Additional rules |
 |---|---|---|
-| `master` | All CI jobs green (`build`, `lint`, `unit-tests`, `integration-tests`, `coverage-gate`) | Require PR + ≥ 1 approving review; disallow direct push; disallow force-push; restrict tag creation to maintainers |
-| `develop` | All CI jobs green | Require PR; disallow direct push; disallow force-push |
-| `release/*` | All CI jobs green | Require PR targeting `master`; delete branch after merge |
+| `master` | All CI check-runs green (`CI / English-only language check (cspell)`, `CI / Build & Test (.NET 10)`, `CI / Integration Tests`, `CI / E2E Tests`) | Require PR + ≥ 1 approving review; disallow direct push; disallow force-push; restrict tag creation to maintainers |
+| `develop` | All CI check-runs green | Require PR; disallow direct push; disallow force-push |
+| `release/*` | All CI check-runs green | Require PR targeting `master`; delete branch after merge |
 
 Tags matching `v*` SHALL be protected: only repository maintainers (those with `maintain` or `admin` role) may create them.
 
 #### CI/CD workflow structure
 
-**`ci.yml`** — triggered on every `push` to any branch and on every `pull_request`:
-- `build` job: `dotnet build --configuration Release`
-- `lint` job: `dotnet format --verify-no-changes` + `cspell`
-- `unit-tests` job: runs unit + integration tests with Coverlet; uploads LCOV to Codecov
-- `coverage-gate` job: fails if global or per-assembly line/branch/method < 90 %
-- `e2e-tests` job: runs skippable E2E tests against public endpoints (only on `push` to `develop` or `master`)
+**`ci.yml`** — triggered on `push` to `feature/**`/`bugfix/**` and on `pull_request` targeting `develop`, `master`, or `release/**`:
+- `language-check` job: `cspell` English-only check across source, scripts, and docs
+- `build-and-test` job: `dotnet build` + `dotnet format --verify-no-changes` + unit tests with Coverlet coverage gate (≥ 90 %)
+- `integration-tests` job: runs integration tests against public CometBFT endpoints (needs `build-and-test`)
+- `e2e-tests` job: runs E2E tests against public CometBFT endpoints (needs `integration-tests`)
 
 **`publish.yml`** — triggered **only** on `push: tags: ['v*']` (never on branch push):
-1. Validate tag is on `master` (`git branch --contains $GITHUB_REF_NAME | grep master`); fail otherwise
-2. Extract CHANGELOG section matching the tag version; fail if section is missing
+1. Validate tag points at a commit reachable from `master` (`git merge-base --is-ancestor HEAD origin/master`); fail otherwise
+2. Extract CHANGELOG section matching the tag version (exact heading match `## [<version>]`); fail if section is missing
 3. `dotnet build --configuration Release`
 4. Run full test suite including coverage gate; fail if any threshold is not met
-5. `dotnet pack --configuration Release --no-build`
-6. `dotnet nuget push` with `--skip-duplicate`; set `--prerelease` flag if tag contains `-alpha` or `-rc`
-7. Create GitHub Release via `gh release create $TAG --notes-file <extracted-changelog-section>` with `--prerelease` flag if applicable
+5. `dotnet pack --configuration Release --no-build` with `PackageVersion` derived from the tag (e.g. `v1.2.0` → `1.2.0`, `v1.2.0-rc.1` → `1.2.0-rc.1`); NuGet stable vs pre-release is determined by the packed version string
+6. `dotnet nuget push` with `--skip-duplicate`
+7. Create GitHub Release via `gh release create $TAG --notes-file <extracted-changelog-section>` with `--prerelease` flag if tag contains `-alpha` or `-rc`
 8. Upload `.nupkg` and `.snupkg` as release assets
 
 #### CHANGELOG enforcement (pre-publish gate)
