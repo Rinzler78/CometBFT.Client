@@ -1,138 +1,120 @@
 using System.Collections.ObjectModel;
-using System.Text.Json.Nodes;
 using CometBFT.Client.Core.Domain;
+using CometBFT.Client.WebSocket.Json;
 
 namespace CometBFT.Client.WebSocket.Internal;
 
 /// <summary>
-/// Parses raw CometBFT WebSocket JSON messages into typed domain events.
+/// Maps CometBFT WebSocket wire types to typed domain objects.
 /// Extracted for testability; used exclusively by <see cref="CometBftWebSocketClient"/>.
 /// </summary>
 internal static class WebSocketMessageParser
 {
-    internal static Block? ParseNewBlock(JsonNode json)
+    internal static Block? ParseNewBlock(WsNewBlockData data)
     {
-        var blockNode = json["result"]?["data"]?["value"]?["block"];
-        if (blockNode is null)
+        var value = data.Value;
+        if (value?.Block is null)
         {
             return null;
         }
 
-        var header = blockNode["header"];
-        var height = long.TryParse(header?["height"]?.GetValue<string>(), out var h) ? h : 0;
-        var time = header?["time"]?.GetValue<DateTimeOffset>() ?? DateTimeOffset.MinValue;
-        var proposer = header?["proposer_address"]?.GetValue<string>() ?? string.Empty;
-        var txsNode = blockNode["data"]?["txs"]?.AsArray();
-        var txs = txsNode?.Select(t => t?.GetValue<string>() ?? string.Empty).ToList() ?? [];
-        var hash = json["result"]?["data"]?["value"]?["block_id"]?["hash"]?.GetValue<string>() ?? string.Empty;
+        var header = value.Block.Header;
+        var height = long.TryParse(header?.Height, out var h) ? h : 0;
+        var time = header?.Time ?? DateTimeOffset.MinValue;
+        var proposer = header?.ProposerAddress ?? string.Empty;
+        var txs = value.Block.Data?.Txs ?? [];
+        var hash = value.BlockId?.Hash ?? string.Empty;
 
         return new Block(height, hash, time, proposer, txs.AsReadOnly());
     }
 
-    internal static BlockHeader? ParseNewBlockHeader(JsonNode json)
+    internal static BlockHeader? ParseNewBlockHeader(WsNewBlockHeaderData data)
     {
-        var header = json["result"]?["data"]?["value"]?["header"];
+        var header = data.Value?.Header;
         if (header is null)
         {
             return null;
         }
 
-        var version = header["version"]?["block"]?.GetValue<string>() ?? string.Empty;
-        var chainId = header["chain_id"]?.GetValue<string>() ?? string.Empty;
-        var height = long.TryParse(header["height"]?.GetValue<string>(), out var h) ? h : 0;
-        var time = DateTimeOffset.TryParse(header["time"]?.GetValue<string>(), out var t)
-            ? t
-            : DateTimeOffset.MinValue;
-        var lastBlockId = header["last_block_id"]?["hash"]?.GetValue<string>() ?? string.Empty;
+        var height = long.TryParse(header.Height, out var h) ? h : 0;
+        var time = DateTimeOffset.TryParse(header.Time, out var t) ? t : DateTimeOffset.MinValue;
 
         return new BlockHeader(
-            Version: version,
-            ChainId: chainId,
+            Version: header.Version?.Block ?? string.Empty,
+            ChainId: header.ChainId,
             Height: height,
             Time: time,
-            LastBlockId: lastBlockId,
-            LastCommitHash: header["last_commit_hash"]?.GetValue<string>() ?? string.Empty,
-            DataHash: header["data_hash"]?.GetValue<string>() ?? string.Empty,
-            ValidatorsHash: header["validators_hash"]?.GetValue<string>() ?? string.Empty,
-            NextValidatorsHash: header["next_validators_hash"]?.GetValue<string>() ?? string.Empty,
-            ConsensusHash: header["consensus_hash"]?.GetValue<string>() ?? string.Empty,
-            AppHash: header["app_hash"]?.GetValue<string>() ?? string.Empty,
-            LastResultsHash: header["last_results_hash"]?.GetValue<string>() ?? string.Empty,
-            EvidenceHash: header["evidence_hash"]?.GetValue<string>() ?? string.Empty,
-            ProposerAddress: header["proposer_address"]?.GetValue<string>() ?? string.Empty);
+            LastBlockId: header.LastBlockId?.Hash ?? string.Empty,
+            LastCommitHash: header.LastCommitHash,
+            DataHash: header.DataHash,
+            ValidatorsHash: header.ValidatorsHash,
+            NextValidatorsHash: header.NextValidatorsHash,
+            ConsensusHash: header.ConsensusHash,
+            AppHash: header.AppHash,
+            LastResultsHash: header.LastResultsHash,
+            EvidenceHash: header.EvidenceHash,
+            ProposerAddress: header.ProposerAddress);
     }
 
-    internal static TxResult? ParseTxResult(JsonNode json)
+    internal static TxResult? ParseTxResult(WsTxData data, Dictionary<string, List<string>>? resultEvents)
     {
-        var txNode = json["result"]?["data"]?["value"]?["TxResult"];
-        if (txNode is null)
+        var txResult = data.Value?.TxResult;
+        if (txResult is null)
         {
             return null;
         }
 
-        var height = long.TryParse(txNode["height"]?.GetValue<string>(), out var h) ? h : 0;
-        var index = txNode["index"]?.GetValue<int>() ?? 0;
-        var resultNode = txNode["result"];
-        var code = resultNode?["code"]?.GetValue<uint>() ?? 0;
-        var log = resultNode?["log"]?.GetValue<string>();
-        var gasWanted = long.TryParse(resultNode?["gas_wanted"]?.GetValue<string>(), out var gw) ? gw : 0;
-        var gasUsed = long.TryParse(resultNode?["gas_used"]?.GetValue<string>(), out var gu) ? gu : 0;
+        var height = long.TryParse(txResult.Height, out var h) ? h : 0;
+        var execResult = txResult.Result;
+        var gasWanted = long.TryParse(execResult?.GasWanted, out var gw) ? gw : 0;
+        var gasUsed = long.TryParse(execResult?.GasUsed, out var gu) ? gu : 0;
 
-        // Hash from the events map (tx.hash is the canonical source).
-        var hash = json["result"]?["events"]?["tx.hash"]?[0]?.GetValue<string>() ?? string.Empty;
+        var hash = resultEvents?.GetValueOrDefault("tx.hash") is { Count: > 0 } hashes
+            ? hashes[0]
+            : string.Empty;
 
-        // Events from TxResult.result.events.
-        var eventsNode = resultNode?["events"]?.AsArray();
-        var events = eventsNode?
+        var events = (execResult?.Events ?? [])
             .Select(e => new CometBftEvent(
-                e?["type"]?.GetValue<string>() ?? string.Empty,
-                (e?["attributes"]?.AsArray() ?? new JsonArray())
-                    .Select(a => new AbciEventEntry(
-                        a?["key"]?.GetValue<string>() ?? string.Empty,
-                        a?["value"]?.GetValue<string>(),
-                        a?["index"]?.GetValue<bool>() ?? false))
+                e.Type,
+                (e.Attributes ?? [])
+                    .Select(a => new AbciEventEntry(a.Key, a.Value, a.Index))
                     .ToList()
                     .AsReadOnly()))
             .ToList()
-            .AsReadOnly()
-            ?? (IReadOnlyList<CometBftEvent>)Array.Empty<CometBftEvent>();
+            .AsReadOnly();
 
-        return new TxResult(hash, height, index, string.Empty, code, null, log, null,
+        return new TxResult(hash, height, txResult.Index, string.Empty,
+            execResult?.Code ?? 0, null, execResult?.Log, null,
             gasWanted, gasUsed, events, null);
     }
 
-    internal static Vote? ParseVote(JsonNode json)
+    internal static Vote? ParseVote(WsVoteData data)
     {
-        var voteNode = json["result"]?["data"]?["value"]?["Vote"];
-        if (voteNode is null)
+        var vote = data.Value?.Vote;
+        if (vote is null)
         {
             return null;
         }
 
-        var type = voteNode["type"]?.GetValue<int>() ?? 0;
-        var height = long.TryParse(voteNode["height"]?.GetValue<string>(), out var h) ? h : 0;
-        var round = voteNode["round"]?.GetValue<int>() ?? 0;
-        var validatorAddress = voteNode["validator_address"]?.GetValue<string>() ?? string.Empty;
-        var timestamp = DateTimeOffset.TryParse(voteNode["timestamp"]?.GetValue<string>(), out var ts)
-            ? ts
-            : DateTimeOffset.MinValue;
+        var height = long.TryParse(vote.Height, out var h) ? h : 0;
+        var timestamp = DateTimeOffset.TryParse(vote.Timestamp, out var ts) ? ts : DateTimeOffset.MinValue;
 
-        return new Vote(type, height, round, validatorAddress, timestamp);
+        return new Vote(vote.Type, height, vote.Round, vote.ValidatorAddress, timestamp);
     }
 
-    internal static ReadOnlyCollection<Validator>? ParseValidatorSetUpdates(JsonNode json)
+    internal static ReadOnlyCollection<Validator>? ParseValidatorSetUpdates(WsValidatorSetUpdatesData data)
     {
-        var updatesNode = json["result"]?["data"]?["value"]?["validator_updates"]?.AsArray();
-        if (updatesNode is null)
+        var updates = data.Value?.ValidatorUpdates;
+        if (updates is null)
         {
             return null;
         }
 
-        return updatesNode
+        return updates
             .Select(v => new Validator(
-                v?["address"]?.GetValue<string>() ?? string.Empty,
-                v?["pub_key"]?["data"]?.GetValue<string>() ?? string.Empty,
-                long.TryParse(v?["power"]?.GetValue<string>(), out var vp) ? vp : 0,
+                v.Address,
+                v.PubKey?.Data ?? string.Empty,
+                long.TryParse(v.Power, out var vp) ? vp : 0,
                 0))
             .ToList()
             .AsReadOnly();

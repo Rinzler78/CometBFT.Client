@@ -1,12 +1,12 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using CometBFT.Client.Core.Domain;
 using CometBFT.Client.Core.Events;
 using CometBFT.Client.Core.Exceptions;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Core.Options;
 using CometBFT.Client.WebSocket.Internal;
+using CometBFT.Client.WebSocket.Json;
 using Microsoft.Extensions.Options;
 using Websocket.Client;
 
@@ -186,14 +186,8 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
     {
         EnsureConnected();
         var id = Interlocked.Increment(ref _requestId);
-        var payload = JsonSerializer.Serialize(new
-        {
-            jsonrpc = "2.0",
-            method = "unsubscribe_all",
-            id,
-            @params = new { },
-        });
-        _client!.Send(payload);
+        var request = new WsUnsubscribeAllRequest { Id = id };
+        _client!.Send(JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsUnsubscribeAllRequest));
         _activeSubscriptions.Clear();
         return Task.CompletedTask;
     }
@@ -249,14 +243,8 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingAcks[id] = tcs;
 
-        var payload = JsonSerializer.Serialize(new
-        {
-            jsonrpc = "2.0",
-            method = "subscribe",
-            id,
-            @params = new { query },
-        });
-        _client!.Send(payload);
+        var request = new WsSubscribeRequest { Id = id, Params = new WsSubscribeParams { Query = query } };
+        _client!.Send(JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsSubscribeRequest));
 
         // Wait for the server's JSON-RPC acknowledgment {"jsonrpc":"2.0","id":<id>,"result":{}}.
         // This confirms the subscription is active before the caller begins waiting for events.
@@ -287,18 +275,11 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
     private void OnReconnected(ReconnectionInfo _)
     {
         // Re-send all active subscriptions after a reconnect.
-        // Iterate .Keys to get the query string — NOT the KeyValuePair.
         foreach (var query in _activeSubscriptions.Keys)
         {
             var id = Interlocked.Increment(ref _requestId);
-            var payload = JsonSerializer.Serialize(new
-            {
-                jsonrpc = "2.0",
-                method = "subscribe",
-                id,
-                @params = new { query },
-            });
-            _client?.Send(payload);
+            var request = new WsSubscribeRequest { Id = id, Params = new WsSubscribeParams { Query = query } };
+            _client?.Send(JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsSubscribeRequest));
         }
     }
 
@@ -312,15 +293,17 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
         try
         {
-            var json = JsonNode.Parse(message.Text);
-
-            // Detect subscribe acknowledgment: id > 0 and result present but without a data field.
-            // Example: {"jsonrpc":"2.0","id":1,"result":{}}
-            var resultNode = json?["result"];
-            var msgId = json?["id"]?.GetValue<int>();
-            if (msgId is > 0 && resultNode is not null && resultNode["data"] is null)
+            var envelope = JsonSerializer.Deserialize(message.Text, CometBftWebSocketJsonContext.Default.WsEnvelope);
+            if (envelope is null)
             {
-                if (_pendingAcks.TryRemove(msgId.Value, out var ackTcs))
+                return;
+            }
+
+            // Detect subscribe acknowledgment: id > 0 and result has no data field.
+            // Example: {"jsonrpc":"2.0","id":1,"result":{}}
+            if (envelope.Id > 0 && envelope.Result?.Data is null)
+            {
+                if (_pendingAcks.TryRemove(envelope.Id, out var ackTcs))
                 {
                     ackTcs.TrySetResult(true);
                 }
@@ -328,12 +311,10 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
                 return;
             }
 
-            var eventType = json?["result"]?["data"]?["type"]?.GetValue<string>();
-
-            switch (eventType)
+            switch (envelope.Result?.Data)
             {
-                case CometBftEventType.NewBlock:
-                    var block = WebSocketMessageParser.ParseNewBlock(json!);
+                case WsNewBlockData newBlockData:
+                    var block = WebSocketMessageParser.ParseNewBlock(newBlockData);
                     if (block is not null)
                     {
                         NewBlockReceived?.Invoke(this, new CometBftEventArgs<Block>(block));
@@ -341,8 +322,8 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
                     break;
 
-                case CometBftEventType.NewBlockHeader:
-                    var blockHeader = WebSocketMessageParser.ParseNewBlockHeader(json!);
+                case WsNewBlockHeaderData headerData:
+                    var blockHeader = WebSocketMessageParser.ParseNewBlockHeader(headerData);
                     if (blockHeader is not null)
                     {
                         NewBlockHeaderReceived?.Invoke(this, new CometBftEventArgs<BlockHeader>(blockHeader));
@@ -350,8 +331,8 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
                     break;
 
-                case CometBftEventType.Tx:
-                    var tx = WebSocketMessageParser.ParseTxResult(json!);
+                case WsTxData txData:
+                    var tx = WebSocketMessageParser.ParseTxResult(txData, envelope.Result.Events);
                     if (tx is not null)
                     {
                         TxExecuted?.Invoke(this, new CometBftEventArgs<TxResult>(tx));
@@ -359,8 +340,8 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
                     break;
 
-                case CometBftEventType.Vote:
-                    var vote = WebSocketMessageParser.ParseVote(json!);
+                case WsVoteData voteData:
+                    var vote = WebSocketMessageParser.ParseVote(voteData);
                     if (vote is not null)
                     {
                         VoteReceived?.Invoke(this, new CometBftEventArgs<Vote>(vote));
@@ -368,8 +349,8 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
                     break;
 
-                case CometBftEventType.ValidatorSetUpdates:
-                    var validators = WebSocketMessageParser.ParseValidatorSetUpdates(json!);
+                case WsValidatorSetUpdatesData vsData:
+                    var validators = WebSocketMessageParser.ParseValidatorSetUpdates(vsData);
                     if (validators is not null)
                     {
                         ValidatorSetUpdated?.Invoke(this, new CometBftEventArgs<IReadOnlyList<Validator>>(validators));
