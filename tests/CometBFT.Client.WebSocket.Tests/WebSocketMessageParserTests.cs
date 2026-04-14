@@ -681,4 +681,40 @@ public sealed class WebSocketMessageParserTests
 
         Assert.Null(ex);
     }
+
+    // ── Outgoing request serialization ───────────────────────────────────────
+
+    [Fact]
+    public void WsSubscribeRequest_Serializes_CorrectJsonRpcShape()
+    {
+        var request = new WsSubscribeRequest
+        {
+            Id = 3,
+            Params = new WsSubscribeParams { Query = "tm.event='NewBlock'" },
+        };
+
+        var json = JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsSubscribeRequest);
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        Assert.Equal("2.0", root.GetProperty("jsonrpc").GetString());
+        Assert.Equal("subscribe", root.GetProperty("method").GetString());
+        Assert.Equal(3, root.GetProperty("id").GetInt32());
+        Assert.Equal("tm.event='NewBlock'", root.GetProperty("params").GetProperty("query").GetString());
+    }
+
+    [Fact]
+    public void WsUnsubscribeAllRequest_Serializes_CorrectJsonRpcShape()
+    {
+        var request = new WsUnsubscribeAllRequest { Id = 7 };
+
+        var json = JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsUnsubscribeAllRequest);
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        Assert.Equal("2.0", root.GetProperty("jsonrpc").GetString());
+        Assert.Equal("unsubscribe_all", root.GetProperty("method").GetString());
+        Assert.Equal(7, root.GetProperty("id").GetInt32());
+        Assert.True(root.TryGetProperty("params", out _));
+    }
 }
