@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CometBFT.Client.Extensions\CometBFT.Client.Extensions.csproj" />
+    <ProjectReference Include="..\CometBFT.Client.Demo.Shared\CometBFT.Client.Demo.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>

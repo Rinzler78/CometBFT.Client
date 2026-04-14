@@ -1,10 +1,17 @@
 repos:
+  - repo: https://github.com/streetsidesoftware/cspell-cli
+    rev: v10.0.0
+    hooks:
+      - id: cspell
+        name: English-only language check
+        args: [--no-progress, --no-summary, --show-context, --no-must-find-files]
+
   - repo: local
     hooks:
       - id: dotnet-format
         name: dotnet format
         language: system
-        entry: dotnet format Tendermint.Client.sln --verify-no-changes
+        entry: dotnet format CometBFT.Client.sln --verify-no-changes
         pass_filenames: false
       - id: detect-secrets
         name: detect secrets

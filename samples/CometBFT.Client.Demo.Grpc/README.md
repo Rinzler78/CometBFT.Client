@@ -8,10 +8,10 @@ Live Spectre.Console dashboard polling [CometBFT](https://github.com/cometbft/co
 # Default testnet (Cosmos Hub via Lava)
 ./scripts/demo-grpc.sh
 
-# Custom endpoint
-TENDERMINT_GRPC_URL=localhost:26657 ./scripts/demo-grpc.sh
+# Custom endpoint — CometBFT v0.38+ or legacy Tendermint Core (auto-detected)
+COMETBFT_GRPC_URL=https://localhost:26657 ./scripts/demo-grpc.sh
 # or
-./scripts/demo-grpc.sh --grpc-url localhost:26657
+./scripts/demo-grpc.sh --grpc-url https://localhost:26657
 ```
 
 ## Dashboard panels

@@ -1,0 +1,27 @@
+#!/bin/bash
+# commit-msg hook: enforce Conventional Commits format.
+# Install: cp .hooks/commit-msg .git/hooks/commit-msg && chmod +x .git/hooks/commit-msg
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Skip merge commits and fixup/squash commits
+if echo "$COMMIT_MSG" | grep -qE "^(Merge |Squash commit|fixup!|squash!)"; then
+    exit 0
+fi
+
+PATTERN="^(feat|fix|docs|chore|test|refactor|perf|ci|style|build|revert)(\(.+\))?: .{1,100}"
+
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+    echo "ERROR: Commit message does not follow Conventional Commits format."
+    echo ""
+    echo "  Expected: <type>(<scope>): <description>"
+    echo "  Example:  feat(rest): add GetBlockResultsAsync"
+    echo ""
+    echo "  Valid types: feat, fix, docs, chore, test, refactor, perf, ci, style, build, revert"
+    echo ""
+    echo "  Your message: $COMMIT_MSG"
+    exit 1
+fi
+
+exit 0

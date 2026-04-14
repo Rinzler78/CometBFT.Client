@@ -17,6 +17,8 @@
     <Authors>Rinzler78</Authors>
     <RepositoryUrl>https://github.com/Rinzler78/CometBFT.Client</RepositoryUrl>
     <ProtocolVersion>v0.38.9</ProtocolVersion>
+    <!-- Only CometBFT.Client.Extensions is packable; all other projects are internal dependencies -->
+    <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);NU5104</NoWarn>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
@@ -38,6 +40,7 @@
   <!-- Test projects: coverage threshold, no XML doc requirement, suppress transitive-dep vuln audits -->
   <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
     <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <CoverletOutputFormat>cobertura</CoverletOutputFormat>
     <Threshold>90</Threshold>

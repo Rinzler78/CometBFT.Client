@@ -6,12 +6,13 @@ using CometBFT.Client.Core.Domain;
 using CometBFT.Client.Core.Events;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Extensions;
+using CometBFT.Client.Demo.Shared;
 
 // ── Config ───────────────────────────────────────────────────────────────────
 var wsUrl = args.FirstOrDefault(a => a.StartsWith("--ws-url=", StringComparison.OrdinalIgnoreCase))
                 ?.Split('=', 2)[1]
             ?? Environment.GetEnvironmentVariable("COMETBFT_WS_URL")
-            ?? "wss://cosmoshub.tendermintrpc.lava.build:443/websocket";
+            ?? DemoDefaults.WsUrl;
 
 // ── DI ───────────────────────────────────────────────────────────────────────
 var host = Host.CreateDefaultBuilder(args)
