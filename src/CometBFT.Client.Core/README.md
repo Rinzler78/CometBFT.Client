@@ -6,11 +6,11 @@ Targets [CometBFT](https://github.com/cometbft/cometbft) protocol version **v0.3
 ## Contents
 
 - **Domain types** — immutable `sealed record` types shared across all transports:
-  `Block`, `BlockHeader`, `TxResult`, `Vote`, `NodeInfo`, `SyncInfo`, `Validator`, `BroadcastTxResult`, `Event`, `Attribute`
+  `Block`, `BlockHeader`, `TxResult`, `Vote`, `NodeInfo`, `SyncInfo`, `Validator`, `BroadcastTxResult`, `CometBftEvent`, `AbciEventEntry`
 - **Transport interfaces** — `ICometBftRestClient`, `ICometBftWebSocketClient`, `ICometBftGrpcClient`, `IUnsafeService`
 - **Service interfaces** — `IHealthService`, `IStatusService`, `IBlockService`, `ITxService`, `IValidatorService`, `IAbciService`
-- **Options** — `TendermintRestOptions`, `TendermintWebSocketOptions`, `TendermintGrpcOptions`
-- **Exceptions** — `TendermintClientException`, `TendermintRestException`, `TendermintWebSocketException`, `TendermintGrpcException`
+- **Options** — `CometBftRestOptions`, `CometBftWebSocketOptions`, `CometBftGrpcOptions`
+- **Exceptions** — `CometBftClientException`, `CometBftRestException`, `CometBftWebSocketException`, `CometBftGrpcException`
 
 ## Usage
 

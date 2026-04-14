@@ -17,7 +17,7 @@ using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Extensions;
 
 var services = new ServiceCollection();
-services.AddCometBftGrpc(o => o.Host = "localhost:26657");
+services.AddCometBftGrpc(o => o.BaseUrl = "http://localhost:9090");
 var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<ICometBftGrpcClient>();
 

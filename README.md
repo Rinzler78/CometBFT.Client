@@ -5,7 +5,7 @@
 [![Protocol](https://img.shields.io/badge/CometBFT-v0.38.9-blue)](https://github.com/cometbft/cometbft/releases/tag/v0.38.9)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Production-ready .NET 8 client library for [CometBFT](https://github.com/cometbft/cometbft) (formerly Tendermint), targeting protocol version **v0.38.9**.
+Production-ready .NET 10 client library for [CometBFT](https://github.com/cometbft/cometbft) (formerly Tendermint), targeting protocol version **v0.38.9**.
 
 Provides REST/JSON-RPC, WebSocket subscription, and gRPC transports with full dependency injection support.
 
@@ -73,11 +73,11 @@ services.AddCometBftWebSocket(options =>
 
 var wsClient = provider.GetRequiredService<ICometBftWebSocketClient>();
 
-wsClient.NewBlockReceived += (_, block) =>
-    Console.WriteLine($"New block: #{block.Height}");
+wsClient.NewBlockReceived += (_, args) =>
+    Console.WriteLine($"New block: #{args.Value.Height}");
 
-wsClient.TxExecuted += (_, tx) =>
-    Console.WriteLine($"Tx executed: {tx.Hash}");
+wsClient.TxExecuted += (_, args) =>
+    Console.WriteLine($"Tx executed: {args.Value.Hash}");
 
 await wsClient.ConnectAsync();
 await wsClient.SubscribeNewBlockAsync();

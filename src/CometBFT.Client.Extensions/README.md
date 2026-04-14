@@ -30,13 +30,13 @@ services.AddCometBftRest(options =>
 // Register WebSocket transport
 services.AddCometBftWebSocket(options =>
 {
-    options.Url = "ws://localhost:26657/websocket";
+    options.BaseUrl = "ws://localhost:26657/websocket";
 });
 
 // Register gRPC transport
 services.AddCometBftGrpc(options =>
 {
-    options.Host = "localhost:26657";
+    options.BaseUrl = "http://localhost:9090";
 });
 ```
 
