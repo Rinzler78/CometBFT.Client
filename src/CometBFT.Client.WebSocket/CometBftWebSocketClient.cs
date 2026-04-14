@@ -249,7 +249,7 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
         // Wait for the server's JSON-RPC acknowledgment {"jsonrpc":"2.0","id":<id>,"result":{}}.
         // This confirms the subscription is active before the caller begins waiting for events.
         using var ackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        ackCts.CancelAfter(TimeSpan.FromSeconds(10));
+        ackCts.CancelAfter(TimeSpan.FromSeconds(30));
         try
         {
             await tcs.Task.WaitAsync(ackCts.Token).ConfigureAwait(false);

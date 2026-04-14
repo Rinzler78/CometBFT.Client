@@ -53,8 +53,10 @@ internal sealed class WsEnvelope
     /// <summary>
     /// JSON-RPC request id echoed by the server.
     /// Positive for subscribe acks; zero for event notifications.
+    /// Some proxy nodes (e.g. Lava) encode the id as a JSON string — AllowReadingFromString handles both.
     /// </summary>
     [JsonPropertyName("id")]
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     public int Id { get; init; }
 
     [JsonPropertyName("result")]
