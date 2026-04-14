@@ -248,6 +248,9 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
         // Wait for the server's JSON-RPC acknowledgment {"jsonrpc":"2.0","id":<id>,"result":{}}.
         // This confirms the subscription is active before the caller begins waiting for events.
+        // A timeout is non-fatal: the subscribe request was sent and the subscription is likely
+        // active on the server — some proxy nodes (e.g. Lava) do not reliably forward ACKs
+        // when events are already flowing from prior subscriptions.
         using var ackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         ackCts.CancelAfter(TimeSpan.FromSeconds(30));
         try
@@ -257,8 +260,10 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             _pendingAcks.TryRemove(id, out _);
-            throw new CometBftWebSocketException(
-                $"Timeout waiting for server acknowledgment of subscribe query '{query}'.");
+            // Surface as an observable error without blocking the caller.
+            ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(
+                new CometBftWebSocketException(
+                    $"Subscribe ACK for query '{query}' not received within 30 s — subscription was sent and may still be active.")));
         }
     }
 
@@ -299,16 +304,20 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
                 return;
             }
 
-            // Detect subscribe acknowledgment: id > 0 and result has no data field.
-            // Example: {"jsonrpc":"2.0","id":1,"result":{}}
-            if (envelope.Id > 0 && envelope.Result?.Data is null)
+            // Complete any pending subscribe acknowledgment for this id.
+            // We check for a registered pending entry rather than "data is null" because some
+            // proxy nodes (e.g. Lava) bundle the ACK with the first event in a single message
+            // (id > 0, result.data present). Completing first then falling through handles both
+            // the clean-ACK case and the bundled-ACK+event case.
+            if (envelope.Id > 0 && _pendingAcks.TryRemove(envelope.Id, out var ackTcs))
             {
-                if (_pendingAcks.TryRemove(envelope.Id, out var ackTcs))
+                ackTcs.TrySetResult(true);
+                // Clean ACK (no data): nothing more to dispatch.
+                if (envelope.Result?.Data is null)
                 {
-                    ackTcs.TrySetResult(true);
+                    return;
                 }
-
-                return;
+                // Bundled ACK+event: fall through to dispatch the event data below.
             }
 
             switch (envelope.Result?.Data)

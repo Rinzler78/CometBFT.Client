@@ -260,14 +260,25 @@ public sealed class E2eTests
 
 internal static class EndpointConfiguration
 {
+    private const string DefaultRpcUrl = "https://cosmoshub.tendermintrpc.lava.build:443";
+    private const string DefaultWsUrl = "wss://cosmoshub.tendermintrpc.lava.build:443/websocket";
+    private const string DefaultGrpcUrl = "cosmoshub.grpc.lava.build";
+
     public static string Require(string variableName)
     {
         var value = Environment.GetEnvironmentVariable(variableName);
-        if (string.IsNullOrWhiteSpace(value))
+        if (!string.IsNullOrWhiteSpace(value))
         {
-            throw new Xunit.Sdk.XunitException($"{Xunit.v3.DynamicSkipToken.Value}Set {variableName} to enable this test.");
+            return value;
         }
 
-        return value;
+        return variableName switch
+        {
+            "COMETBFT_RPC_URL" => DefaultRpcUrl,
+            "COMETBFT_WS_URL" => DefaultWsUrl,
+            "COMETBFT_GRPC_URL" => DefaultGrpcUrl,
+            _ => throw new Xunit.Sdk.XunitException(
+                $"{Xunit.v3.DynamicSkipToken.Value}Set {variableName} to enable this test.")
+        };
     }
 }
