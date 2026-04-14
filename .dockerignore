@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+coverage/
+TestResults/
+artifacts/
+.worktrees/
+.git/
+.grok/

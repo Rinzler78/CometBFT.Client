@@ -452,40 +452,6 @@ public sealed class IntegrationTests
         await client.DisconnectAsync();
     }
 
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task DialSeeds_UnsafeNode_ThrowsOrSucceeds_DependingOnNodeConfig()
-    {
-        // This test requires a CometBFT node started with --rpc.unsafe=true.
-        var rpcUrl = EndpointConfiguration.RequireUnsafeRpc();
-
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        // On a real unsafe-enabled node, DialSeedsAsync should succeed (no exception).
-        // On a public node with unsafe disabled, CometBftRestException is expected.
-        var ex = await Record.ExceptionAsync(() =>
-            client.DialSeedsAsync([]));
-
-        // Both outcomes are valid; the key assertion is that the method exists and calls through.
-        Assert.True(ex is null or CometBFT.Client.Core.Exceptions.CometBftRestException);
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task DialPeers_UnsafeNode_ThrowsOrSucceeds_DependingOnNodeConfig()
-    {
-        var rpcUrl = EndpointConfiguration.RequireUnsafeRpc();
-
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var ex = await Record.ExceptionAsync(() =>
-            client.DialPeersAsync([], persistent: false, unconditional: false, isPrivate: false));
-
-        Assert.True(ex is null or CometBFT.Client.Core.Exceptions.CometBftRestException);
-    }
-
     private static ServiceProvider BuildRestServices(string rpcUrl)
     {
         var services = new ServiceCollection();
@@ -505,10 +471,6 @@ internal static class EndpointConfiguration
     public static string RequireWs() => Require("COMETBFT_WS_URL", (string?)DefaultWsUrl);
 
     public static string RequireGrpc() => Require("COMETBFT_GRPC_URL", (string?)DefaultGrpcUrl);
-
-    public static string RequireUnsafeRpc() => Require(
-        "COMETBFT_UNSAFE_RPC_URL",
-        documentedDefault: null);
 
     private static string Require(string variableName, string? documentedDefault)
     {

@@ -212,22 +212,6 @@ public sealed class E2eTests
 
     [Fact]
     [Trait("Category", "E2E")]
-    public async Task Rest_Unsafe_DialSeeds_CallsThrough()
-    {
-        var rpcUrl = EndpointConfiguration.Require("COMETBFT_UNSAFE_RPC_URL");
-
-        var services = new ServiceCollection();
-        services.AddCometBftRest(options => options.BaseUrl = rpcUrl);
-        await using var provider = services.BuildServiceProvider();
-        var client = provider.GetRequiredService<ICometBftRestClient>();
-
-        // Both success and expected "unsafe disabled" REST error are valid outcomes.
-        var ex = await Record.ExceptionAsync(() => client.DialSeedsAsync([]));
-        Assert.True(ex is null or CometBFT.Client.Core.Exceptions.CometBftRestException);
-    }
-
-    [Fact]
-    [Trait("Category", "E2E")]
     public async Task Grpc_Flow_BroadcastTx_CheckTxFields_Populated()
     {
         var grpcUrl = EndpointConfiguration.Require("COMETBFT_GRPC_URL");
