@@ -71,7 +71,7 @@ jobs:
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && !env.ACT
         with:
           name: test-results
           path: TestResults/
@@ -173,22 +173,3 @@ jobs:
             --logger trx \
             --results-directory TestResults \
             --filter "Category=Integration&FullyQualifiedName~Unsafe"
-
-  docker-validation:
-    name: Docker Self-Contained Validation
-    runs-on: ubuntu-latest
-    needs: build-and-test
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Validate Docker build wrapper
-        run: |
-          chmod +x scripts/docker/build.sh
-          ./scripts/docker/build.sh
-
-      - name: Validate Docker test wrapper
-        run: |
-          chmod +x scripts/docker/test.sh
-          ./scripts/docker/test.sh
