@@ -1,9 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>Dependency injection extensions for CometBFT/Tendermint clients. Protocol version v0.38.9.</Description>
-    <PackageTags>tendermint;cometbft;blockchain;di;dependency-injection;extensions</PackageTags>
+    <IsPackable>true</IsPackable>
+    <PackageId>Rinzler78.CometBFT.Client</PackageId>
     <Version>0.1.0</Version>
+    <Description>Async .NET 10 client library for CometBFT — REST, WebSocket and gRPC transports with full source-generated JSON serialization and DI extensions.</Description>
+    <PackageTags>cometbft;blockchain;cosmos;grpc;rest;websocket;dotnet</PackageTags>
+    <PackageProjectUrl>https://github.com/Rinzler78/CometBFT.Client</PackageProjectUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +26,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.5" />
     <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.5" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.5" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>

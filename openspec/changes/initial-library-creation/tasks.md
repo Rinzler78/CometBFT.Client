@@ -4,14 +4,14 @@ Protocol source: https://github.com/cometbft/cometbft (latest stable release)
 
 ---
 
-> **⚠️ RÈGLE ABSOLUE : compléter la Phase 0 intégralement avant d'écrire la moindre ligne de code C#.**
-> Le repo, les branches, les hooks et le CI squelette doivent être en place en premier.
-> Tout commit de code effectué avant la completion de la Phase 0 est invalide.
+> **⚠️ ABSOLUTE RULE: complete Phase 0 in full before writing any C# code.**
+> The repository, branches, hooks and skeleton CI must be in place first.
+> Any code commit made before Phase 0 is complete is invalid.
 
-> **⚠️ RÈGLE ABSOLUE : README.md et la documentation sont indispensables avant tout commit de code.**
-> `README.md` (stub minimal) et `CHANGELOG.md` doivent exister dès le premier commit de code.
-> Tout `public` type ou membre sans XML doc génère une erreur de build (`TreatWarningsAsErrors=true`).
-> Aucun commit ne peut introduire de code public sans la documentation correspondante (XML doc + README mis à jour si nécessaire).
+> **⚠️ ABSOLUTE RULE: README.md and documentation are mandatory before any code commit.**
+> `README.md` (minimal stub) and `CHANGELOG.md` must exist from the first code commit.
+> Any `public` type or member without XML doc generates a build error (`TreatWarningsAsErrors=true`).
+> No commit may introduce public code without the corresponding documentation (XML doc + README updated if necessary).
 
 ---
 
@@ -30,40 +30,40 @@ Current status: the bootstrap phases are materially complete and the repository 
 - **Docker hardening kept visible**: self-contained Docker wrappers without bind mounts remain a valid follow-up expectation from the original feature branch, but are not claimed as implemented until the scripts actually move away from the current bind-mount model.
 - **gRPC completeness gap made explicit**: for CometBFT `v0.38.9`, the public gRPC surface centers on `BroadcastAPI` (`Ping`, `BroadcastTx`). The remaining work is protocol-parity work: vendored proto alignment with upstream, full response-shape mapping, and matching tests/demo/docs.
 
-## Phase 0 — Repo, Git Flow et Hooks (PREREQUIS — AVANT TOUT CODE)
+## Phase 0 — Repo, Git Flow and Hooks (PREREQUISITE — BEFORE ANY CODE)
 
-### 0.1 Création du repo
-- [x] 0.1.1 Créer le dossier `~/Projects/CometBFT.Client/`
-- [x] 0.1.2 `git init -b master` — **la branche principale est `master`, pas `main`**
-- [x] 0.1.3 Vérifier : `git branch` doit afficher `* master` (pas `main`)
-- [x] 0.1.4 Créer `.gitignore` (.NET standard + artifacts NuGet + coverage/ + `.worktrees/`)
-- [x] 0.1.5 Créer le repo GitHub `Rinzler78/CometBFT.Client` (public) — définir la branche par défaut sur `master` dans Settings → Branches
+### 0.1 Repository creation
+- [x] 0.1.1 Create the `~/Projects/CometBFT.Client/` directory
+- [x] 0.1.2 `git init -b master` — **the main branch is `master`, not `main`**
+- [x] 0.1.3 Verify: `git branch` must display `* master` (not `main`)
+- [x] 0.1.4 Create `.gitignore` (.NET standard + NuGet artifacts + coverage/ + `.worktrees/`)
+- [x] 0.1.5 Create the GitHub repository `Rinzler78/CometBFT.Client` (public) — set the default branch to `master` in Settings → Branches
 - [x] 0.1.6 `git remote add origin https://github.com/Rinzler78/CometBFT.Client.git`
-- [x] 0.1.7 Commit initial : `chore: initial repository setup`
-- [x] 0.1.8 Push sur `master` : `git push -u origin master`
+- [x] 0.1.7 Initial commit: `chore: initial repository setup`
+- [x] 0.1.8 Push to `master`: `git push -u origin master`
 
 ### 0.2 Worktrees
-- [x] 0.2.1 Créer le dossier `.worktrees/` à la racine du repo — **tous les worktrees git doivent être créés dans ce dossier**
-- [x] 0.2.2 Le dossier `.worktrees/` est déjà dans `.gitignore` (cf. 0.1.4)
-- [x] 0.2.3 Convention de nommage : `git worktree add .worktrees/<branch-name> <branch-name>`
-- [x] 0.2.4 Ne jamais créer de worktree en dehors de `.worktrees/`
+- [x] 0.2.1 Create the `.worktrees/` directory at the repository root — **all git worktrees must be created in this directory**
+- [x] 0.2.2 The `.worktrees/` directory is already in `.gitignore` (see 0.1.4)
+- [x] 0.2.3 Naming convention: `git worktree add .worktrees/<branch-name> <branch-name>`
+- [x] 0.2.4 Never create a worktree outside `.worktrees/`
 
 ### 0.3 Git Flow
-- [x] 0.3.1 Créer `.gitflow` : master/develop/feature/release/hotfix/bugfix, versiontag = v
-- [x] 0.3.2 Exécuter `git flow init -d` — crée la branche `develop`
-- [x] 0.3.3 Push `develop` sur origin
-- [x] 0.3.4 Commit : `chore: configure git flow`
+- [x] 0.3.1 Create `.gitflow`: master/develop/feature/release/hotfix/bugfix, versiontag = v
+- [x] 0.3.2 Run `git flow init -d` — creates the `develop` branch
+- [x] 0.3.3 Push `develop` to origin
+- [x] 0.3.4 Commit: `chore: configure git flow`
 
-### 0.4 Hooks git
-- [x] 0.4.1 Créer `.pre-commit-config.yaml` (dotnet format + detect-secrets)
-- [x] 0.4.2 Créer `.git/hooks/commit-msg` — conventional commits
-- [x] 0.4.3 Créer `.git/hooks/pre-push` — bloquer push direct sur `master` et `develop`
-- [x] 0.4.4 Rendre les hooks exécutables
-- [x] 0.4.5 `pre-commit install` pour installer les hooks pre-commit
-- [x] 0.4.6 Commit : `chore: add git hooks and pre-commit config`
-- [x] 0.4.7 Étendre `.git/hooks/pre-push` — exécuter le flux de tests du repo et vérifier la couverture **ligne** `>= 90 %` globale et `>= 90 %` par fichier avant tout push :
+### 0.4 Git hooks
+- [x] 0.4.1 Create `.pre-commit-config.yaml` (dotnet format + detect-secrets)
+- [x] 0.4.2 Create `.git/hooks/commit-msg` — conventional commits
+- [x] 0.4.3 Create `.git/hooks/pre-push` — block direct push to `master` and `develop`
+- [x] 0.4.4 Make hooks executable
+- [x] 0.4.5 `pre-commit install` to install pre-commit hooks
+- [x] 0.4.6 Commit: `chore: add git hooks and pre-commit config`
+- [x] 0.4.7 Extend `.git/hooks/pre-push` — run the repo test suite and verify **line** coverage `>= 90 %` globally and `>= 90 %` per file before any push:
   ```bash
-  # Dans .git/hooks/pre-push (ajout après le bloc protection master/develop)
+  # In .git/hooks/pre-push (added after the master/develop protection block)
   echo "Running coverage gate before push..."
   ./scripts/test.sh
   if [ $? -ne 0 ]; then
@@ -71,11 +71,11 @@ Current status: the bootstrap phases are materially complete and the repository 
     exit 1
   fi
   ```
-- [x] 0.4.8 Ajouter un hook de détection de langue — **anglais uniquement** dans l'intégralité du repo :
-  > **Périmètre** : fichiers source C# (`.cs`), documentation XML, fichiers Markdown (`.md`), scripts bash (`.sh`), YAML (`.yml`, `.yaml`), messages de commit.
-  > **Règle** : tout texte humainement lisible (commentaires, XML doc `<summary>`, noms de variables, specs, README, CHANGELOG, messages de commit) doit être rédigé en anglais. Aucune autre langue n'est autorisée.
-  - Outil : `cspell` (Code Spell Checker — `streetsidesoftware/cspell-cli`)
-  - Créer `.cspell.json` à la racine avec :
+- [x] 0.4.8 Add a language detection hook — **English only** across the entire repository:
+  > **Scope**: C# source files (`.cs`), XML documentation, Markdown files (`.md`), bash scripts (`.sh`), YAML (`.yml`, `.yaml`), commit messages.
+  > **Rule**: all human-readable text (comments, XML doc `<summary>`, variable names, specs, README, CHANGELOG, commit messages) must be written in English. No other language is permitted.
+  - Tool: `cspell` (Code Spell Checker — `streetsidesoftware/cspell-cli`)
+  - Create `.cspell.json` at the root with:
     ```json
     {
       "version": "0.2",
@@ -107,7 +107,7 @@ Current status: the bootstrap phases are materially complete and the repository 
       ]
     }
     ```
-  - Ajouter dans `.pre-commit-config.yaml` la entrée suivante :
+  - Add the following entry to `.pre-commit-config.yaml`:
     ```yaml
     - repo: https://github.com/streetsidesoftware/cspell-cli
       rev: v8.19.4
@@ -116,34 +116,52 @@ Current status: the bootstrap phases are materially complete and the repository 
           name: English-only language check
           args: [--no-progress, --no-summary, --show-context]
     ```
-  - Vérifier que le hook bloque un commit contenant un mot non-anglais dans un commentaire C# ou un fichier Markdown
-  - Toute exception technique légitime (acronyme, nom propre de protocole, terme de domaine) doit être ajoutée explicitement dans la section `words` de `.cspell.json` avec un commentaire justificatif dans la PR
-  - Les faux positifs récurrents sont gérés dans `.cspell.json` (jamais via `// cspell:disable` sans justification inline)
-- [x] 0.4.9 Ajouter un step CI dans `.github/workflows/ci.yml` pour exécuter `cspell` sur l'ensemble du repo — le CI échoue si un mot non-anglais est détecté dans un fichier de production ou de documentation
+  - Verify that the hook blocks a commit containing a non-English word in a C# comment or a Markdown file
+  - Every legitimate technical exception (acronym, protocol proper name, domain term) must be added explicitly in the `words` section of `.cspell.json` with a justification comment in the PR
+  - Recurring false positives are managed in `.cspell.json` (never via `// cspell:disable` without an inline justification)
+- [x] 0.4.9 Add a CI step in `.github/workflows/ci.yml` to run `cspell` across the entire repository — CI fails if a non-English word is detected in a production or documentation file
 
-### 0.5 Protection des branches GitHub
-- [x] 0.5.1 Créer `.github/branch-protection.md`
-- [x] 0.5.2 Configurer les règles sur GitHub (Settings → Branches → Branch protection rules) ← via `gh api`
-- [x] 0.5.3 Commit : `docs: add branch protection documentation`
+### 0.5 GitHub branch protection
+- [x] 0.5.1 Create `.github/branch-protection.md`
+- [x] 0.5.2 Configure rules on GitHub (Settings → Branches → Branch protection rules) ← via `gh api`
+- [x] 0.5.3 Commit: `docs: add branch protection documentation`
 
-### 0.6 Feature branch de développement
-- [x] 0.6.1 Créer la branche de travail : `feature/initial-library-creation`
-- [x] 0.6.2 **Vérifier que tous les hooks fonctionnent** (dotnet format + detect-secrets passent)
-- [x] 0.6.3 **Tout le développement ultérieur (Phases 1–9) se fait sur cette branche ou des branches feature/**
+### 0.6 Development feature branch
+- [x] 0.6.1 Create the working branch: `feature/initial-library-creation`
+- [x] 0.6.2 **Verify that all hooks are working** (dotnet format + detect-secrets pass)
+- [x] 0.6.3 **All subsequent development (Phases 1–9) takes place on this branch or feature/** branches
 
-> **Phase 0 terminée. Le développement peut commencer.**
+> **Phase 0 complete. Development can begin.**
+
+### 0.7 Development workflow conventions
+
+- [x] 0.7.1 **PR merge strategy**: squash-merge into `develop`; merge commit (no squash) into `master`
+- [x] 0.7.2 **Release branch lifecycle**:
+  1. Create `release/vX.Y.Z` from `develop`
+  2. Run full test suite (`./scripts/test.sh`) — must pass
+  3. Run `./scripts/publish.sh --dry-run` — must produce one `.nupkg`
+  4. Update `CHANGELOG.md` (move `[Unreleased]` → `[vX.Y.Z] - YYYY-MM-DD`)
+  5. Bump `<Version>` in `Directory.Build.props`
+  6. PR `release/vX.Y.Z` → `master`; require CI green + 1 approving review
+  7. Merge to `master`; tag `vX.Y.Z`; CI `publish.yml` triggers
+  8. Back-merge `master` → `develop`
+- [x] 0.7.3 **SemVer bump rules**:
+  - **Major**: breaking public API change OR protocol major version upgrade (e.g., CometBFT v0.38 → v1.x)
+  - **Minor**: new endpoint/transport/DI extension added (backward-compatible)
+  - **Patch**: bug fix, dependency update, documentation only
+- [x] 0.7.4 **PR title** must follow conventional commit format: `feat(rest): add GetBlockResultsAsync`
 
 ---
 
 ## Phase 1 — Scaffold
 
 ### 1.1 Repo & solution
-- [x] 1.1.1 Créer `CometBFT.Client.sln` — contient tous les projets (src + tests + samples)
-- [x] 1.1.2 Créer `CometBFT.Client.src.slnf` — solution filter src/** + demos
-- [x] 1.1.3 Créer `CometBFT.Client.tests.slnf` — solution filter tests/**
-- [x] 1.1.4 Créer `global.json` (pin SDK .NET 10.0.100)
-- [x] 1.1.5 Créer `Directory.Build.props` — LangVersion, Nullable, TreatWarningsAsErrors, `<ProtocolVersion>` v0.38.9, net10.0
-- [x] 1.1.5b Vérifier que `Directory.Build.props` contient pour les projets src :
+- [x] 1.1.1 Create `CometBFT.Client.sln` — contains all projects (src + tests + samples)
+- [x] 1.1.2 Create `CometBFT.Client.src.slnf` — solution filter src/** + demos
+- [x] 1.1.3 Create `CometBFT.Client.tests.slnf` — solution filter tests/**
+- [x] 1.1.4 Create `global.json` (pin SDK .NET 10.0.100)
+- [x] 1.1.5 Create `Directory.Build.props` — LangVersion, Nullable, TreatWarningsAsErrors, `<ProtocolVersion>` v0.38.9, net10.0
+- [x] 1.1.5b Verify that `Directory.Build.props` contains for src projects:
   ```xml
   <Nullable>enable</Nullable>
   <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -153,87 +171,104 @@ Current status: the bootstrap phases are materially complete and the repository 
   <GenerateDocumentationFile>true</GenerateDocumentationFile>
   ```
 
-### 1.2 Config qualité
-- [x] 1.2.1 Créer `.editorconfig` (indent_size=4, charset=utf-8, end_of_line=lf)
-- [x] 1.2.2 Créer `.gitignore` (.NET standard)
-- [x] 1.2.3 `Directory.Build.props` section Tests (Coverlet, threshold 90 %)
-- [x] 1.2.3b Vérifier la stratégie de couverture dans `Directory.Build.props` et/ou scripts de validation :
+> **Note**: add the following to the `Directory.Build.props` default property group for src projects:
+> ```xml
+> <!-- Only Extensions is published as NuGet -->
+> <IsPackable>false</IsPackable>
+> <!-- Override in CometBFT.Client.Extensions.csproj: <IsPackable>true</IsPackable> -->
+> ```
+
+- [x] 1.1.5c Verify the following additional coding conventions are enforced in `Directory.Build.props` and documented in `CONTRIBUTING.md`:
+  - `ILogger<T>` injected via DI on all client classes — `Console.WriteLine` is forbidden in library code
+  - `ConfigureAwait(false)` on all `await` expressions inside library code (not required in test or sample projects)
+  - All public client types implement `IAsyncDisposable`; `Dispose()` calls `DisposeAsync().AsTask().GetAwaiter().GetResult()` as sync fallback
+  - Polly default policy values: 3 retries, exponential backoff (`TimeSpan.FromMilliseconds(100) * Math.Pow(2, retryAttempt)`), circuit breaker (5 failures within 30 s, 1 min open duration)
+  - `CancellationToken` propagated to all internal async helpers — not just public surface
+  - `decimal` type for all monetary/price/amount fields (never `double` or `float`)
+
+### 1.2 Quality configuration
+- [x] 1.2.1 Create `.editorconfig` (indent_size=4, charset=utf-8, end_of_line=lf)
+- [x] 1.2.2 Create `.gitignore` (.NET standard)
+- [x] 1.2.3 `Directory.Build.props` Tests section (Coverlet, threshold 90 %)
+- [x] 1.2.3b Verify the coverage strategy in `Directory.Build.props` and/or validation scripts:
   ```xml
-  <!-- Appliqué à tous les projets Tests/* -->
+  <!-- Applied to all Tests/* projects -->
   <Threshold>90</Threshold>
   ```
-  > La règle d'acceptation effective est : `>= 90 %` global ligne et `>= 90 %` par fichier ligne.
+  > The effective acceptance rule is: `>= 90 %` global line and `>= 90 %` per file line.
 
-### 1.3 Projets source
+### 1.3 Source projects
 - [x] 1.3.1 `src/CometBFT.Client.Core/`
 - [x] 1.3.2 `src/CometBFT.Client.Rest/`
 - [x] 1.3.3 `src/CometBFT.Client.Grpc/`
 - [x] 1.3.4 `src/CometBFT.Client.WebSocket/`
 - [x] 1.3.5 `src/CometBFT.Client.Extensions/`
 
-### 1.4 Projets test
+> **Single NuGet package rule**: Only `src/CometBFT.Client.Extensions/` is packable — it produces the single published package `Rinzler78.CometBFT.Client`. All other src projects (`Core`, `Rest`, `Grpc`, `WebSocket`) set `<IsPackable>false</IsPackable>` and are bundled as internal project references. Users install one package only.
+
+### 1.4 Test projects
 - [x] 1.4.1 `tests/CometBFT.Client.Core.Tests/`
 - [x] 1.4.2 `tests/CometBFT.Client.Rest.Tests/` (WireMock.Net)
 - [x] 1.4.3 `tests/CometBFT.Client.Grpc.Tests/` (Grpc.AspNetCore)
 - [x] 1.4.4 `tests/CometBFT.Client.WebSocket.Tests/` (NSubstitute)
 - [x] 1.4.5 `tests/CometBFT.Client.Integration.Tests/`
-- [x] 1.4.6 Créer `tests/CometBFT.Client.E2E.Tests/` — tests de bout en bout (démo start-to-finish contre testnet public, `[Trait("Category","E2E")]`)
+- [x] 1.4.6 Create `tests/CometBFT.Client.E2E.Tests/` — end-to-end tests (start-to-finish demo against public testnet, `[Trait("Category","E2E")]`)
 
-### 1.5 Projets annexes
-- [x] 1.5.1 Créer `samples/CometBFT.Client.Demo.Rest/`
-- [x] 1.5.2 Créer `samples/CometBFT.Client.Demo.WebSocket/`
-- [x] 1.5.3 Créer `samples/CometBFT.Client.Demo.Grpc/`
-- [x] 1.5.4 Créer `docs/` (placeholder DocFX config)
-- [x] 1.5.5 Ajouter tous les projets au `.sln`, mettre à jour `.src.slnf` et `.tests.slnf`
-- [x] 1.5.6 Créer `README.md` stub minimal (titre + description + badge CI + section Installation placeholder) — **obligatoire avant tout commit de code**
-- [x] 1.5.7 Créer `CHANGELOG.md` stub minimal (format Keep-a-Changelog, version `[Unreleased]`) — **obligatoire avant tout commit de code**
+### 1.5 Ancillary projects
+- [x] 1.5.1 Create `samples/CometBFT.Client.Demo.Rest/`
+- [x] 1.5.2 Create `samples/CometBFT.Client.Demo.WebSocket/`
+- [x] 1.5.3 Create `samples/CometBFT.Client.Demo.Grpc/`
+- [x] 1.5.4 Create `docs/` (placeholder DocFX config)
+- [x] 1.5.5 Add all projects to `.sln`, update `.src.slnf` and `.tests.slnf`
+- [x] 1.5.6 Create minimal `README.md` stub (title + description + CI badge + Installation placeholder section) — **mandatory before any code commit**
+- [x] 1.5.7 Create minimal `CHANGELOG.md` stub (Keep-a-Changelog format, version `[Unreleased]`) — **mandatory before any code commit**
 
 ---
 
 ## Phase 2 — Git Flow
 
 ### 2.1 Configuration
-- [x] 2.1.1 Créer `.gitflow`
-- [x] 2.1.2 Exécuter `git flow init -d` pour initialiser les branches
+- [x] 2.1.1 Create `.gitflow`
+- [x] 2.1.2 Run `git flow init -d` to initialize the branches
 
-### 2.2 Hooks pre-commit
-- [x] 2.2.1 Créer `.pre-commit-config.yaml`
+### 2.2 Pre-commit hooks
+- [x] 2.2.1 Create `.pre-commit-config.yaml`
 - [x] 2.2.2 Hook `commit-msg` — conventional commits
-- [x] 2.2.3 Hook `pre-push` — bloquer push direct sur `master` et `develop`
+- [x] 2.2.3 Hook `pre-push` — block direct push to `master` and `develop`
 
-### 2.3 Documentation protection
-- [x] 2.3.1 Créer `.github/branch-protection.md`
+### 2.3 Protection documentation
+- [x] 2.3.1 Create `.github/branch-protection.md`
 
 ---
 
 ## Phase 3 — Scripts bash
 
 ### 3.1 build.sh
-- [x] 3.1.1 Créer `scripts/build.sh`
+- [x] 3.1.1 Create `scripts/build.sh`
 
 ### 3.2 test.sh
-- [x] 3.2.1 Créer `scripts/test.sh`
+- [x] 3.2.1 Create `scripts/test.sh`
 
 ### 3.3 publish.sh
-- [x] 3.3.1 Créer `scripts/publish.sh`
+- [x] 3.3.1 Create `scripts/publish.sh`
 
-### 3.4 Scripts Docker — `scripts/docker/`
-- [x] 3.4.1 Créer `scripts/docker/Dockerfile` (FROM mcr.microsoft.com/dotnet/sdk:10.0)
-- [x] 3.4.2 Créer `scripts/docker/docker-compose.yml`
-- [x] 3.4.3 Créer `scripts/docker/build.sh` — délègue à `./scripts/build.sh` dans le conteneur
-- [x] 3.4.4 Créer `scripts/docker/test.sh` — délègue à `./scripts/test.sh` dans le conteneur
-- [x] 3.4.5 Créer `scripts/docker/publish.sh` — `NUGET_API_KEY` via env, jamais en argument
-- [x] 3.4.6 `scripts/publish.sh` lit `NUGET_API_KEY` depuis l'env si `--api-key` n'est pas passé
+### 3.4 Docker scripts — `scripts/docker/`
+- [x] 3.4.1 Create `scripts/docker/Dockerfile` (FROM mcr.microsoft.com/dotnet/sdk:10.0)
+- [x] 3.4.2 Create `scripts/docker/docker-compose.yml`
+- [x] 3.4.3 Create `scripts/docker/build.sh` — delegates to `./scripts/build.sh` inside the container
+- [x] 3.4.4 Create `scripts/docker/test.sh` — delegates to `./scripts/test.sh` inside the container
+- [x] 3.4.5 Create `scripts/docker/publish.sh` — `NUGET_API_KEY` via env, never as an argument
+- [x] 3.4.6 `scripts/publish.sh` reads `NUGET_API_KEY` from the env if `--api-key` is not passed
 - [x] 3.4.7 `chmod +x scripts/docker/*.sh`
-- [x] 3.4.8 Documenter dans README : usage local vs Docker, passage de `NUGET_API_KEY`
-- [x] 3.4.9 Durcir `scripts/docker/build.sh` pour exécuter le build dans une image auto-suffisante sans bind mount, tout en conservant la délégation vers `./scripts/build.sh`
-- [x] 3.4.10 Durcir `scripts/docker/test.sh` pour exécuter les tests dans une image auto-suffisante sans bind mount et récupérer proprement les artefacts de couverture
-- [x] 3.4.11 Durcir `scripts/docker/publish.sh` pour exécuter `./scripts/publish.sh` dans une image auto-suffisante sans bind mount en continuant à injecter `NUGET_API_KEY` via l'environnement
-- [x] 3.4.12 Aligner `scripts/docker/Dockerfile` et `scripts/docker/docker-compose.yml` sur ce mode auto-suffisant sans bind mount
+- [x] 3.4.8 Document in README: local vs Docker usage, passing `NUGET_API_KEY`
+- [x] 3.4.9 Harden `scripts/docker/build.sh` to run the build in a self-contained image without bind mounts, while preserving delegation to `./scripts/build.sh`
+- [x] 3.4.10 Harden `scripts/docker/test.sh` to run tests in a self-contained image without bind mounts and cleanly retrieve coverage artifacts
+- [x] 3.4.11 Harden `scripts/docker/publish.sh` to run `./scripts/publish.sh` in a self-contained image without bind mounts while continuing to inject `NUGET_API_KEY` via environment
+- [x] 3.4.12 Align `scripts/docker/Dockerfile` and `scripts/docker/docker-compose.yml` to this self-contained mode without bind mounts
 
-### 3.5 Scripts Demo — local et Docker
+### 3.5 Demo scripts — local and Docker
 
-> **Principe** : chaque script local build + lance le programme de démo ciblé. Le script Docker délègue au script local dans le conteneur et forward les env vars d'endpoint.
+> **Principle**: each local script builds + runs the targeted demo program. The Docker script delegates to the local script inside the container and forwards endpoint env vars.
 
 Structure cible :
 ```
@@ -247,7 +282,7 @@ scripts/
     └── demo-grpc.sh
 ```
 
-- [x] 3.5.1 Créer `scripts/demo-rest.sh` (défaut testnet si env var absente) :
+- [x] 3.5.1 Create `scripts/demo-rest.sh` (testnet default if env var absent):
   ```bash
   #!/usr/bin/env bash
   set -euo pipefail
@@ -257,7 +292,7 @@ scripts/
     --configuration Release "$@"
   ```
 
-- [x] 3.5.2 Créer `scripts/demo-ws.sh` (défaut testnet si env var absente) :
+- [x] 3.5.2 Create `scripts/demo-ws.sh` (testnet default if env var absent):
   ```bash
   #!/usr/bin/env bash
   set -euo pipefail
@@ -267,7 +302,7 @@ scripts/
     --configuration Release "$@"
   ```
 
-- [x] 3.5.3 Créer `scripts/demo-grpc.sh` (défaut testnet si env var absente) :
+- [x] 3.5.3 Create `scripts/demo-grpc.sh` (testnet default if env var absent):
   ```bash
   #!/usr/bin/env bash
   set -euo pipefail
@@ -277,7 +312,7 @@ scripts/
     --configuration Release "$@"
   ```
 
-- [x] 3.5.4 Créer `scripts/docker/demo-rest.sh` — forward `COMETBFT_RPC_URL` :
+- [x] 3.5.4 Create `scripts/docker/demo-rest.sh` — forward `COMETBFT_RPC_URL`:
   ```bash
   #!/usr/bin/env bash
   set -euo pipefail
@@ -289,7 +324,7 @@ scripts/
     ./scripts/demo-rest.sh "$@"
   ```
 
-- [x] 3.5.5 Créer `scripts/docker/demo-ws.sh` — forward `COMETBFT_WS_URL` :
+- [x] 3.5.5 Create `scripts/docker/demo-ws.sh` — forward `COMETBFT_WS_URL`:
   ```bash
   #!/usr/bin/env bash
   set -euo pipefail
@@ -301,7 +336,7 @@ scripts/
     ./scripts/demo-ws.sh "$@"
   ```
 
-- [x] 3.5.6 Créer `scripts/docker/demo-grpc.sh` — forward `COMETBFT_GRPC_URL` :
+- [x] 3.5.6 Create `scripts/docker/demo-grpc.sh` — forward `COMETBFT_GRPC_URL`:
   ```bash
   #!/usr/bin/env bash
   set -euo pipefail
@@ -314,15 +349,15 @@ scripts/
   ```
 
 - [x] 3.5.7 `chmod +x scripts/demo-*.sh scripts/docker/demo-*.sh`
-- [x] 3.5.8 Documenter dans README : comment lancer chaque démo en local et en Docker
-- [x] 3.5.9 **Smoke test zero-config** : exécuter `./scripts/demo-rest.sh`, `./scripts/demo-ws.sh`, `./scripts/demo-grpc.sh` **sans aucune env var ni arg** — vérifier que chaque script démarre et se connecte au testnet par défaut sans erreur d'argument manquant
-- [x] 3.5.10 Durcir `scripts/docker/demo-rest.sh`, `scripts/docker/demo-ws.sh` et `scripts/docker/demo-grpc.sh` pour déléguer aux scripts locaux dans une image auto-suffisante sans bind mount
+- [x] 3.5.8 Document in README: how to run each demo locally and in Docker
+- [x] 3.5.9 **Smoke test zero-config**: run `./scripts/demo-rest.sh`, `./scripts/demo-ws.sh`, `./scripts/demo-grpc.sh` **without any env var or arg** — verify that each script starts and connects to the default testnet without a missing-argument error
+- [x] 3.5.10 Harden `scripts/docker/demo-rest.sh`, `scripts/docker/demo-ws.sh` and `scripts/docker/demo-grpc.sh` to delegate to local scripts in a self-contained image without bind mounts
 
 ---
 
 ## Phase 4 — Domain Core
 
-### 4.1 Types immuables
+### 4.1 Immutable types
 - [x] 4.1.1 `Block.cs`
 - [x] 4.1.2 `BlockHeader.cs`
 - [x] 4.1.3 `TxResult.cs`
@@ -330,79 +365,79 @@ scripts/
 - [x] 4.1.5 `NodeInfo.cs`, `SyncInfo.cs`, `Validator.cs`
 - [x] 4.1.6 `BroadcastTxResult.cs`
 - [x] 4.1.7 `Vote.cs`
-- [x] 4.1.8 Auditer les concepts exposés sur plusieurs transports et consigner une matrice concept métier → type `Core.Domain` partagé → transports consommateurs
-- [x] 4.1.9 Supprimer toute divergence restante où plusieurs transports exposent des objets de domaine dupliqués ou incompatibles pour un même concept métier
+- [x] 4.1.8 Audit concepts exposed across multiple transports and record a matrix business concept → shared `Core.Domain` type → consumer transports
+- [x] 4.1.9 Remove any remaining divergence where multiple transports expose duplicate or incompatible domain objects for the same business concept
 
-### 4.2 Interfaces par service
+### 4.2 Per-service interfaces
 - [x] 4.2.1 `ICometBftRestClient.cs`
 - [x] 4.2.2 `IHealthService`, `IStatusService`, `IBlockService`, `ITxService`, `IValidatorService`, `IAbciService`
 - [x] 4.2.3 `ICometBftWebSocketClient.cs`
 - [x] 4.2.4 `ICometBftGrpcClient.cs`
-- [x] 4.2.5 Définir et documenter les capacités transverses partagées entre transports avec des signatures compatibles quand la sémantique protocolaire est la même
-- [x] 4.2.6 Aligner `ICometBftRestClient`, `ICometBftWebSocketClient` et `ICometBftGrpcClient` sur les mêmes objets `Core.Domain` pour tout concept métier partagé (block, header, tx result, validator set, broadcast result, etc.)
-- [x] 4.2.7 Documenter explicitement les écarts d'interface qui restent transport-spécifiques et justifier pourquoi ils ne peuvent pas converger davantage
+- [x] 4.2.5 Define and document cross-cutting capabilities shared across transports with compatible signatures when the protocol semantics are the same
+- [x] 4.2.6 Align `ICometBftRestClient`, `ICometBftWebSocketClient` and `ICometBftGrpcClient` on the same `Core.Domain` objects for every shared business concept (block, header, tx result, validator set, broadcast result, etc.)
+- [x] 4.2.7 Explicitly document interface gaps that remain transport-specific and justify why they cannot converge further
 
-### 4.3 Options et exceptions
+### 4.3 Options and exceptions
 - [x] 4.3.1 `CometBftRestOptions`, `CometBftWebSocketOptions`, `CometBftGrpcOptions`
 - [x] 4.3.2 `CometBftClientException`, `CometBftRestException`, `CometBftWebSocketException`, `CometBftGrpcException`
 
 ---
 
-## Phase 5 — Clients (tous endpoints officiels)
+## Phase 5 — Clients (all official endpoints)
 
-### 5.1 Client REST
+### 5.1 REST client
 - [x] 5.1.1 `GetHealthAsync`, `GetStatusAsync`
 - [x] 5.1.2 `GetBlockAsync`, `GetBlockByHashAsync`, `GetBlockResultsAsync`
 - [x] 5.1.3 `GetValidatorsAsync`
 - [x] 5.1.4 `GetTxAsync`, `SearchTxAsync`
 - [x] 5.1.5 `BroadcastTxSyncAsync`, `BroadcastTxAsync`, `BroadcastTxCommitAsync` (POST JSON-RPC)
 - [x] 5.1.6 `GetAbciInfoAsync`, `AbciQueryAsync`
-- [x] 5.1.7 Polly : retry exponentiel (3 tentatives) + circuit breaker + jitter
-- [x] 5.1.8 Ajouter les endpoints REST publics manquants : `check_tx`, `net_info`, `blockchain`, `header`, `header_by_hash`, `commit`
-- [x] 5.1.9 Ajouter les endpoints REST publics manquants : `genesis`, `genesis_chunked`, `dump_consensus_state`, `consensus_state`, `consensus_params`
-- [x] 5.1.10 Ajouter les endpoints REST publics manquants : `unconfirmed_txs`, `num_unconfirmed_txs`, `block_search`, `broadcast_evidence`
-- [x] 5.1.11 Ajouter les tests unitaires et d'intégration correspondant à chaque endpoint REST ajouté
-- [x] 5.1.12 Auditer l'OpenAPI CometBFT ciblée et consigner une matrice complète endpoint REST public → méthode .NET → tests unitaires/intégration/E2E → panneau ou usage de démo
-- [x] 5.1.13 Fermer tout delta REST restant révélé par cet audit et aligner README, OpenSpec et validation finale sur la matrice complète
-- [x] 5.1.14 Implémenter les endpoints REST `Unsafe` encore absents : `dial_seeds`, `dial_peers`
-- [x] 5.1.15 Ajouter les types, validations d'arguments et mappings nécessaires pour `dial_seeds` et `dial_peers`, y compris les options `persistent`, `unconditional` et `private`
+- [x] 5.1.7 Polly: exponential retry (3 attempts) + circuit breaker + jitter
+- [x] 5.1.8 Add missing public REST endpoints: `check_tx`, `net_info`, `blockchain`, `header`, `header_by_hash`, `commit`
+- [x] 5.1.9 Add missing public REST endpoints: `genesis`, `genesis_chunked`, `dump_consensus_state`, `consensus_state`, `consensus_params`
+- [x] 5.1.10 Add missing public REST endpoints: `unconfirmed_txs`, `num_unconfirmed_txs`, `block_search`, `broadcast_evidence`
+- [x] 5.1.11 Add unit and integration tests corresponding to each added REST endpoint
+- [x] 5.1.12 Audit the targeted CometBFT OpenAPI and record a complete matrix: public REST endpoint → .NET method → unit/integration/E2E tests → dashboard panel or demo usage
+- [x] 5.1.13 Close any remaining REST delta revealed by this audit and align README, OpenSpec, and final validation on the complete matrix
+- [x] 5.1.14 Implement the still-missing `Unsafe` REST endpoints: `dial_seeds`, `dial_peers`
+- [x] 5.1.15 Add the types, argument validations, and mappings required for `dial_seeds` and `dial_peers`, including the `persistent`, `unconditional`, and `private` options
 
-### 5.2 Client WebSocket
-- [x] 5.2.1 `CometBftWebSocketClient` avec `Websocket.Client 5.0.0`
-- [x] 5.2.2 Souscription `NewBlock`, `NewBlockHeader`
-- [x] 5.2.3 Souscription `Tx`, `Vote`, `ValidatorSetUpdates`
-- [x] 5.2.4 Reconnexion automatique
-- [x] 5.2.5 Auditer l'intégralité des événements, subscriptions et appels WebSocket publics du protocole ciblé et consigner la matrice événement/appel → API .NET → tests → démo
-- [x] 5.2.6 Étendre `ICometBftWebSocketClient` et `CometBftWebSocketClient` pour couvrir tout appel ou abonnement public manquant révélé par cet audit
-- [x] 5.2.7 Ajouter ou compléter les mappings de domaine et exceptions nécessaires pour toute capacité WebSocket publique manquante
+### 5.2 WebSocket client
+- [x] 5.2.1 `CometBftWebSocketClient` with `Websocket.Client 5.0.0`
+- [x] 5.2.2 `NewBlock`, `NewBlockHeader` subscription
+- [x] 5.2.3 `Tx`, `Vote`, `ValidatorSetUpdates` subscription
+- [x] 5.2.4 Automatic reconnection
+- [x] 5.2.5 Audit all public WebSocket events, subscriptions, and calls of the targeted protocol and record the event/call → .NET API → tests → demo matrix
+- [x] 5.2.6 Extend `ICometBftWebSocketClient` and `CometBftWebSocketClient` to cover any missing public call or subscription revealed by this audit
+- [x] 5.2.7 Add or complete the domain mappings and exceptions required for any missing public WebSocket capability
 
-### 5.3 Client gRPC
-- [x] 5.3.1 Proto `cometbft/rpc/grpc/grpc.proto` téléchargé
-- [x] 5.3.2 Compilation proto via `Grpc.Tools`
-- [x] 5.3.3 `CometBftGrpcClient` : `PingAsync`, `BroadcastTxAsync`
-- [x] 5.3.4 Polly sur le channel gRPC
-- [x] 5.3.5 Auditer l'intégralité des services et méthodes gRPC publiques exposés par la release CometBFT ciblée et consigner la matrice source proto → API .NET attendue
-- [x] 5.3.6 Aligner le proto vendored local sur le proto amont exact de `v0.38.9` (`proto/cometbft/rpc/grpc/types.proto`), y compris `ResponseBroadcastTx.tx_result`
-- [x] 5.3.7 Étendre `ICometBftGrpcClient` si nécessaire pour refléter exactement la surface publique gRPC auditée, avec `CancellationToken` sur chaque méthode
-- [x] 5.3.8 Étendre `CometBftGrpcClient` et ses mappings de domaine pour représenter complètement `ResponseBroadcastTx` et toute autre réponse gRPC publique auditée
-- [x] 5.3.9 Ajouter ou compléter les records/options/exceptions nécessaires pour représenter proprement `check_tx`, `tx_result` et les autres shapes gRPC publics exposés
-- [x] 5.3.10 Ajouter les tests unitaires couvrant chaque méthode gRPC publique exposée, y compris la désérialisation complète des réponses et les chemins d'erreur typés
-- [x] 5.3.11 Ajouter les tests d'intégration live couvrant chaque méthode gRPC publique atteignable sur l'endpoint validé
-- [x] 5.3.12 Ajouter les tests E2E couvrant les flux gRPC publics réellement supportés par le client avec les réponses complètes attendues
+### 5.3 gRPC client
+- [x] 5.3.1 Proto `cometbft/rpc/grpc/grpc.proto` downloaded
+- [x] 5.3.2 Proto compilation via `Grpc.Tools`
+- [x] 5.3.3 `CometBftGrpcClient`: `PingAsync`, `BroadcastTxAsync`
+- [x] 5.3.4 Polly on the gRPC channel
+- [x] 5.3.5 Audit all public gRPC services and methods exposed by the targeted CometBFT release and record the proto source → expected .NET API matrix
+- [x] 5.3.6 Align the local vendored proto to the exact upstream proto of `v0.38.9` (`proto/cometbft/rpc/grpc/types.proto`), including `ResponseBroadcastTx.tx_result`
+- [x] 5.3.7 Extend `ICometBftGrpcClient` if needed to exactly reflect the audited public gRPC surface, with `CancellationToken` on every method
+- [x] 5.3.8 Extend `CometBftGrpcClient` and its domain mappings to fully represent `ResponseBroadcastTx` and any other audited public gRPC response
+- [x] 5.3.9 Add or complete the records/options/exceptions needed to cleanly represent `check_tx`, `tx_result`, and other exposed public gRPC shapes
+- [x] 5.3.10 Add unit tests covering each exposed public gRPC method, including full response deserialization and typed error paths
+- [x] 5.3.11 Add live integration tests covering each public gRPC method reachable on the validated endpoint
+- [x] 5.3.12 Add E2E tests covering the public gRPC flows actually supported by the client with the expected complete responses
 
-### 5.4 Optimisation encodage/décodage (obligatoire — .NET 10)
-- [x] 5.4.1 Tous les schémas JSON REST/WebSocket typés comme `record` immuables dans Core
-- [x] 5.4.2 Zéro `JsonElement` / `object` / `dynamic` / `Dictionary<string,object>` dans les records de domaine
-- [x] 5.4.3 `EventHandler<T>` WebSocket exposent des records typés (`Block`, `TxResult`, `Vote`, `BlockHeader`, `IReadOnlyList<Validator>`)
-- [x] 5.4.4 `CometBftJsonContext : JsonSerializerContext` avec `[JsonSerializable]` pour tous les types REST (top-level + enveloppes génériques)
-- [x] 5.4.5 Tous les appels `JsonSerializer.DeserializeAsync<T>` utilisent `CometBftJsonContext.Default.Options`
-- [x] 5.4.6 `HttpCompletionOption.ResponseHeadersRead` sur tous les appels `HttpClient.GetAsync`
-- [x] 5.4.7 `ArrayPool<byte>.Shared` pour les buffers de lecture HTTP (payloads ≥ 4 KB) — closed as N/A, the client deserializes directly from the response stream without a manual buffering loop
+### 5.4 Encoding/decoding optimization (mandatory — .NET 10)
+- [x] 5.4.1 All REST/WebSocket JSON schemas typed as immutable `record` in Core
+- [x] 5.4.2 Zero `JsonElement` / `object` / `dynamic` / `Dictionary<string,object>` in domain records
+- [x] 5.4.3 WebSocket `EventHandler<T>` expose typed records (`Block`, `TxResult`, `Vote`, `BlockHeader`, `IReadOnlyList<Validator>`)
+- [x] 5.4.4 `CometBftJsonContext : JsonSerializerContext` with `[JsonSerializable]` for all REST types (top-level + generic envelopes)
+- [x] 5.4.5 All `JsonSerializer.DeserializeAsync<T>` calls use `CometBftJsonContext.Default.Options`
+- [x] 5.4.6 `HttpCompletionOption.ResponseHeadersRead` on all `HttpClient.GetAsync` calls
+- [x] 5.4.7 `ArrayPool<byte>.Shared` for HTTP read buffers (payloads ≥ 4 KB) — closed as N/A, the client deserializes directly from the response stream without a manual buffering loop
 - [x] 5.4.8 `Microsoft.IO.RecyclableMemoryStream` — closed as N/A, there is no `MemoryStream` allocation in the REST hot path
-- [x] 5.4.9 Zéro appel `JsonSerializer` avec l'overload par défaut (réflexion) — POST uses `CometBftJsonContext.Default.JsonRpcBroadcastRequest`
-- [x] 5.4.10 Zéro propriété typée `JsonElement` / `object` / `dynamic` dans les records de domaine
-- [x] 5.4.11 Zéro import `Newtonsoft.Json` dans les projets src
-- [x] 5.4.12 `SocketsHttpHandler` avec `PooledConnectionLifetime = 2 min` — deferred
+- [x] 5.4.9 Zero `JsonSerializer` calls using the default overload (reflection) — POST uses `CometBftJsonContext.Default.JsonRpcBroadcastRequest`
+- [x] 5.4.10 Zero typed `JsonElement` / `object` / `dynamic` properties in domain records
+- [x] 5.4.11 Zero `Newtonsoft.Json` imports in src projects
+- [x] 5.4.12 `SocketsHttpHandler` with `PooledConnectionLifetime = 2 min` — deferred
 
 ---
 
@@ -413,153 +448,165 @@ scripts/
 
 ---
 
-## Phase 7 — Tests ≥ 90 % — Unitaires, Intégration, E2E
+## Phase 7 — Tests ≥ 90 % — Unit, Integration, E2E
 
-### 7.1 Tests unitaires Core
-- [x] 7.1.1 Tests options (constructeurs, valeurs par défaut)
+### 7.0 Testing conventions (apply across all test projects)
 
-### 7.2 Tests unitaires REST (WireMock.Net)
-- [x] 7.2.1 Fixture WireMock pour : health, status, block, block (height), validators, broadcast_tx_sync, abci_info, RPC error
-- [x] 7.2.2 Tests succès (200 OK + désérialisation correcte)
-- [x] 7.2.3 Tests erreurs (JSON-RPC error → CometBftRestException)
-- [x] 7.2.4 Tests Polly retry (WireMock simulant 2 erreurs puis succès)
-- [x] 7.2.5 Tests DI registration
-- [x] 7.2.6 Étendre la suite unitaire REST pour couvrir exhaustivement chaque endpoint public de la matrice OpenAPI validée
-- [x] 7.2.7 Ajouter les tests unitaires REST couvrant explicitement `dial_seeds` et `dial_peers`, y compris l'encodage des listes et options booléennes
+- [x] 7.0.1 Test method naming convention: `MethodName_WhenScenario_ShouldExpectedResult` (e.g., `GetBlockAsync_WhenNodeReturns200_ShouldReturnTypedBlock`)
+- [x] 7.0.2 Mock strategy:
+  - **Mock** (NSubstitute): external I/O boundaries — HTTP channel, gRPC channel, WebSocket transport
+  - **Real**: all domain `record` types, `JsonSerializerContext`, pagination logic, option validation
+  - **WireMock.Net**: HTTP layer integration (REST client tests)
+  - **Grpc.AspNetCore test server**: in-process gRPC server (gRPC client tests)
+  - **Never mock** domain logic or serialization paths — these must be tested with real types
+- [x] 7.0.3 One test project per src assembly: `Core.Tests`, `Rest.Tests`, `Grpc.Tests`, `WebSocket.Tests`, `Integration.Tests`, `E2E.Tests`
+- [x] 7.0.4 Test projects set `<IsPackable>false</IsPackable>` and `<GenerateDocumentationFile>false</GenerateDocumentationFile>`
 
-### 7.3 Tests unitaires WebSocket (NSubstitute)
-- [x] 7.3.1 Tests constructeur + connexion (null options, URL invalide)
-- [x] 7.3.2 Tests souscription/désouscription sans connexion → CometBftWebSocketException
-- [x] 7.3.3 Tests subscribe/unsubscribe events (NewBlock, Tx, Vote, BlockHeader)
-- [x] 7.3.4 Tests DisposeAsync idempotent
-- [x] 7.3.5 Étendre la suite unitaire WebSocket pour couvrir exhaustivement tous les événements, subscriptions et appels publics exposés après audit protocolaire
+### 7.1 Core unit tests
+- [x] 7.1.1 Options tests (constructors, default values)
 
-### 7.4 Tests unitaires gRPC (NSubstitute)
+### 7.2 REST unit tests (WireMock.Net)
+- [x] 7.2.1 WireMock fixture for: health, status, block, block (height), validators, broadcast_tx_sync, abci_info, RPC error
+- [x] 7.2.2 Success tests (200 OK + correct deserialization)
+- [x] 7.2.3 Error tests (JSON-RPC error → CometBftRestException)
+- [x] 7.2.4 Polly retry tests (WireMock simulating 2 errors then success)
+- [x] 7.2.5 DI registration tests
+- [x] 7.2.6 Extend the REST unit suite to exhaustively cover every public endpoint in the validated OpenAPI matrix
+- [x] 7.2.7 Add REST unit tests explicitly covering `dial_seeds` and `dial_peers`, including list encoding and boolean options
+
+### 7.3 WebSocket unit tests (NSubstitute)
+- [x] 7.3.1 Constructor + connection tests (null options, invalid URL)
+- [x] 7.3.2 Subscribe/unsubscribe without connection → CometBftWebSocketException
+- [x] 7.3.3 Subscribe/unsubscribe events tests (NewBlock, Tx, Vote, BlockHeader)
+- [x] 7.3.4 DisposeAsync idempotent tests
+- [x] 7.3.5 Extend the WebSocket unit suite to exhaustively cover all public events, subscriptions, and calls exposed after the protocol audit
+
+### 7.4 gRPC unit tests (NSubstitute)
 - [x] 7.4.1 `PingAsync` → true/false/exception
-- [x] 7.4.2 `BroadcastTxAsync` → résultat / null / RpcException → CometBftGrpcException
-- [x] 7.4.3 `DisposeAsync` idempotent, `ObjectDisposedException` après dispose
-- [x] 7.4.4 Étendre la suite unitaire pour couvrir toutes les méthodes gRPC publiques auditées et la totalité des champs utiles de leurs réponses
+- [x] 7.4.2 `BroadcastTxAsync` → result / null / RpcException → CometBftGrpcException
+- [x] 7.4.3 `DisposeAsync` idempotent, `ObjectDisposedException` after dispose
+- [x] 7.4.4 Extend the unit suite to cover all audited public gRPC methods and all useful fields of their responses
 
-### 7.5 Tests unitaires Extensions
-- [x] 7.5.1 Vérifier enregistrements DI (AddCometBftRest/WebSocket/Grpc)
+### 7.5 Extensions unit tests
+- [x] 7.5.1 Verify DI registrations (AddCometBftRest/WebSocket/Grpc)
 
-### 7.6 Tests intégration réels
-- [x] 7.6.1 Centraliser les endpoints testnet par défaut dans un helper/config dédié aux tests d'intégration
-- [x] 7.6.2 Pattern skip cohérent pour `COMETBFT_RPC_URL`, `COMETBFT_WS_URL`, `COMETBFT_GRPC_URL`
+### 7.6 Live integration tests
+- [x] 7.6.1 Centralize default testnet endpoints in a dedicated helper/config for integration tests
+- [x] 7.6.2 Consistent skip pattern for `COMETBFT_RPC_URL`, `COMETBFT_WS_URL`, `COMETBFT_GRPC_URL`
 - [x] 7.6.3 GetHealth, GetStatus, GetBlock
 - [x] 7.6.4 GetValidators, GetAbciInfo
-- [x] 7.6.5 WebSocket integration : connexion, souscription, réception d'au moins un événement typé, déconnexion propre
-- [x] 7.6.6 gRPC integration : résolution via DI, `PingAsync`, et validation du chemin nominal ou de l'erreur attendue
-- [x] 7.6.7 Exécuter la suite d'intégration complète contre le testnet documenté et consigner le résultat réel
-- [x] 7.6.8 Étendre les intégrations live REST pour couvrir exhaustivement la matrice des endpoints publics validés
-- [x] 7.6.9 Étendre les intégrations live WebSocket pour couvrir exhaustivement les événements, subscriptions et appels publics exposés par `ICometBftWebSocketClient`
-- [x] 7.6.10 Étendre les intégrations live gRPC pour couvrir toutes les méthodes publiques exposées par `ICometBftGrpcClient` et valider la forme complète des réponses gRPC
-- [x] 7.6.11 Ajouter une stratégie de validation REST pour les endpoints `Unsafe` (`dial_seeds`, `dial_peers`) contre un nœud contrôlé où le RPC unsafe est activé, séparée des validations sur endpoints publics
+- [x] 7.6.5 WebSocket integration: connection, subscription, receipt of at least one typed event, clean disconnection
+- [x] 7.6.6 gRPC integration: resolution via DI, `PingAsync`, and validation of the nominal path or expected error
+- [x] 7.6.7 Run the full integration suite against the documented testnet and record the actual result
+- [x] 7.6.8 Extend live REST integrations to exhaustively cover the validated public endpoint matrix
+- [x] 7.6.9 Extend live WebSocket integrations to exhaustively cover the public events, subscriptions, and calls exposed by `ICometBftWebSocketClient`
+- [x] 7.6.10 Extend live gRPC integrations to cover all public methods exposed by `ICometBftGrpcClient` and validate the complete shape of gRPC responses
+- [x] 7.6.11 Add a REST validation strategy for `Unsafe` endpoints (`dial_seeds`, `dial_peers`) against a controlled node where unsafe RPC is enabled, separate from public endpoint validations
 
-### 7.7 Couverture globale et par fichier — gate obligatoire
+### 7.7 Global and per-file coverage — mandatory gate
 
-> **Règle** : 90 % minimum **global (ligne)** ET 90 % minimum **par fichier (ligne)**.
-> Le pre-push hook bloque tout push si la gate échoue.
+> **Rule**: 90 % minimum **global (line)** AND 90 % minimum **per file (line)**.
+> The pre-push hook blocks any push if the gate fails.
 
-- [x] 7.7.1 Corriger `./scripts/test.sh` pour qu'il exécute les tests sans erreur de paramètres MSBuild
-- [x] 7.7.2 Produire une sortie de couverture machine-readable consolidée pour l'ensemble des projets test
-- [x] 7.7.3 Ajouter une validation automatique qui échoue si la couverture **globale ligne** < 90 %
-- [x] 7.7.4 Ajouter une validation automatique qui échoue si un **fichier source** est < 90 % en ligne
-- [x] 7.7.5 Brancher cette validation dans `./scripts/test.sh`
-- [x] 7.7.6 Brancher cette validation dans `.git/hooks/pre-push`
-- [x] 7.7.7 Brancher cette validation dans `.github/workflows/ci.yml`
-- [x] 7.7.8 Générer un rapport local exploitable pour diagnostic développeur ; l'upload du rapport n'est pas requis
+- [x] 7.7.1 Fix `./scripts/test.sh` so that it runs tests without MSBuild parameter errors
+- [x] 7.7.2 Produce a consolidated machine-readable coverage output for all test projects
+- [x] 7.7.3 Add an automated validation that fails if **global line** coverage < 90 %
+- [x] 7.7.4 Add an automated validation that fails if any **source file** is < 90 % line coverage
+- [x] 7.7.5 Wire this validation into `./scripts/test.sh`
+- [x] 7.7.6 Wire this validation into `.git/hooks/pre-push`
+- [x] 7.7.7 Wire this validation into `.github/workflows/ci.yml`
+- [x] 7.7.8 Generate a usable local report for developer diagnostics; report upload is not required
 
-### 7.8 Tests E2E (bout en bout — contre testnet public)
+### 7.8 E2E tests (end-to-end — against public testnet)
 
-> **Trait** : `[Trait("Category","E2E")]` — skippés si les env vars d'endpoint sont absentes.
-> Les tests E2E exécutent un flux complet (init client DI → appels réels → désérialisation → assertions métier).
+> **Trait**: `[Trait("Category","E2E")]` — skipped if endpoint env vars are absent.
+> E2E tests execute a full flow (DI client init → real calls → deserialization → business assertions).
 
-- [x] 7.8.1 Créer `tests/CometBFT.Client.E2E.Tests/` si absent
-- [x] 7.8.2 Flux REST complet : `AddCometBftRest` → `GetHealthAsync` → `GetStatusAsync` → `GetBlockAsync` → `GetValidatorsAsync` — vérifier désérialisation bout en bout
-- [x] 7.8.3 Flux WebSocket complet : connexion → souscription `NewBlock` → réception ≥ 1 événement typé `Block` → déconnexion propre
-- [x] 7.8.4 Flux gRPC complet : `AddCometBftGrpc` → `PingAsync` → `BroadcastTxAsync` (tx vide, erreur attendue) — vérifier gestion d'exception
-- [x] 7.8.5 Skip automatique si `COMETBFT_RPC_URL` / `COMETBFT_WS_URL` / `COMETBFT_GRPC_URL` absents
-- [x] 7.8.6 CI E2E gate : step séparé dans `ci.yml` exécuté avec les env vars testnet
-- [x] 7.8.7 Étendre les scénarios E2E REST pour refléter la couverture complète des endpoints publics réellement exposés par `ICometBftRestClient`
-- [x] 7.8.10 Ajouter un flux E2E REST dédié aux endpoints `Unsafe` sur un environnement contrôlé quand ces routes sont activées
-- [x] 7.8.8 Étendre les scénarios E2E WebSocket pour refléter la couverture complète des événements, subscriptions et appels publics exposés par `ICometBftWebSocketClient`
-- [x] 7.8.9 Étendre les scénarios E2E gRPC pour couvrir l'ensemble des méthodes publiques gRPC auditées et les réponses complètes effectivement mappées
+- [x] 7.8.1 Create `tests/CometBFT.Client.E2E.Tests/` if absent
+- [x] 7.8.2 Full REST flow: `AddCometBftRest` → `GetHealthAsync` → `GetStatusAsync` → `GetBlockAsync` → `GetValidatorsAsync` — verify end-to-end deserialization
+- [x] 7.8.3 Full WebSocket flow: connection → `NewBlock` subscription → receipt of ≥ 1 typed `Block` event → clean disconnection
+- [x] 7.8.4 Full gRPC flow: `AddCometBftGrpc` → `PingAsync` → `BroadcastTxAsync` (empty tx, expected error) — verify exception handling
+- [x] 7.8.5 Automatic skip if `COMETBFT_RPC_URL` / `COMETBFT_WS_URL` / `COMETBFT_GRPC_URL` are absent
+- [x] 7.8.6 CI E2E gate: separate step in `ci.yml` run with testnet env vars
+- [x] 7.8.7 Extend REST E2E scenarios to reflect full coverage of the public endpoints actually exposed by `ICometBftRestClient`
+- [x] 7.8.10 Add a dedicated REST E2E flow for `Unsafe` endpoints on a controlled environment when those routes are enabled
+- [x] 7.8.8 Extend WebSocket E2E scenarios to reflect full coverage of the public events, subscriptions, and calls exposed by `ICometBftWebSocketClient`
+- [x] 7.8.9 Extend gRPC E2E scenarios to cover all audited public gRPC methods and the complete responses actually mapped
 
 ---
 
-## Phase 8 — Documentation et Demos
+## Phase 8 — Documentation and Demos
 
 ### 8.1 Documentation
-- [x] 8.1.1 XML doc sur tous les `public` types et membres (enforced par TreatWarningsAsErrors)
-- [x] 8.1.2 `README.md` : badges, installation, quickstart, lien cometbft + version protocole
-- [x] 8.1.3 `CHANGELOG.md` (format Keep-a-Changelog)
-- [x] 8.1.4 Configurer DocFX dans `docs/` (docfx.json)
+- [x] 8.1.1 XML doc on all `public` types and members (enforced by TreatWarningsAsErrors)
+- [x] 8.1.2 `README.md`: badges, installation, quickstart, cometbft link + protocol version
+- [x] 8.1.3 `CHANGELOG.md` (Keep-a-Changelog format)
+- [x] 8.1.4 Configure DocFX in `docs/` (docfx.json)
 
-### 8.2 Demo REST (`samples/CometBFT.Client.Demo.Rest/`)
-- [x] 8.2.1 Créer projet console net10.0
-- [x] 8.2.2 Dépendances : `Spectre.Console`, `Microsoft.Extensions.Hosting`
-- [x] 8.2.3 Config : `COMETBFT_RPC_URL` env var ou `--rpc-url` CLI arg
-- [x] 8.2.3b Vérifier que la résolution respecte la priorité CLI arg > env var > défaut testnet :
+### 8.2 REST demo (`samples/CometBFT.Client.Demo.Rest/`)
+- [x] 8.2.1 Create net10.0 console project
+- [x] 8.2.2 Dependencies: `Spectre.Console`, `Microsoft.Extensions.Hosting`
+- [x] 8.2.3 Config: `COMETBFT_RPC_URL` env var or `--rpc-url` CLI arg
+- [x] 8.2.3b Verify that resolution respects the CLI arg > env var > testnet default priority:
   ```csharp
   var rpcUrl = args.GetOption("--rpc-url")
       ?? Environment.GetEnvironmentVariable("COMETBFT_RPC_URL")
       ?? "https://cosmoshub.cometbftrpc.lava.build:443";
   ```
-  > Aucune exception, aucun exit si env var absente.
-- [x] 8.2.4 Enregistrer `AddCometBftRest` via DI
-- [x] 8.2.5 Boucle refresh toutes les 10 s : GetHealth, GetStatus, GetBlock, GetValidators, GetAbciInfo
-- [x] 8.2.6 Layout Spectre.Console `Live` : Header, Health/Status, Latest Block, Validators, ABCI Info, Log
-- [x] 8.2.7 Chaque panel affiche timestamp d'appel et latence en ms
-- [x] 8.2.8 Ajouter `GetBlockResultsAsync` au refresh et à l'affichage de la démo REST
-- [x] 8.2.9 Étendre la démo REST pour refléter la matrice complète des endpoints publics REST jugés obligatoires pour la visibilité opérationnelle de la librairie
-- [x] 8.2.10 Étendre la démo REST pour rendre accessibles toutes les méthodes de `ICometBftRestClient`, y compris les capacités `Unsafe` derrière un mode ou un avertissement explicite
+  > No exception, no exit if env var is absent.
+- [x] 8.2.4 Register `AddCometBftRest` via DI
+- [x] 8.2.5 Refresh loop every 10 s: GetHealth, GetStatus, GetBlock, GetValidators, GetAbciInfo
+- [x] 8.2.6 Spectre.Console `Live` layout: Header, Health/Status, Latest Block, Validators, ABCI Info, Log
+- [x] 8.2.7 Each panel displays call timestamp and latency in ms
+- [x] 8.2.8 Add `GetBlockResultsAsync` to the refresh cycle and REST demo display
+- [x] 8.2.9 Extend the REST demo to reflect the complete matrix of public REST endpoints considered mandatory for the library's operational visibility
+- [x] 8.2.10 Extend the REST demo to make all methods of `ICometBftRestClient` accessible, including `Unsafe` capabilities behind an explicit mode or warning
 
-### 8.3 Demo WebSocket (`samples/CometBFT.Client.Demo.WebSocket/`)
-- [x] 8.3.1 Créer projet console net10.0
-- [x] 8.3.2 Dépendances : `Spectre.Console`, `Microsoft.Extensions.Hosting`
-- [x] 8.3.3 Config : `COMETBFT_WS_URL` env var ou `--ws-url` CLI arg
-- [x] 8.3.3b Vérifier que la résolution respecte la priorité CLI arg > env var > défaut testnet :
+### 8.3 WebSocket demo (`samples/CometBFT.Client.Demo.WebSocket/`)
+- [x] 8.3.1 Create net10.0 console project
+- [x] 8.3.2 Dependencies: `Spectre.Console`, `Microsoft.Extensions.Hosting`
+- [x] 8.3.3 Config: `COMETBFT_WS_URL` env var or `--ws-url` CLI arg
+- [x] 8.3.3b Verify that resolution respects the CLI arg > env var > testnet default priority:
   ```csharp
   var wsUrl = args.GetOption("--ws-url")
       ?? Environment.GetEnvironmentVariable("COMETBFT_WS_URL")
       ?? "wss://cosmoshub.cometbftrpc.lava.build:443/websocket";
   ```
-- [x] 8.3.4 Enregistrer `AddCometBftWebSocket` via DI
-- [x] 8.3.5 NewBlock → panel "Live Blocks" (scrolling 20 entrées, event-driven)
-- [x] 8.3.6 Tx → panel "Live Transactions" (scrolling 20 entrées)
-- [x] 8.3.7 Vote → log line (adresse validateur, hauteur, round)
-- [x] 8.3.8 Reconnexion automatique avec log WARN
-- [x] 8.3.9 Layout Spectre.Console : Header, Live Blocks, Live Transactions, Log
-- [x] 8.3.10 Souscrire `NewBlockHeader` et exposer son état dans la démo WebSocket
-- [x] 8.3.11 Souscrire `ValidatorSetUpdates` et exposer les mises à jour dans la démo WebSocket
-- [x] 8.3.12 Étendre la démo WebSocket pour refléter exhaustivement tous les événements, subscriptions et appels publics exposés par `ICometBftWebSocketClient`
+- [x] 8.3.4 Register `AddCometBftWebSocket` via DI
+- [x] 8.3.5 NewBlock → "Live Blocks" panel (scrolling 20 entries, event-driven)
+- [x] 8.3.6 Tx → "Live Transactions" panel (scrolling 20 entries)
+- [x] 8.3.7 Vote → log line (validator address, height, round)
+- [x] 8.3.8 Automatic reconnection with WARN log
+- [x] 8.3.9 Spectre.Console layout: Header, Live Blocks, Live Transactions, Log
+- [x] 8.3.10 Subscribe to `NewBlockHeader` and expose its state in the WebSocket demo
+- [x] 8.3.11 Subscribe to `ValidatorSetUpdates` and expose the updates in the WebSocket demo
+- [x] 8.3.12 Extend the WebSocket demo to exhaustively reflect all public events, subscriptions, and calls exposed by `ICometBftWebSocketClient`
 
-### 8.4 Demo gRPC (`samples/CometBFT.Client.Demo.Grpc/`)
-- [x] 8.4.1 Créer projet console net10.0
-- [x] 8.4.2 Dépendances : `Spectre.Console`, `Microsoft.Extensions.Hosting`
-- [x] 8.4.3 Config : `COMETBFT_GRPC_URL` env var ou `--grpc-url` CLI arg
-- [x] 8.4.3b Vérifier que la résolution respecte la priorité CLI arg > env var > défaut testnet :
+### 8.4 gRPC demo (`samples/CometBFT.Client.Demo.Grpc/`)
+- [x] 8.4.1 Create net10.0 console project
+- [x] 8.4.2 Dependencies: `Spectre.Console`, `Microsoft.Extensions.Hosting`
+- [x] 8.4.3 Config: `COMETBFT_GRPC_URL` env var or `--grpc-url` CLI arg
+- [x] 8.4.3b Verify that resolution respects the CLI arg > env var > testnet default priority:
   ```csharp
   var grpcUrl = args.GetOption("--grpc-url")
       ?? Environment.GetEnvironmentVariable("COMETBFT_GRPC_URL")
       ?? "cosmoshub.grpc.lava.build";
   ```
-- [x] 8.4.4 Enregistrer `AddCometBftGrpc` via DI
-- [x] 8.4.5 Fallback polling `PingAsync` toutes les 10 s (streaming non disponible en v0.38)
-- [x] 8.4.6 Panel BroadcastAPI : Ping latency + timestamp
-- [x] 8.4.7 Layout Spectre.Console : Header, BroadcastAPI, Log
-- [x] 8.4.8 Ajouter les informations d'endpoint/protocole dans le header de la démo gRPC
-- [x] 8.4.9 Ajouter un panneau `Live Blocks` ou `Streaming Events` conforme au mode streaming/polling effectif
-- [x] 8.4.10 Étendre la démo gRPC pour exposer l'ensemble des méthodes publiques gRPC réellement supportées par le client avec leurs réponses utiles, pas seulement le ping minimal
-- [x] 8.4.11 Ajouter dans la démo gRPC un affichage explicite des champs gRPC significatifs effectivement mappés (`check_tx`, `tx_result` et équivalents), ou un équivalent de diagnostic vérifiable si non observable en live
+- [x] 8.4.4 Register `AddCometBftGrpc` via DI
+- [x] 8.4.5 Fallback polling `PingAsync` every 10 s (streaming unavailable in v0.38)
+- [x] 8.4.6 BroadcastAPI panel: Ping latency + timestamp
+- [x] 8.4.7 Spectre.Console layout: Header, BroadcastAPI, Log
+- [x] 8.4.8 Add endpoint/protocol information in the gRPC demo header
+- [x] 8.4.9 Add a `Live Blocks` or `Streaming Events` panel consistent with the effective streaming/polling mode
+- [x] 8.4.10 Extend the gRPC demo to expose all public gRPC methods actually supported by the client with their useful responses, not just the minimal ping
+- [x] 8.4.11 Add in the gRPC demo an explicit display of the significant gRPC fields actually mapped (`check_tx`, `tx_result` and equivalents), or a verifiable diagnostic equivalent if not observable live
 
 ---
 
 ## Phase 9 — CI/CD
 
-- [x] 9.1 Créer `.github/workflows/ci.yml` (build + lint + test + coverage)
-  - [x] 9.1b Ajouter step CI "Package freshness" :
+- [x] 9.1 Create `.github/workflows/ci.yml` (build + lint + test + coverage)
+  - [x] 9.1b Add CI step "Package freshness":
     ```yaml
     - name: Check outdated packages
       run: |
@@ -568,8 +615,8 @@ scripts/
           echo "❌ Outdated direct dependencies detected:" && grep "^   >" outdated.txt && exit 1
         fi
     ```
-- [x] 9.2 Créer `.github/workflows/publish.yml` (pack + push sur release tag)
-- [x] 9.3 Ajouter `.github/dependabot.yml` :
+- [x] 9.2 Create `.github/workflows/publish.yml` (pack + push on release tag)
+- [x] 9.3 Add `.github/dependabot.yml`:
   ```yaml
   version: 2
   updates:
@@ -579,62 +626,79 @@ scripts/
         interval: "weekly"
       open-pull-requests-limit: 10
   ```
-- [x] 9.4 Activer `RestoreLockedMode` dans `Directory.Build.props` (projets src et tests) + committer `packages.lock.json` après `dotnet restore`
-- [x] 9.5 Ajouter un step CI séparé pour les tests d'intégration contre un endpoint public validé
-- [x] 9.6 Ajouter un step CI séparé pour les tests E2E contre un endpoint public validé
-- [x] 9.7 Faire échouer le CI si la couverture globale ligne < 90 % ou si un fichier source < 90 % ligne
-- [x] 9.8 Vérifier que le CI n'exige pas d'upload de rapport de couverture pour être conforme
-- [x] 9.9 Ajouter au CI un chemin de validation dédié aux wrappers Docker auto-suffisants une fois la migration hors bind mount implémentée
-- [x] 9.10 Étendre le CI gRPC pour vérifier la couverture de toutes les méthodes publiques gRPC auditées et la parité de schéma avec le proto amont ciblé
-- [x] 9.11 Étendre le CI pour faire apparaître explicitement la validation exhaustive des surfaces publiques REST, WebSocket et gRPC définies par les matrices d'audit
-- [x] 9.12 Ajouter un chemin de validation REST séparé pour les endpoints `Unsafe` sur un environnement de test contrôlé, sans dépendre des endpoints publics par défaut
+- [x] 9.4 Enable `RestoreLockedMode` in `Directory.Build.props` (src and test projects) + commit `packages.lock.json` after `dotnet restore`
+- [x] 9.5 Add a separate CI step for integration tests against a validated public endpoint
+- [x] 9.6 Add a separate CI step for E2E tests against a validated public endpoint
+- [x] 9.7 Fail CI if global line coverage < 90 % or if any source file line coverage < 90 %
+- [x] 9.8 Verify that CI does not require coverage report upload to be compliant
+- [x] 9.9 Add to CI a dedicated validation path for self-contained Docker wrappers once the bind-mount migration is implemented
+- [x] 9.10 Extend gRPC CI to verify coverage of all audited public gRPC methods and schema parity with the targeted upstream proto
+- [x] 9.11 Extend CI to explicitly surface exhaustive validation of the public REST, WebSocket, and gRPC surfaces defined by the audit matrices
+- [x] 9.12 Add a separate REST validation path for `Unsafe` endpoints against a controlled test environment, independent of default public endpoints
+- [x] 9.13 Verify `dotnet pack` produces exactly **one** `.nupkg` file — `Rinzler78.CometBFT.Client.*.nupkg`. All other src projects must have `<IsPackable>false</IsPackable>` set in `Directory.Build.props` or their individual `.csproj`.
+- [x] 9.14 Required NuGet package metadata in `CometBFT.Client.Extensions.csproj`:
+  ```xml
+  <PackageId>Rinzler78.CometBFT.Client</PackageId>
+  <Authors>Rinzler78</Authors>
+  <Description>Async .NET 10 client library for CometBFT — REST, WebSocket and gRPC transports with full source-generated JSON serialization and DI extensions.</Description>
+  <PackageTags>cometbft;blockchain;cosmos;grpc;rest;websocket;dotnet</PackageTags>
+  <PackageProjectUrl>https://github.com/Rinzler78/CometBFT.Client</PackageProjectUrl>
+  <RepositoryUrl>https://github.com/Rinzler78/CometBFT.Client</RepositoryUrl>
+  <RepositoryType>git</RepositoryType>
+  <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  <IncludeSymbols>true</IncludeSymbols>
+  <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  <!-- SourceLink -->
+  ```
 
 ---
 
 ## Phase 10 — CometBFT Naming (applied)
 
-> Réalisé dans les commits `1cf06f1`, `02f1df5`, `5dd4b4e` avant publication.
+> Applied in commits `1cf06f1`, `02f1df5`, `5dd4b4e` before publication.
 
-### 10.1 Identifiants C# (namespaces + API publique)
-- [x] 10.1.1 `ICometBftRestClient` — interface principale du client REST (+ impl + usages)
-- [x] 10.1.2 `ICometBftWebSocketClient` — interface principale du client WebSocket
-- [x] 10.1.3 `ICometBftGrpcClient` — interface principale du client gRPC
-- [x] 10.1.4 `CometBftRestClient` — implémentation du client REST
-- [x] 10.1.5 `CometBftWebSocketClient` — implémentation du client WebSocket
-- [x] 10.1.6 `CometBftGrpcClient` — implémentation du client gRPC
-- [x] 10.1.7 `CometBftRest/WebSocket/GrpcOptions` — classes d'options par transport
-- [x] 10.1.8 `CometBftClientException` — exception de base (+ sous-types par transport)
-- [x] 10.1.9 `CometBftJsonContext` — contexte de sérialisation JSON AOT
-- [x] 10.1.10 `AddCometBftRest/WebSocket/Grpc` — extensions DI (+ `AddCometBftSdkGrpc`)
-- [x] 10.1.11 `dotnet build CometBFT.Client.sln --warnaserror` → 0 erreur
+### 10.1 C# identifiers (namespaces + public API)
+- [x] 10.1.1 `ICometBftRestClient` — primary REST client interface (+ implementation + usages)
+- [x] 10.1.2 `ICometBftWebSocketClient` — primary WebSocket client interface
+- [x] 10.1.3 `ICometBftGrpcClient` — primary gRPC client interface
+- [x] 10.1.4 `CometBftRestClient` — REST client implementation
+- [x] 10.1.5 `CometBftWebSocketClient` — WebSocket client implementation
+- [x] 10.1.6 `CometBftGrpcClient` — gRPC client implementation
+- [x] 10.1.7 `CometBftRest/WebSocket/GrpcOptions` — per-transport options classes
+- [x] 10.1.8 `CometBftClientException` — base exception (+ per-transport subtypes)
+- [x] 10.1.9 `CometBftJsonContext` — AOT JSON serialization context
+- [x] 10.1.10 `AddCometBftRest/WebSocket/Grpc` — DI extensions (+ `AddCometBftSdkGrpc`)
+- [x] 10.1.11 `dotnet build CometBFT.Client.sln --warnaserror` → 0 errors
 
 ### 10.2 Scripts, CI/CD, documentation
-- [x] 10.2.1 `scripts/*.sh` et `scripts/docker/*.sh` — chemins et noms alignés
-- [x] 10.2.2 `.github/workflows/ci.yml` et `publish.yml` — noms de solution et projets
-- [x] 10.2.3 `README.md`, `CHANGELOG.md`, `src/*/README.md`, `samples/*/README.md` — noms de packages et exemples
+- [x] 10.2.1 `scripts/*.sh` and `scripts/docker/*.sh` — paths and names aligned
+- [x] 10.2.2 `.github/workflows/ci.yml` and `publish.yml` — solution and project names
+- [x] 10.2.3 `README.md`, `CHANGELOG.md`, `src/*/README.md`, `samples/*/README.md` — package names and examples
 - [x] 10.2.4 `tools/CometBFT.Client.CoverageGate/Program.cs` — `excludedPrefixes/Suffixes`
 
-### 10.3 Validation naming
-- [x] 10.3.1 `grep -r "CometBFT\.Client" src/ tests/ --include="*.cs" | grep -v LegacyProto` → identifiants alignés
+### 10.3 Naming validation
+- [x] 10.3.1 `grep -r "CometBFT\.Client" src/ tests/ --include="*.cs" | grep -v LegacyProto` → identifiers aligned
 - [x] 10.3.2 `git remote -v` → `https://github.com/Rinzler78/CometBFT.Client.git`
-- [x] 10.3.3 `./scripts/test.sh` → verts + coverage ≥ 90 % (réel : 97 %)
-- [x] 10.3.4 Démos REST + WS + gRPC → démarrent sans erreur
+- [x] 10.3.3 `./scripts/test.sh` → green + coverage ≥ 90 % (actual: 97 %)
+- [x] 10.3.4 REST + WS + gRPC demos → start without error
 
 ---
 
-## Validation finale
+## Final validation
 
-- [x] V.1 `dotnet build` passe sans warnings ; validation complète refaite en Docker avec suites live Integration/E2E vertes sur le set d'endpoints `Lava`
-- [x] V.2 `dotnet format --verify-no-changes` passe
-- [x] V.3 `./scripts/test.sh` — gate de couverture fonctionnelle, couverture ligne globale ≥ 90 % et par fichier ≥ 90 % (réel : 97 %)
-- [x] V.4 `./scripts/publish.sh --dry-run` — paquet généré sans erreur
-- [x] V.5 Tous les endpoints publics CometBFT couverts (vs `/rpc/openapi/openapi.yaml`)
-- [x] V.6 `dotnet list package --outdated` — zéro package direct obsolète
-- [x] V.7 `dotnet build --warnaserror` — zéro warning sur tous les projets src
-- [x] V.8 Tests d'intégration REST, WebSocket et gRPC exécutés ou correctement skippés selon les env vars
-- [x] V.9 Tests E2E REST, WebSocket et gRPC exécutés ou correctement skippés selon les env vars
-- [x] V.10 Les wrappers `scripts/docker/*.sh` fonctionnent dans un mode auto-suffisant sans bind mount et restent alignés sur les scripts locaux
-- [x] V.11 Le client gRPC couvre l'intégralité des méthodes publiques gRPC de la release CometBFT ciblée, avec parité de proto, réponses complètes, tests, démos et documentation alignés
-- [x] V.12 Le client REST couvre l'intégralité des endpoints publics de l'OpenAPI CometBFT ciblée, avec tests, démos et documentation alignés
-- [x] V.13 Le client WebSocket couvre l'intégralité des événements, subscriptions et appels publics du protocole ciblé, avec tests, démos et documentation alignés
-- [x] V.14 Le client REST couvre aussi les endpoints `Unsafe` de l'OpenAPI ciblée lorsque le nœud les active, avec tests dédiés, démo explicite et documentation des prérequis
+- [x] V.1 `dotnet build` passes without warnings; full validation re-run in Docker with live Integration/E2E suites passing against the `Lava` endpoint set
+- [x] V.2 `dotnet format --verify-no-changes` passes
+- [x] V.3 `./scripts/test.sh` — coverage gate functional, global line coverage ≥ 90 % and per file ≥ 90 % (actual: 97 %)
+- [x] V.4 `./scripts/publish.sh --dry-run` — package generated without error
+- [x] V.5 All public CometBFT endpoints covered (vs `/rpc/openapi/openapi.yaml`)
+- [x] V.6 `dotnet list package --outdated` — zero outdated direct packages
+- [x] V.7 `dotnet build --warnaserror` — zero warnings across all src projects
+- [x] V.8 REST, WebSocket, and gRPC integration tests run or correctly skipped according to env vars
+- [x] V.9 REST, WebSocket, and gRPC E2E tests run or correctly skipped according to env vars
+- [x] V.10 `scripts/docker/*.sh` wrappers work in a self-contained mode without bind mounts and remain aligned with local scripts
+- [x] V.11 The gRPC client covers all public gRPC methods of the targeted CometBFT release, with proto parity, complete responses, tests, demos, and documentation aligned
+- [x] V.12 The REST client covers all public endpoints of the targeted CometBFT OpenAPI, with tests, demos, and documentation aligned
+- [x] V.13 The WebSocket client covers all public events, subscriptions, and calls of the targeted protocol, with tests, demos, and documentation aligned
+- [x] V.14 The REST client also covers the `Unsafe` endpoints of the targeted OpenAPI when the node enables them, with dedicated tests, explicit demo, and prerequisite documentation
