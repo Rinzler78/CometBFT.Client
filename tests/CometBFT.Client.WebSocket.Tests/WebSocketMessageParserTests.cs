@@ -587,10 +587,71 @@ public sealed class WebSocketMessageParserTests
         var eventFired = false;
         client.NewBlockReceived += (_, _) => eventFired = true;
 
-        // Subscription ACK — result is empty object
+        // Subscription ACK — result is empty object; no domain event should fire
         client.OnMessageReceived(ResponseMessage.TextMessage("""{"jsonrpc":"2.0","id":1,"result":{}}"""));
 
         Assert.False(eventFired);
+    }
+
+    [Fact]
+    public async Task OnMessageReceived_SubscribeAck_CompletesPendingTask()
+    {
+        // Arrange: register a pending ack as SendSubscribeAsync would
+        var opts = new CometBftWebSocketOptions();
+        var client = new CometBftWebSocketClient(Options.Create(opts));
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client._pendingAcks[1] = tcs;
+
+        // Act: simulate server ack for request id=1
+        client.OnMessageReceived(ResponseMessage.TextMessage("""{"jsonrpc":"2.0","id":1,"result":{}}"""));
+
+        // Assert: the pending task is completed and its result is true
+        Assert.True(tcs.Task.IsCompleted);
+        Assert.True(await tcs.Task);
+    }
+
+    [Fact]
+    public void OnMessageReceived_SubscribeAck_UnknownId_DoesNotThrow()
+    {
+        // Ack for an id that has no registered pending task must be silently ignored
+        var opts = new CometBftWebSocketOptions();
+        var client = new CometBftWebSocketClient(Options.Create(opts));
+
+        var ex = Record.Exception(() =>
+            client.OnMessageReceived(ResponseMessage.TextMessage("""{"jsonrpc":"2.0","id":99,"result":{}}""")));
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void OnMessageReceived_EventWithIdZero_IsDispatchedAsEvent()
+    {
+        // Events arrive with id=0 and must NOT be treated as acks
+        var opts = new CometBftWebSocketOptions();
+        var client = new CometBftWebSocketClient(Options.Create(opts));
+        var eventFired = false;
+        client.NewBlockReceived += (_, _) => eventFired = true;
+
+        client.OnMessageReceived(ResponseMessage.TextMessage("""
+        {
+          "jsonrpc": "2.0",
+          "id": 0,
+          "result": {
+            "data": {
+              "type": "tendermint/event/NewBlock",
+              "value": {
+                "block_id": { "hash": "HASH1" },
+                "block": {
+                  "header": { "height": "10", "time": "2024-01-01T00:00:00+00:00", "proposer_address": "P" },
+                  "data": { "txs": [] }
+                }
+              }
+            }
+          }
+        }
+        """));
+
+        Assert.True(eventFired);
     }
 
     [Fact]
