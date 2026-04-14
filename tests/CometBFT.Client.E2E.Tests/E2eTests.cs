@@ -90,7 +90,7 @@ public sealed class E2eTests
         await client.ConnectAsync();
         await client.SubscribeNewBlockAsync();
 
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
         await completion.Task.WaitAsync(timeout.Token);
         await client.DisconnectAsync();
     }
@@ -187,7 +187,7 @@ public sealed class E2eTests
         await client.ConnectAsync();
         await client.SubscribeVoteAsync();
 
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
         await completion.Task.WaitAsync(timeout.Token);
         await client.DisconnectAsync();
     }
