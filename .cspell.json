@@ -65,7 +65,8 @@
     "Lava", "lava",
     "kvstore",
     "Prevote",
-    "uatom"
+    "uatom",
+    "mktemp"
   ],
   "overrides": [
     {
