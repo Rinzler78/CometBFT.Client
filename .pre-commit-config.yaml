@@ -4,7 +4,7 @@ repos:
     hooks:
       - id: cspell
         name: English-only language check
-        args: [--no-progress, --no-summary, --show-context]
+        args: [--no-progress, --no-summary, --show-context, --no-must-find-files]
 
   - repo: local
     hooks:

@@ -30,6 +30,15 @@ Current status: the bootstrap phases are materially complete and the repository 
 - **Docker hardening kept visible**: self-contained Docker wrappers without bind mounts remain a valid follow-up expectation from the original feature branch, but are not claimed as implemented until the scripts actually move away from the current bind-mount model.
 - **gRPC completeness gap made explicit**: for CometBFT `v0.38.9`, the public gRPC surface centers on `BroadcastAPI` (`Ping`, `BroadcastTx`). The remaining work is protocol-parity work: vendored proto alignment with upstream, full response-shape mapping, and matching tests/demo/docs.
 
+## Diff Specs ↔ Tasks — Alignment 2026-04-14
+
+- **Unsafe endpoints removed from test scope**: `DialSeeds` and `DialPeers` require a node started with `--rpc.unsafe=true`. No public testnet node (including Cosmos Hub via Lava) exposes this flag. The REST client implementation (`DialSeedsAsync`, `DialPeersAsync`) is retained in the library. All live tests (integration, E2E) and the dedicated `unsafe-validation` CI job have been deleted. Unit tests via WireMock.Net (7.2.7) remain as the only automated coverage. Tasks 7.6.11, 7.8.10, 9.12, and V.14 updated accordingly.
+- **CI test deduplication fixed**: the `build-and-test` job was calling `./scripts/test.sh --no-build`, which runs all three phases (unit + integration + E2E). Integration and E2E tests were therefore executed twice. The job now runs only the unit-test + coverage-gate commands inline; integration and E2E remain exclusively in their dedicated CI jobs. `scripts/test.sh` is unchanged as the local full-pipeline script. See task 9.15.
+- **scripts/test.sh default endpoints**: endpoint env vars have built-in defaults (`${VAR:-<url>}`). No manual export needed for local runs against the public testnet.
+- **Docker build hardened**: `.dockerignore` excludes macOS `obj/bin` artifacts to prevent exec-format errors on Linux. `-maxcpucount:1` added to the Dockerfile build step to prevent MSBuild parallel race conditions on fresh Linux builds.
+- **cspell updated to v10.0.0**: the `v8.19.4` tag was unavailable in the pre-commit cache; updated via `pre-commit autoupdate`.
+- **Git hooks installed**: `pre-commit install` succeeded after unsetting `core.hooksPath`. All hooks (format, detect-secrets, cspell, commit-msg, pre-push with coverage gate) are now active on the local repo.
+
 ## Phase 0 — Repo, Git Flow and Hooks (PREREQUISITE — BEFORE ANY CODE)
 
 ### 0.1 Repository creation
@@ -501,7 +510,7 @@ scripts/
 - [x] 7.6.8 Extend live REST integrations to exhaustively cover the validated public endpoint matrix
 - [x] 7.6.9 Extend live WebSocket integrations to exhaustively cover the public events, subscriptions, and calls exposed by `ICometBftWebSocketClient`
 - [x] 7.6.10 Extend live gRPC integrations to cover all public methods exposed by `ICometBftGrpcClient` and validate the complete shape of gRPC responses
-- [x] 7.6.11 Add a REST validation strategy for `Unsafe` endpoints (`dial_seeds`, `dial_peers`) against a controlled node where unsafe RPC is enabled, separate from public endpoint validations
+- [x] 7.6.11 ~~Add a REST validation strategy for `Unsafe` endpoints (`dial_seeds`, `dial_peers`) against a controlled node where unsafe RPC is enabled, separate from public endpoint validations~~ **Deleted (2026-04-14)**: no public node with `--rpc.unsafe=true` is available; live integration tests removed. Unit coverage via WireMock.Net (7.2.7) is the only remaining automated test path for these endpoints.
 
 ### 7.7 Global and per-file coverage — mandatory gate
 
@@ -529,7 +538,7 @@ scripts/
 - [x] 7.8.5 Automatic skip if `COMETBFT_RPC_URL` / `COMETBFT_WS_URL` / `COMETBFT_GRPC_URL` are absent
 - [x] 7.8.6 CI E2E gate: separate step in `ci.yml` run with testnet env vars
 - [x] 7.8.7 Extend REST E2E scenarios to reflect full coverage of the public endpoints actually exposed by `ICometBftRestClient`
-- [x] 7.8.10 Add a dedicated REST E2E flow for `Unsafe` endpoints on a controlled environment when those routes are enabled
+- [x] 7.8.10 ~~Add a dedicated REST E2E flow for `Unsafe` endpoints on a controlled environment when those routes are enabled~~ **Deleted (2026-04-14)**: E2E test removed — no public node with `--rpc.unsafe=true`.
 - [x] 7.8.8 Extend WebSocket E2E scenarios to reflect full coverage of the public events, subscriptions, and calls exposed by `ICometBftWebSocketClient`
 - [x] 7.8.9 Extend gRPC E2E scenarios to cover all audited public gRPC methods and the complete responses actually mapped
 
@@ -634,9 +643,10 @@ scripts/
 - [x] 9.9 Add to CI a dedicated validation path for self-contained Docker wrappers once the bind-mount migration is implemented
 - [x] 9.10 Extend gRPC CI to verify coverage of all audited public gRPC methods and schema parity with the targeted upstream proto
 - [x] 9.11 Extend CI to explicitly surface exhaustive validation of the public REST, WebSocket, and gRPC surfaces defined by the audit matrices
-- [x] 9.12 Add a separate REST validation path for `Unsafe` endpoints against a controlled test environment, independent of default public endpoints
+- [x] 9.12 ~~Add a separate REST validation path for `Unsafe` endpoints against a controlled test environment, independent of default public endpoints~~ **Deleted (2026-04-14)**: the `unsafe-validation` CI job was removed — no public node with `--rpc.unsafe=true`.
 - [x] 9.13 Verify `dotnet pack` produces exactly **one** `.nupkg` file — `Rinzler78.CometBFT.Client.*.nupkg`. All other src projects must have `<IsPackable>false</IsPackable>` set in `Directory.Build.props` or their individual `.csproj`.
 - [x] 9.14 Required NuGet package metadata in `CometBFT.Client.Extensions.csproj`:
+- [x] 9.15 **Eliminate CI test duplication**: the `build-and-test` job must run only unit tests + coverage gate; integration and E2E tests belong exclusively in their dedicated CI jobs. Replace the `./scripts/test.sh` call with the inline unit-test + coverage-gate commands filtered by `Category!=Integration&Category!=E2E`.
   ```xml
   <PackageId>Rinzler78.CometBFT.Client</PackageId>
   <Authors>Rinzler78</Authors>
@@ -701,4 +711,4 @@ scripts/
 - [x] V.11 The gRPC client covers all public gRPC methods of the targeted CometBFT release, with proto parity, complete responses, tests, demos, and documentation aligned
 - [x] V.12 The REST client covers all public endpoints of the targeted CometBFT OpenAPI, with tests, demos, and documentation aligned
 - [x] V.13 The WebSocket client covers all public events, subscriptions, and calls of the targeted protocol, with tests, demos, and documentation aligned
-- [x] V.14 The REST client also covers the `Unsafe` endpoints of the targeted OpenAPI when the node enables them, with dedicated tests, explicit demo, and prerequisite documentation
+- [x] V.14 ~~The REST client also covers the `Unsafe` endpoints of the targeted OpenAPI when the node enables them, with dedicated tests, explicit demo, and prerequisite documentation~~ **Revised (2026-04-14)**: the REST client exposes `DialSeedsAsync` and `DialPeersAsync`; unit tests (WireMock.Net) cover the implementation. Live integration, E2E tests, and the CI validation job have been removed — no public node with `--rpc.unsafe=true` is available. Acceptance is limited to unit-level coverage until a private testnet is provisioned.
