@@ -459,15 +459,21 @@ public sealed class IntegrationTests
 
     /// <summary>
     /// Returns <see langword="true"/> for exceptions that indicate the /genesis endpoint
-    /// is unavailable on this node — not a client bug.
+    /// cannot return a full response on this node — not a client bug.
+    ///
+    /// Public providers (e.g. Lava Network) block /genesis because the Cosmos Hub genesis
+    /// exceeds their response-size limit and return HTTP 500 with:
+    ///   "genesis response is large, please use the genesis_chunked API instead"
+    /// Occasionally the provider starts streaming then drops the connection, which Polly
+    /// surfaces as TimeoutRejectedException (InnerException = TaskCanceledException).
     /// </summary>
     private static bool IsGenesisEndpointUnavailable(Exception ex) =>
         // Direct cancellation or task timeout.
         ex is OperationCanceledException ||
-        // Polly wraps network timeouts as TimeoutRejectedException, whose InnerException
-        // is a TaskCanceledException (itself an OperationCanceledException).
+        // Polly wraps dropped-connection timeouts as TimeoutRejectedException, whose
+        // InnerException is a TaskCanceledException (an OperationCanceledException).
         ex.InnerException is OperationCanceledException ||
-        // Server-side rejection: HTTP 500 means "disabled / too large".
+        // Provider rejects /genesis because the response is too large (HTTP 500).
         (ex is CometBFT.Client.Core.Exceptions.CometBftRestException restEx &&
          restEx.StatusCode == System.Net.HttpStatusCode.InternalServerError);
 }
