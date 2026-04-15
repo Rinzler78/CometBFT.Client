@@ -42,6 +42,7 @@ jobs:
   build-and-test:
     name: Build & Test (.NET 10)
     runs-on: ubuntu-latest
+    needs: language-check
 
     steps:
       - name: Checkout
