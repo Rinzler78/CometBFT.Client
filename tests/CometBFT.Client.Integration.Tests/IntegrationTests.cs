@@ -475,15 +475,18 @@ internal static class EndpointConfiguration
     private static string Require(string variableName, string? documentedDefault)
     {
         var value = Environment.GetEnvironmentVariable(variableName);
-        if (string.IsNullOrWhiteSpace(value))
+        if (!string.IsNullOrWhiteSpace(value))
         {
-            var hint = documentedDefault is not null
-                ? $" Documented testnet default: {documentedDefault}"
-                : " No public default — requires a node started with --rpc.unsafe=true.";
-            throw new Xunit.Sdk.XunitException(
-                $"{Xunit.v3.DynamicSkipToken.Value}Set {variableName} to enable this test.{hint}");
+            return value;
         }
 
-        return value;
+        if (documentedDefault is not null)
+        {
+            return documentedDefault;
+        }
+
+        throw new Xunit.Sdk.XunitException(
+            $"{Xunit.v3.DynamicSkipToken.Value}Set {variableName} to enable this test." +
+            " No public default — requires a node started with --rpc.unsafe=true.");
     }
 }

@@ -17,15 +17,15 @@ using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Extensions;
 
 var services = new ServiceCollection();
-services.AddCometBftWebSocket(o => o.Url = "ws://localhost:26657/websocket");
+services.AddCometBftWebSocket(o => o.BaseUrl = "ws://localhost:26657/websocket");
 var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<ICometBftWebSocketClient>();
 
 await client.ConnectAsync();
-client.NewBlockReceived += (_, block) =>
-    Console.WriteLine($"Block #{block.Height}: {block.Hash}");
-client.TxReceived += (_, tx) =>
-    Console.WriteLine($"Tx {tx.Hash}: code={tx.TxResult.Code}");
+client.NewBlockReceived += (_, args) =>
+    Console.WriteLine($"Block #{args.Value.Height}: {args.Value.Hash}");
+client.TxExecuted += (_, args) =>
+    Console.WriteLine($"Tx {args.Value.Hash}: code={args.Value.Code}");
 ```
 
 ## Subscriptions
@@ -34,7 +34,7 @@ client.TxReceived += (_, tx) =>
 |-------|---------|
 | `NewBlock` | `NewBlockReceived` |
 | `NewBlockHeader` | `NewBlockHeaderReceived` |
-| `Tx` | `TxReceived` |
+| `Tx` | `TxExecuted` |
 | `Vote` | `VoteReceived` |
 | `ValidatorSetUpdates` | `ValidatorSetUpdated` |
 

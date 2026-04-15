@@ -1,12 +1,12 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using CometBFT.Client.Core.Domain;
 using CometBFT.Client.Core.Events;
 using CometBFT.Client.Core.Exceptions;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Core.Options;
 using CometBFT.Client.WebSocket.Internal;
+using CometBFT.Client.WebSocket.Json;
 using Microsoft.Extensions.Options;
 using Websocket.Client;
 
@@ -22,6 +22,14 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
     private readonly IWebSocketClientFactory _factory;
     private readonly SemaphoreSlim _connectLock = new(1, 1);
     private readonly ConcurrentDictionary<string, byte> _activeSubscriptions = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Pending subscribe acknowledgments keyed by JSON-RPC request id.
+    /// Completed by <see cref="OnMessageReceived"/> when the server ack arrives.
+    /// Internal for testability.
+    /// </summary>
+    internal readonly ConcurrentDictionary<int, TaskCompletionSource<bool>> _pendingAcks = new();
+
     private WebsocketClient? _client;
     private IDisposable? _messageSubscription;
     private IDisposable? _reconnectionSubscription;
@@ -178,14 +186,8 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
     {
         EnsureConnected();
         var id = Interlocked.Increment(ref _requestId);
-        var payload = JsonSerializer.Serialize(new
-        {
-            jsonrpc = "2.0",
-            method = "unsubscribe_all",
-            id,
-            @params = new { },
-        });
-        _client!.Send(payload);
+        var request = new WsUnsubscribeAllRequest { Id = id };
+        _client!.Send(JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsUnsubscribeAllRequest));
         _activeSubscriptions.Clear();
         return Task.CompletedTask;
     }
@@ -199,6 +201,14 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
         }
 
         _disposed = true;
+
+        // Cancel all pending subscribe acknowledgments to unblock any awaiting callers.
+        foreach (var (_, tcs) in _pendingAcks)
+        {
+            tcs.TrySetCanceled();
+        }
+
+        _pendingAcks.Clear();
         _reconnectionSubscription?.Dispose();
         _messageSubscription?.Dispose();
 
@@ -224,20 +234,37 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
     // ── Private helpers ──────────────────────────────────────────────────────
 
-    private Task SendSubscribeAsync(string query, CancellationToken cancellationToken)
+    private async Task SendSubscribeAsync(string query, CancellationToken cancellationToken)
     {
         EnsureConnected();
         _activeSubscriptions.TryAdd(query, 0);
+
         var id = Interlocked.Increment(ref _requestId);
-        var payload = JsonSerializer.Serialize(new
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pendingAcks[id] = tcs;
+
+        var request = new WsSubscribeRequest { Id = id, Params = new WsSubscribeParams { Query = query } };
+        _client!.Send(JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsSubscribeRequest));
+
+        // Wait for the server's JSON-RPC acknowledgment {"jsonrpc":"2.0","id":<id>,"result":{}}.
+        // This confirms the subscription is active before the caller begins waiting for events.
+        // A timeout is non-fatal: the subscribe request was sent and the subscription is likely
+        // active on the server — some proxy nodes (e.g. Lava) do not reliably forward ACKs
+        // when events are already flowing from prior subscriptions.
+        using var ackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        ackCts.CancelAfter(TimeSpan.FromSeconds(30));
+        try
         {
-            jsonrpc = "2.0",
-            method = "subscribe",
-            id,
-            @params = new { query },
-        });
-        _client!.Send(payload);
-        return Task.CompletedTask;
+            await tcs.Task.WaitAsync(ackCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            _pendingAcks.TryRemove(id, out _);
+            // Surface as an observable error without blocking the caller.
+            ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(
+                new CometBftWebSocketException(
+                    $"Subscribe ACK for query '{query}' not received within 30 s — subscription was sent and may still be active.")));
+        }
     }
 
     private void EnsureConnected()
@@ -252,17 +279,12 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
     private void OnReconnected(ReconnectionInfo _)
     {
-        foreach (var query in _activeSubscriptions)
+        // Re-send all active subscriptions after a reconnect.
+        foreach (var query in _activeSubscriptions.Keys)
         {
             var id = Interlocked.Increment(ref _requestId);
-            var payload = JsonSerializer.Serialize(new
-            {
-                jsonrpc = "2.0",
-                method = "subscribe",
-                id,
-                @params = new { query },
-            });
-            _client?.Send(payload);
+            var request = new WsSubscribeRequest { Id = id, Params = new WsSubscribeParams { Query = query } };
+            _client?.Send(JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsSubscribeRequest));
         }
     }
 
@@ -276,13 +298,32 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
         try
         {
-            var json = JsonNode.Parse(message.Text);
-            var eventType = json?["result"]?["data"]?["type"]?.GetValue<string>();
-
-            switch (eventType)
+            var envelope = JsonSerializer.Deserialize(message.Text, CometBftWebSocketJsonContext.Default.WsEnvelope);
+            if (envelope is null)
             {
-                case CometBftEventType.NewBlock:
-                    var block = WebSocketMessageParser.ParseNewBlock(json!);
+                return;
+            }
+
+            // Complete any pending subscribe acknowledgment for this id.
+            // We check for a registered pending entry rather than "data is null" because some
+            // proxy nodes (e.g. Lava) bundle the ACK with the first event in a single message
+            // (id > 0, result.data present). Completing first then falling through handles both
+            // the clean-ACK case and the bundled-ACK+event case.
+            if (envelope.Id > 0 && _pendingAcks.TryRemove(envelope.Id, out var ackTcs))
+            {
+                ackTcs.TrySetResult(true);
+                // Clean ACK (no data): nothing more to dispatch.
+                if (envelope.Result?.Data is null)
+                {
+                    return;
+                }
+                // Bundled ACK+event: fall through to dispatch the event data below.
+            }
+
+            switch (envelope.Result?.Data)
+            {
+                case WsNewBlockData newBlockData:
+                    var block = WebSocketMessageParser.ParseNewBlock(newBlockData);
                     if (block is not null)
                     {
                         NewBlockReceived?.Invoke(this, new CometBftEventArgs<Block>(block));
@@ -290,8 +331,8 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
                     break;
 
-                case CometBftEventType.NewBlockHeader:
-                    var blockHeader = WebSocketMessageParser.ParseNewBlockHeader(json!);
+                case WsNewBlockHeaderData headerData:
+                    var blockHeader = WebSocketMessageParser.ParseNewBlockHeader(headerData);
                     if (blockHeader is not null)
                     {
                         NewBlockHeaderReceived?.Invoke(this, new CometBftEventArgs<BlockHeader>(blockHeader));
@@ -299,8 +340,8 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
                     break;
 
-                case CometBftEventType.Tx:
-                    var tx = WebSocketMessageParser.ParseTxResult(json!);
+                case WsTxData txData:
+                    var tx = WebSocketMessageParser.ParseTxResult(txData, envelope.Result.Events);
                     if (tx is not null)
                     {
                         TxExecuted?.Invoke(this, new CometBftEventArgs<TxResult>(tx));
@@ -308,8 +349,8 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
                     break;
 
-                case CometBftEventType.Vote:
-                    var vote = WebSocketMessageParser.ParseVote(json!);
+                case WsVoteData voteData:
+                    var vote = WebSocketMessageParser.ParseVote(voteData);
                     if (vote is not null)
                     {
                         VoteReceived?.Invoke(this, new CometBftEventArgs<Vote>(vote));
@@ -317,8 +358,8 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
                     break;
 
-                case CometBftEventType.ValidatorSetUpdates:
-                    var validators = WebSocketMessageParser.ParseValidatorSetUpdates(json!);
+                case WsValidatorSetUpdatesData vsData:
+                    var validators = WebSocketMessageParser.ParseValidatorSetUpdates(vsData);
                     if (validators is not null)
                     {
                         ValidatorSetUpdated?.Invoke(this, new CometBftEventArgs<IReadOnlyList<Validator>>(validators));
@@ -340,5 +381,4 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
             ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(ex));
         }
     }
-
 }

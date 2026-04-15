@@ -65,8 +65,7 @@ These conventions are enforced at code-review time. Violations block merge.
 
 ### Logging
 
-- **`ILogger<T>` via DI** is mandatory on all client classes.
-- `Console.WriteLine` is **forbidden** in library code (`src/**`). Use `ILogger` instead.
+- `Console.WriteLine` is **forbidden** in library code (`src/**`).
 - Sample and demo projects (`samples/**`) may use `Console.WriteLine` or `Spectre.Console`.
 
 ### Async

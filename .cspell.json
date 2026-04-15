@@ -65,7 +65,12 @@
     "Lava", "lava",
     "kvstore",
     "Prevote",
-    "uatom"
+    "uatom",
+    "mktemp",
+    "Acks",
+    "acks",
+    "contentfiles", "buildtransitive",
+    "Linq"
   ],
   "overrides": [
     {
