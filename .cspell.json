@@ -68,7 +68,9 @@
     "uatom",
     "mktemp",
     "Acks",
-    "acks"
+    "acks",
+    "contentfiles", "buildtransitive",
+    "Linq"
   ],
   "overrides": [
     {
