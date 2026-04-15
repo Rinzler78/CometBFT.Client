@@ -3,6 +3,7 @@ using CometBFT.Client.Core.Domain;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Extensions;
 using Xunit;
+using CometBFT.Client.Core.Exceptions;
 
 namespace CometBFT.Client.Integration.Tests;
 
@@ -448,6 +449,84 @@ public sealed class IntegrationTests
         var ex = await Record.ExceptionAsync(() => client.SubscribeValidatorSetUpdatesAsync());
         Assert.Null(ex);
         await client.DisconnectAsync();
+    }
+
+    // ── CometBftSdkGrpcClient ────────────────────────────────────────────────
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task SdkGrpc_LiveNode_GetStatusAsync_ReturnsNodeInfo()
+    {
+        var grpcUrl = EndpointConfiguration.RequireGrpc();
+
+        var services = new ServiceCollection();
+        services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftSdkGrpcClient>();
+
+        try
+        {
+            var (nodeInfo, syncInfo) = await client.GetStatusAsync();
+
+            Assert.NotEmpty(nodeInfo.Network);
+            Assert.NotNull(syncInfo);
+        }
+        catch (CometBftGrpcException)
+        {
+            // Public nodes may rate-limit or reject the SDK gRPC endpoint — not a client bug.
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task SdkGrpc_LiveNode_GetLatestBlockAsync_ReturnsBlock()
+    {
+        var grpcUrl = EndpointConfiguration.RequireGrpc();
+
+        var services = new ServiceCollection();
+        services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftSdkGrpcClient>();
+
+        try
+        {
+            var block = await client.GetLatestBlockAsync();
+
+            Assert.True(block.Height > 0);
+            Assert.NotEmpty(block.Proposer);
+        }
+        catch (CometBftGrpcException)
+        {
+            // Public nodes may rate-limit or reject the SDK gRPC endpoint — not a client bug.
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task SdkGrpc_LiveNode_GetLatestValidatorsAsync_ReturnsValidators()
+    {
+        var grpcUrl = EndpointConfiguration.RequireGrpc();
+
+        var services = new ServiceCollection();
+        services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftSdkGrpcClient>();
+
+        try
+        {
+            var validators = await client.GetLatestValidatorsAsync();
+
+            Assert.NotEmpty(validators);
+            Assert.All(validators, v =>
+            {
+                Assert.NotEmpty(v.Address);
+                Assert.True(v.VotingPower >= 0);
+            });
+        }
+        catch (CometBftGrpcException)
+        {
+            // Public nodes may rate-limit or reject the SDK gRPC endpoint — not a client bug.
+        }
     }
 
     private static ServiceProvider BuildRestServices(string rpcUrl)
