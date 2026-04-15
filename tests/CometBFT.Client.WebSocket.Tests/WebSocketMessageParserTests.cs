@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using CometBFT.Client.Core.Domain;
 using CometBFT.Client.Core.Events;
@@ -17,9 +18,17 @@ namespace CometBFT.Client.WebSocket.Tests;
 /// </summary>
 public sealed class WebSocketMessageParserTests
 {
-    // Helper: deserialize a full JSON-RPC envelope and extract the typed event data.
+    // Helper: deserialize an inline JSON string.
     private static WsEnvelope Deserialize(string json) =>
         JsonSerializer.Deserialize(json, CometBftWebSocketJsonContext.Default.WsEnvelope)!;
+
+    // Helper: deserialize a fixture file captured from Cosmos Hub.
+    private static WsEnvelope LoadFixture(string fileName)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", fileName);
+        var json = File.ReadAllText(path, Encoding.UTF8);
+        return Deserialize(json);
+    }
 
     // ── ParseNewBlock ────────────────────────────────────────────────────────
 
@@ -716,5 +725,227 @@ public sealed class WebSocketMessageParserTests
         Assert.Equal("unsubscribe_all", root.GetProperty("method").GetString());
         Assert.Equal(7, root.GetProperty("id").GetInt32());
         Assert.True(root.TryGetProperty("params", out _));
+    }
+
+    // ── Fixture-based tests (real Cosmos Hub payloads) ───────────────────────
+    // Captured live from wss://cosmoshub.tendermintrpc.lava.build at block 30674661.
+    // These tests validate that the full deserialization → domain-object pipeline
+    // handles real network payloads — not just the shapes we imagined.
+
+    [Fact]
+    public void ParseNewBlock_RealFixture_DeserializesWithoutError()
+    {
+        var envelope = LoadFixture("new_block_with_txs.json");
+        var data = Assert.IsType<WsNewBlockData>(envelope.Result!.Data);
+
+        var block = WebSocketMessageParser.ParseNewBlock(data);
+
+        Assert.NotNull(block);
+    }
+
+    [Fact]
+    public void ParseNewBlock_RealFixture_HeightIsCorrect()
+    {
+        var envelope = LoadFixture("new_block_with_txs.json");
+        var data = Assert.IsType<WsNewBlockData>(envelope.Result!.Data);
+
+        var block = WebSocketMessageParser.ParseNewBlock(data);
+
+        Assert.Equal(30_674_661L, block!.Height);
+    }
+
+    [Fact]
+    public void ParseNewBlock_RealFixture_HashIsPopulated()
+    {
+        var envelope = LoadFixture("new_block_with_txs.json");
+        var data = Assert.IsType<WsNewBlockData>(envelope.Result!.Data);
+
+        var block = WebSocketMessageParser.ParseNewBlock(data);
+
+        Assert.Equal("7656AFA79A263C93CC20A1F0775DE3F48193FA4BF25D8B8C7CCB4ED8C83C1DC2", block!.Hash);
+    }
+
+    [Fact]
+    public void ParseNewBlock_RealFixture_ProposerAddressIsCorrect()
+    {
+        var envelope = LoadFixture("new_block_with_txs.json");
+        var data = Assert.IsType<WsNewBlockData>(envelope.Result!.Data);
+
+        var block = WebSocketMessageParser.ParseNewBlock(data);
+
+        Assert.Equal("638C11545DF20961BDE0373D1602ECECB3BC6CD0", block!.Proposer);
+    }
+
+    [Fact]
+    public void ParseNewBlock_RealFixture_TimeIsParsed()
+    {
+        var envelope = LoadFixture("new_block_with_txs.json");
+        var data = Assert.IsType<WsNewBlockData>(envelope.Result!.Data);
+
+        var block = WebSocketMessageParser.ParseNewBlock(data);
+
+        // Nanosecond precision in the wire timestamp is truncated to microsecond by DateTimeOffset.
+        Assert.Equal(2026, block!.Time.Year);
+        Assert.Equal(4, block.Time.Month);
+        Assert.Equal(15, block.Time.Day);
+        Assert.Equal(13, block.Time.Hour);
+        Assert.Equal(2, block.Time.Minute);
+    }
+
+    [Fact]
+    public void ParseNewBlock_RealFixture_HasAtLeastOneTx()
+    {
+        var envelope = LoadFixture("new_block_with_txs.json");
+        var data = Assert.IsType<WsNewBlockData>(envelope.Result!.Data);
+
+        var block = WebSocketMessageParser.ParseNewBlock(data);
+
+        Assert.NotEmpty(block!.Txs);
+        Assert.NotEmpty(block.Txs[0]); // base64-encoded bytes, never empty
+    }
+
+    [Fact]
+    public void ParseTxResult_RealFixture_DeserializesWithoutError()
+    {
+        var envelope = LoadFixture("tx_event.json");
+        var data = Assert.IsType<WsTxData>(envelope.Result!.Data);
+
+        var tx = WebSocketMessageParser.ParseTxResult(data, envelope.Result.Events);
+
+        Assert.NotNull(tx);
+    }
+
+    [Fact]
+    public void ParseTxResult_RealFixture_HeightIsCorrect()
+    {
+        var envelope = LoadFixture("tx_event.json");
+        var data = Assert.IsType<WsTxData>(envelope.Result!.Data);
+
+        var tx = WebSocketMessageParser.ParseTxResult(data, envelope.Result.Events);
+
+        Assert.Equal(30_674_661L, tx!.Height);
+    }
+
+    [Fact]
+    public void ParseTxResult_RealFixture_HashFromTopLevelEvents()
+    {
+        var envelope = LoadFixture("tx_event.json");
+        var data = Assert.IsType<WsTxData>(envelope.Result!.Data);
+
+        var tx = WebSocketMessageParser.ParseTxResult(data, envelope.Result.Events);
+
+        Assert.Equal("32C6A86AED67254A33F15FEEB78D307A64F7803D5B33D7D3D9DFFDB5E7750E7B", tx!.Hash);
+    }
+
+    [Fact]
+    public void ParseTxResult_RealFixture_GasFieldsAreCorrect()
+    {
+        var envelope = LoadFixture("tx_event.json");
+        var data = Assert.IsType<WsTxData>(envelope.Result!.Data);
+
+        var tx = WebSocketMessageParser.ParseTxResult(data, envelope.Result.Events);
+
+        Assert.Equal(134_178L, tx!.GasWanted);
+        Assert.Equal(99_965L, tx!.GasUsed);
+    }
+
+    [Fact]
+    public void ParseTxResult_RealFixture_CodeIsZeroForSuccessfulTx()
+    {
+        var envelope = LoadFixture("tx_event.json");
+        var data = Assert.IsType<WsTxData>(envelope.Result!.Data);
+
+        var tx = WebSocketMessageParser.ParseTxResult(data, envelope.Result.Events);
+
+        Assert.Equal(0u, tx!.Code);
+    }
+
+    [Fact]
+    public void ParseTxResult_RealFixture_AbciEventsArePopulated()
+    {
+        var envelope = LoadFixture("tx_event.json");
+        var data = Assert.IsType<WsTxData>(envelope.Result!.Data);
+
+        var tx = WebSocketMessageParser.ParseTxResult(data, envelope.Result.Events);
+
+        // 17 ABCI events in this MsgSend transaction
+        Assert.Equal(17, tx!.Events.Count);
+        Assert.All(tx.Events, e => Assert.NotEmpty(e.Type));
+    }
+
+    [Fact]
+    public void ParseVote_RealFixture_DeserializesWithoutError()
+    {
+        var envelope = LoadFixture("vote_event.json");
+        var data = Assert.IsType<WsVoteData>(envelope.Result!.Data);
+
+        var vote = WebSocketMessageParser.ParseVote(data);
+
+        Assert.NotNull(vote);
+    }
+
+    [Fact]
+    public void ParseVote_RealFixture_HeightIsCorrect()
+    {
+        var envelope = LoadFixture("vote_event.json");
+        var data = Assert.IsType<WsVoteData>(envelope.Result!.Data);
+
+        var vote = WebSocketMessageParser.ParseVote(data);
+
+        Assert.Equal(30_674_660L, vote!.Height);
+    }
+
+    [Fact]
+    public void ParseVote_RealFixture_TypeAndRoundAreCorrect()
+    {
+        var envelope = LoadFixture("vote_event.json");
+        var data = Assert.IsType<WsVoteData>(envelope.Result!.Data);
+
+        var vote = WebSocketMessageParser.ParseVote(data);
+
+        Assert.Equal(1, vote!.Type);   // prevote
+        Assert.Equal(0, vote.Round);
+    }
+
+    [Fact]
+    public void ParseVote_RealFixture_ValidatorAddressIsCorrect()
+    {
+        var envelope = LoadFixture("vote_event.json");
+        var data = Assert.IsType<WsVoteData>(envelope.Result!.Data);
+
+        var vote = WebSocketMessageParser.ParseVote(data);
+
+        Assert.Equal("B2336DC86A74A6F8552D7F686AC0983EF4E0B0CE", vote!.ValidatorAddress);
+    }
+
+    [Fact]
+    public void ParseVote_RealFixture_TimestampIsParsed()
+    {
+        var envelope = LoadFixture("vote_event.json");
+        var data = Assert.IsType<WsVoteData>(envelope.Result!.Data);
+
+        var vote = WebSocketMessageParser.ParseVote(data);
+
+        // Prevote timestamp from consensus round — verify date and time components.
+        Assert.Equal(2026, vote!.Timestamp.Year);
+        Assert.Equal(4, vote.Timestamp.Month);
+        Assert.Equal(15, vote.Timestamp.Day);
+        Assert.Equal(13, vote.Timestamp.Hour);
+        Assert.Equal(2, vote.Timestamp.Minute);
+    }
+
+    [Fact]
+    public void ParseVote_RealFixture_PrevoteWithEmptyBlockId_StillParses()
+    {
+        // vote_event.json is a prevote (type=1) with an empty block_id.hash —
+        // a normal condition during the prevote phase when the block is not yet locked.
+        var envelope = LoadFixture("vote_event.json");
+        var data = Assert.IsType<WsVoteData>(envelope.Result!.Data);
+
+        var vote = WebSocketMessageParser.ParseVote(data);
+
+        // Parser must return a valid Vote even with an empty block_id in the wire payload.
+        Assert.NotNull(vote);
+        Assert.Equal(1, vote.Type);
     }
 }

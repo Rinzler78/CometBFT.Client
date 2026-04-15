@@ -4,6 +4,7 @@
   "dictionaries": ["en_US", "en-gb"],
   "ignorePaths": [
     ".cspell.json",
+    ".secrets.baseline",
     "coverage/**",
     "artifacts/**",
     ".worktrees/**",
@@ -19,7 +20,8 @@
     "TestResults/**",
     "**/*.g.cs",
     "**/*.generated.cs",
-    "**/LegacyProto/**"
+    "**/LegacyProto/**",
+    "tests/**/Fixtures/**"
   ],
   "words": [
     "CometBFT", "cometbft",
