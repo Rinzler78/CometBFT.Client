@@ -253,14 +253,12 @@ public sealed class IntegrationTests
             var genesis = await client.GetGenesisAsync();
             Assert.NotNull(genesis);
         }
-        catch (CometBFT.Client.Core.Exceptions.CometBftRestException ex)
-            when (ex.StatusCode == System.Net.HttpStatusCode.InternalServerError ||
-                  (ex.InnerException is System.Net.Http.HttpRequestException httpEx &&
-                   httpEx.StatusCode == System.Net.HttpStatusCode.InternalServerError))
+        catch (Exception ex) when (IsGenesisEndpointUnavailable(ex))
         {
-            // The /genesis endpoint is commonly disabled or rate-limited on public nodes
-            // because genesis files for mature chains can be hundreds of MB.
-            // HTTP 500 here means "not available", not a client bug.
+            // /genesis is commonly disabled, rate-limited, or times out on public nodes.
+            // Genesis files for mature chains can be hundreds of MB, so HTTP 500, network
+            // timeouts (Polly wraps these as TimeoutRejectedException whose InnerException
+            // is TaskCanceledException), and direct cancellations are all expected here.
         }
     }
 
@@ -458,6 +456,20 @@ public sealed class IntegrationTests
         services.AddCometBftRest(options => options.BaseUrl = rpcUrl);
         return services.BuildServiceProvider();
     }
+
+    /// <summary>
+    /// Returns <see langword="true"/> for exceptions that indicate the /genesis endpoint
+    /// is unavailable on this node — not a client bug.
+    /// </summary>
+    private static bool IsGenesisEndpointUnavailable(Exception ex) =>
+        // Direct cancellation or task timeout.
+        ex is OperationCanceledException ||
+        // Polly wraps network timeouts as TimeoutRejectedException, whose InnerException
+        // is a TaskCanceledException (itself an OperationCanceledException).
+        ex.InnerException is OperationCanceledException ||
+        // Server-side rejection: HTTP 500 means "disabled / too large".
+        (ex is CometBFT.Client.Core.Exceptions.CometBftRestException restEx &&
+         restEx.StatusCode == System.Net.HttpStatusCode.InternalServerError);
 }
 
 internal static class EndpointConfiguration
