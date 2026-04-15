@@ -68,6 +68,18 @@ public sealed class CometBftRestException : CometBftClientException
     }
 
     /// <summary>
+    /// Initializes a new instance of <see cref="CometBftRestException"/> with HTTP context and an inner exception.
+    /// </summary>
+    /// <param name="message">The error message.</param>
+    /// <param name="statusCode">The HTTP status code.</param>
+    /// <param name="innerException">The inner exception.</param>
+    public CometBftRestException(string message, HttpStatusCode statusCode, Exception innerException)
+        : base(message, innerException)
+    {
+        StatusCode = statusCode;
+    }
+
+    /// <summary>
     /// Initializes a new instance of <see cref="CometBftRestException"/> with a message and inner exception.
     /// </summary>
     /// <param name="message">The error message.</param>

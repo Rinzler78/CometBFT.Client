@@ -457,7 +457,7 @@ public sealed class IntegrationTests
     [Trait("Category", "Integration")]
     public async Task SdkGrpc_LiveNode_GetStatusAsync_ReturnsNodeInfo()
     {
-        var grpcUrl = EndpointConfiguration.RequireGrpc();
+        var grpcUrl = EndpointConfiguration.RequireSdkGrpc();
 
         var services = new ServiceCollection();
         services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
@@ -481,7 +481,7 @@ public sealed class IntegrationTests
     [Trait("Category", "Integration")]
     public async Task SdkGrpc_LiveNode_GetLatestBlockAsync_ReturnsBlock()
     {
-        var grpcUrl = EndpointConfiguration.RequireGrpc();
+        var grpcUrl = EndpointConfiguration.RequireSdkGrpc();
 
         var services = new ServiceCollection();
         services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
@@ -505,7 +505,7 @@ public sealed class IntegrationTests
     [Trait("Category", "Integration")]
     public async Task SdkGrpc_LiveNode_GetLatestValidatorsAsync_ReturnsValidators()
     {
-        var grpcUrl = EndpointConfiguration.RequireGrpc();
+        var grpcUrl = EndpointConfiguration.RequireSdkGrpc();
 
         var services = new ServiceCollection();
         services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
@@ -568,6 +568,16 @@ internal static class EndpointConfiguration
     public static string RequireWs() => Require("COMETBFT_WS_URL", (string?)DefaultWsUrl);
 
     public static string RequireGrpc() => Require("COMETBFT_GRPC_URL", (string?)DefaultGrpcUrl);
+
+    /// <summary>
+    /// Returns the gRPC URL normalized for <see cref="CometBftSdkGrpcOptions"/> (requires an absolute URI).
+    /// A bare host is prefixed with <c>https://</c>.
+    /// </summary>
+    public static string RequireSdkGrpc()
+    {
+        var raw = RequireGrpc();
+        return raw.Contains("://", StringComparison.Ordinal) ? raw : $"https://{raw}";
+    }
 
     private static string Require(string variableName, string? documentedDefault)
     {
