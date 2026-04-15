@@ -185,8 +185,10 @@ public sealed class CometBftGrpcClientTests
     }
 
     [Fact]
-    public async Task PublicConstructor_NormalizesBareHostAndCanDispose()
+    public async Task PublicConstructor_BareHost_ConstructsAndDisposesWithoutException()
     {
+        // "localhost:9090" has no scheme → NormalizeGrpcAddress prepends "https://"
+        // and GrpcChannel.ForAddress must accept it without throwing.
         await using var client = new CometBftGrpcClient(Options.Create(new CometBftGrpcOptions
         {
             BaseUrl = "localhost:9090",

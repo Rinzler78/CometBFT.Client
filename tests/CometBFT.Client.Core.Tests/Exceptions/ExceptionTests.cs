@@ -9,10 +9,11 @@ namespace CometBFT.Client.Core.Tests.Exceptions;
 public sealed class ExceptionTests
 {
     [Fact]
-    public void CometBftClientException_DefaultConstructor_HasNullMessage()
+    public void CometBftClientException_DefaultConstructor_DoesNotThrow()
     {
         var ex = new CometBftClientException();
         Assert.NotNull(ex);
+        Assert.NotEmpty(ex.Message); // default Exception message is never null/empty
     }
 
     [Fact]
