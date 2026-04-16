@@ -75,4 +75,28 @@ public static class TxResultExtensions
             result.Events,
             result.Codespace);
     }
+
+    /// <summary>
+    /// Fast-path conversion for the default raw codec: uses <see cref="TxResult.TxBytes"/>
+    /// directly as the transaction value without any base64 decode/re-encode roundtrip.
+    /// </summary>
+    /// <param name="result">The raw transaction result.</param>
+    /// <returns>A <see cref="TxResult{TTx}"/> of <c>string</c> reusing <see cref="TxResult.TxBytes"/>.</returns>
+    public static TxResult<string> DecodeRaw(this TxResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return new TxResult<string>(
+            result.Hash,
+            result.Height,
+            result.Index,
+            result.TxBytes,
+            result.Code,
+            result.Data,
+            result.Log,
+            result.Info,
+            result.GasWanted,
+            result.GasUsed,
+            result.Events,
+            result.Codespace);
+    }
 }

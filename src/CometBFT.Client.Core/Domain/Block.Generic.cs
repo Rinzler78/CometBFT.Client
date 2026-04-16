@@ -52,4 +52,16 @@ public static class BlockExtensions
 
         return new Block<TTx>(block.Height, block.Hash, block.Time, block.Proposer, txs);
     }
+
+    /// <summary>
+    /// Fast-path conversion for the default raw codec: wraps the existing base64
+    /// transaction strings directly without any decode/re-encode roundtrip.
+    /// </summary>
+    /// <param name="block">The raw block.</param>
+    /// <returns>A <see cref="Block{TTx}"/> of <c>string</c> reusing the original <see cref="Block.Txs"/> list.</returns>
+    public static Block<string> DecodeRaw(this Block block)
+    {
+        ArgumentNullException.ThrowIfNull(block);
+        return new Block<string>(block.Height, block.Hash, block.Time, block.Proposer, block.Txs);
+    }
 }

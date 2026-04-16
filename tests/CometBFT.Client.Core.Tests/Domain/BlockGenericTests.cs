@@ -9,7 +9,7 @@ namespace CometBFT.Client.Core.Tests.Domain;
 /// </summary>
 public sealed class BlockGenericTests
 {
-    // Codec stub: decodes bytes to their length as a string (for easy assertion)
+    // Codec stub: decodes bytes to their length as an int (for easy assertion)
     private sealed class LengthCodec : ITxCodec<int>
     {
         public int Decode(byte[] bytes) => bytes.Length;
