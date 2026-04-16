@@ -662,6 +662,14 @@ scripts/
   <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   <!-- SourceLink -->
   ```
+- [x] 9.16 **GitHub Release Governance** — configure tag protection, branch protection, and publish workflow:
+  - [x] 9.16.1 Create `.github/branch-protection.md` documenting required GitHub repository settings: `master` (require PR + ≥ 1 approval + all CI green + disallow force-push), `develop` (require PR + CI green), `release/*` (require PR targeting `master`)
+  - [x] 9.16.2 Configure GitHub tag protection rule: only tags matching `v*` may be pushed; restricted to maintainer/admin role
+  - [x] 9.16.3 Update `.github/workflows/publish.yml` trigger: `on: push: tags: ['v*']` only; add step to validate tag points at a `master` commit
+  - [x] 9.16.4 Add CHANGELOG enforcement step in `publish.yml`: extract `## [<version>]` section; fail with descriptive message if missing
+  - [x] 9.16.5 Add GitHub Release creation step in `publish.yml`: `gh release create $TAG --notes-file <changelog-section>` with `--prerelease` flag if tag contains `-alpha` or `-rc`
+  - [x] 9.16.6 Add `.nupkg` and `.snupkg` upload as release assets in `publish.yml`
+  - [x] 9.16.7 Validate pre-release tag path: tag `v*-alpha.*` or `v*-rc.*` pushes to nuget.org pre-release and creates GitHub pre-release
 
 ---
 

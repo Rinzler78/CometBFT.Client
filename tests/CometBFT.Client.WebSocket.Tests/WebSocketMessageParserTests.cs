@@ -1,9 +1,11 @@
-using System.Text.Json.Nodes;
+using System.Text;
+using System.Text.Json;
 using CometBFT.Client.Core.Domain;
 using CometBFT.Client.Core.Events;
 using CometBFT.Client.Core.Options;
 using CometBFT.Client.WebSocket;
 using CometBFT.Client.WebSocket.Internal;
+using CometBFT.Client.WebSocket.Json;
 using Microsoft.Extensions.Options;
 using Websocket.Client;
 using Xunit;
@@ -16,12 +18,24 @@ namespace CometBFT.Client.WebSocket.Tests;
 /// </summary>
 public sealed class WebSocketMessageParserTests
 {
+    // Helper: deserialize an inline JSON string.
+    private static WsEnvelope Deserialize(string json) =>
+        JsonSerializer.Deserialize(json, CometBftWebSocketJsonContext.Default.WsEnvelope)!;
+
+    // Helper: deserialize a fixture file captured from Cosmos Hub.
+    private static WsEnvelope LoadFixture(string fileName)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", fileName);
+        var json = File.ReadAllText(path, Encoding.UTF8);
+        return Deserialize(json);
+    }
+
     // ── ParseNewBlock ────────────────────────────────────────────────────────
 
     [Fact]
     public void ParseNewBlock_HappyPath_ReturnsBlock()
     {
-        var json = JsonNode.Parse("""
+        var envelope = Deserialize("""
         {
           "result": {
             "data": {
@@ -40,9 +54,9 @@ public sealed class WebSocketMessageParserTests
             }
           }
         }
-        """)!;
+        """);
 
-        var block = WebSocketMessageParser.ParseNewBlock(json);
+        var block = WebSocketMessageParser.ParseNewBlock((WsNewBlockData)envelope.Result!.Data!);
 
         Assert.NotNull(block);
         Assert.Equal(42L, block.Height);
@@ -56,10 +70,11 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseNewBlock_EmptyTxList_ReturnBlockWithNoTxs()
     {
-        var json = JsonNode.Parse("""
+        var envelope = Deserialize("""
         {
           "result": {
             "data": {
+              "type": "tendermint/event/NewBlock",
               "value": {
                 "block_id": { "hash": "H" },
                 "block": {
@@ -70,9 +85,9 @@ public sealed class WebSocketMessageParserTests
             }
           }
         }
-        """)!;
+        """);
 
-        var block = WebSocketMessageParser.ParseNewBlock(json);
+        var block = WebSocketMessageParser.ParseNewBlock((WsNewBlockData)envelope.Result!.Data!);
 
         Assert.NotNull(block);
         Assert.Empty(block.Txs);
@@ -81,9 +96,9 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseNewBlock_MissingBlockNode_ReturnsNull()
     {
-        var json = JsonNode.Parse("""{"result":{"data":{"value":{}}}}""")!;
+        var data = new WsNewBlockData { Value = new WsNewBlockValue { Block = null } };
 
-        var block = WebSocketMessageParser.ParseNewBlock(json);
+        var block = WebSocketMessageParser.ParseNewBlock(data);
 
         Assert.Null(block);
     }
@@ -93,7 +108,7 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseNewBlockHeader_HappyPath_ReturnsHeader()
     {
-        var json = JsonNode.Parse("""
+        var envelope = Deserialize("""
         {
           "result": {
             "data": {
@@ -119,9 +134,9 @@ public sealed class WebSocketMessageParserTests
             }
           }
         }
-        """)!;
+        """);
 
-        var header = WebSocketMessageParser.ParseNewBlockHeader(json);
+        var header = WebSocketMessageParser.ParseNewBlockHeader((WsNewBlockHeaderData)envelope.Result!.Data!);
 
         Assert.NotNull(header);
         Assert.Equal(100L, header.Height);
@@ -135,9 +150,9 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseNewBlockHeader_MissingHeaderNode_ReturnsNull()
     {
-        var json = JsonNode.Parse("""{"result":{"data":{"value":{}}}}""")!;
+        var data = new WsNewBlockHeaderData { Value = new WsNewBlockHeaderValue { Header = null } };
 
-        var header = WebSocketMessageParser.ParseNewBlockHeader(json);
+        var header = WebSocketMessageParser.ParseNewBlockHeader(data);
 
         Assert.Null(header);
     }
@@ -147,7 +162,7 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseTxResult_HappyPath_ReturnsTxResult()
     {
-        var json = JsonNode.Parse("""
+        var envelope = Deserialize("""
         {
           "result": {
             "data": {
@@ -179,9 +194,11 @@ public sealed class WebSocketMessageParserTests
             }
           }
         }
-        """)!;
+        """);
 
-        var tx = WebSocketMessageParser.ParseTxResult(json);
+        var tx = WebSocketMessageParser.ParseTxResult(
+            (WsTxData)envelope.Result!.Data!,
+            envelope.Result.Events);
 
         Assert.NotNull(tx);
         Assert.Equal("TXHASH88", tx.Hash);
@@ -202,10 +219,11 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseTxResult_NoEvents_ReturnsEmptyEventList()
     {
-        var json = JsonNode.Parse("""
+        var envelope = Deserialize("""
         {
           "result": {
             "data": {
+              "type": "tendermint/event/Tx",
               "value": {
                 "TxResult": {
                   "height": "1",
@@ -217,9 +235,11 @@ public sealed class WebSocketMessageParserTests
             "events": { "tx.hash": ["HASH1"] }
           }
         }
-        """)!;
+        """);
 
-        var tx = WebSocketMessageParser.ParseTxResult(json);
+        var tx = WebSocketMessageParser.ParseTxResult(
+            (WsTxData)envelope.Result!.Data!,
+            envelope.Result.Events);
 
         Assert.NotNull(tx);
         Assert.Empty(tx.Events);
@@ -228,9 +248,9 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseTxResult_MissingTxResultNode_ReturnsNull()
     {
-        var json = JsonNode.Parse("""{"result":{"data":{"value":{}}}}""")!;
+        var data = new WsTxData { Value = new WsTxValue { TxResult = null } };
 
-        var tx = WebSocketMessageParser.ParseTxResult(json);
+        var tx = WebSocketMessageParser.ParseTxResult(data, null);
 
         Assert.Null(tx);
     }
@@ -238,10 +258,11 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseTxResult_MissingTxHashInEvents_ReturnsEmptyHash()
     {
-        var json = JsonNode.Parse("""
+        var envelope = Deserialize("""
         {
           "result": {
             "data": {
+              "type": "tendermint/event/Tx",
               "value": {
                 "TxResult": {
                   "height": "5",
@@ -252,9 +273,11 @@ public sealed class WebSocketMessageParserTests
             }
           }
         }
-        """)!;
+        """);
 
-        var tx = WebSocketMessageParser.ParseTxResult(json);
+        var tx = WebSocketMessageParser.ParseTxResult(
+            (WsTxData)envelope.Result!.Data!,
+            envelope.Result.Events);
 
         Assert.NotNull(tx);
         Assert.Equal(string.Empty, tx.Hash);
@@ -265,7 +288,7 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseVote_HappyPath_ReturnsVote()
     {
-        var json = JsonNode.Parse("""
+        var envelope = Deserialize("""
         {
           "result": {
             "data": {
@@ -282,9 +305,9 @@ public sealed class WebSocketMessageParserTests
             }
           }
         }
-        """)!;
+        """);
 
-        var vote = WebSocketMessageParser.ParseVote(json);
+        var vote = WebSocketMessageParser.ParseVote((WsVoteData)envelope.Result!.Data!);
 
         Assert.NotNull(vote);
         Assert.Equal(2, vote.Type);
@@ -297,10 +320,11 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseVote_Prevote_TypeIsOne()
     {
-        var json = JsonNode.Parse("""
+        var envelope = Deserialize("""
         {
           "result": {
             "data": {
+              "type": "tendermint/event/Vote",
               "value": {
                 "Vote": {
                   "type": 1,
@@ -313,9 +337,9 @@ public sealed class WebSocketMessageParserTests
             }
           }
         }
-        """)!;
+        """);
 
-        var vote = WebSocketMessageParser.ParseVote(json);
+        var vote = WebSocketMessageParser.ParseVote((WsVoteData)envelope.Result!.Data!);
 
         Assert.NotNull(vote);
         Assert.Equal(1, vote.Type);
@@ -324,9 +348,9 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseVote_MissingVoteNode_ReturnsNull()
     {
-        var json = JsonNode.Parse("""{"result":{"data":{"value":{}}}}""")!;
+        var data = new WsVoteData { Value = new WsVoteValue { Vote = null } };
 
-        var vote = WebSocketMessageParser.ParseVote(json);
+        var vote = WebSocketMessageParser.ParseVote(data);
 
         Assert.Null(vote);
     }
@@ -336,7 +360,7 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseValidatorSetUpdates_HappyPath_ReturnsValidators()
     {
-        var json = JsonNode.Parse("""
+        var envelope = Deserialize("""
         {
           "result": {
             "data": {
@@ -358,9 +382,9 @@ public sealed class WebSocketMessageParserTests
             }
           }
         }
-        """)!;
+        """);
 
-        var validators = WebSocketMessageParser.ParseValidatorSetUpdates(json);
+        var validators = WebSocketMessageParser.ParseValidatorSetUpdates((WsValidatorSetUpdatesData)envelope.Result!.Data!);
 
         Assert.NotNull(validators);
         Assert.Equal(2, validators.Count);
@@ -374,19 +398,20 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseValidatorSetUpdates_EmptyList_ReturnsEmptyCollection()
     {
-        var json = JsonNode.Parse("""
+        var envelope = Deserialize("""
         {
           "result": {
             "data": {
+              "type": "tendermint/event/ValidatorSetUpdates",
               "value": {
                 "validator_updates": []
               }
             }
           }
         }
-        """)!;
+        """);
 
-        var validators = WebSocketMessageParser.ParseValidatorSetUpdates(json);
+        var validators = WebSocketMessageParser.ParseValidatorSetUpdates((WsValidatorSetUpdatesData)envelope.Result!.Data!);
 
         Assert.NotNull(validators);
         Assert.Empty(validators);
@@ -395,9 +420,9 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void ParseValidatorSetUpdates_MissingUpdatesNode_ReturnsNull()
     {
-        var json = JsonNode.Parse("""{"result":{"data":{"value":{}}}}""")!;
+        var data = new WsValidatorSetUpdatesData { Value = new WsValidatorSetUpdatesValue { ValidatorUpdates = null } };
 
-        var validators = WebSocketMessageParser.ParseValidatorSetUpdates(json);
+        var validators = WebSocketMessageParser.ParseValidatorSetUpdates(data);
 
         Assert.Null(validators);
     }
@@ -407,8 +432,7 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void OnMessageReceived_NewBlock_FiresNewBlockReceivedEvent()
     {
-        var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(Options.Create(opts));
+        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
         Block? received = null;
         client.NewBlockReceived += (_, args) => received = args.Value;
 
@@ -436,8 +460,7 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void OnMessageReceived_NewBlockHeader_FiresNewBlockHeaderReceivedEvent()
     {
-        var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(Options.Create(opts));
+        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
         BlockHeader? received = null;
         client.NewBlockHeaderReceived += (_, args) => received = args.Value;
 
@@ -471,8 +494,7 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void OnMessageReceived_Tx_FiresTxExecutedEvent()
     {
-        var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(Options.Create(opts));
+        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
         TxResult? received = null;
         client.TxExecuted += (_, args) => received = args.Value;
 
@@ -502,8 +524,7 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void OnMessageReceived_Vote_FiresVoteReceivedEvent()
     {
-        var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(Options.Create(opts));
+        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
         Vote? received = null;
         client.VoteReceived += (_, args) => received = args.Value;
 
@@ -534,8 +555,7 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void OnMessageReceived_ValidatorSetUpdates_FiresValidatorSetUpdatedEvent()
     {
-        var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(Options.Create(opts));
+        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
         IReadOnlyList<Validator>? received = null;
         client.ValidatorSetUpdated += (_, args) => received = args.Value;
 
@@ -563,8 +583,7 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void OnMessageReceived_UnknownEventType_NoEventFired()
     {
-        var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(Options.Create(opts));
+        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
         var eventFired = false;
         client.NewBlockReceived += (_, _) => eventFired = true;
         client.NewBlockHeaderReceived += (_, _) => eventFired = true;
@@ -582,22 +601,78 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void OnMessageReceived_EmptyResult_NoEventFired()
     {
-        var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(Options.Create(opts));
+        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
         var eventFired = false;
         client.NewBlockReceived += (_, _) => eventFired = true;
 
-        // Subscription ACK — result is empty object
+        // Subscription ACK — result is empty object; no domain event should fire
         client.OnMessageReceived(ResponseMessage.TextMessage("""{"jsonrpc":"2.0","id":1,"result":{}}"""));
 
         Assert.False(eventFired);
     }
 
     [Fact]
+    public async Task OnMessageReceived_SubscribeAck_CompletesPendingTask()
+    {
+        // Arrange: register a pending ack as SendSubscribeAsync would
+        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client._pendingAcks[1] = tcs;
+
+        // Act: simulate server ack for request id=1
+        client.OnMessageReceived(ResponseMessage.TextMessage("""{"jsonrpc":"2.0","id":1,"result":{}}"""));
+
+        // Assert: the pending task is completed and its result is true
+        Assert.True(tcs.Task.IsCompleted);
+        Assert.True(await tcs.Task);
+    }
+
+    [Fact]
+    public void OnMessageReceived_SubscribeAck_UnknownId_DoesNotThrow()
+    {
+        // Ack for an id that has no registered pending task must be silently ignored
+        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
+
+        var ex = Record.Exception(() =>
+            client.OnMessageReceived(ResponseMessage.TextMessage("""{"jsonrpc":"2.0","id":99,"result":{}}""")));
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void OnMessageReceived_EventWithIdZero_IsDispatchedAsEvent()
+    {
+        // Events arrive with id=0 and must NOT be treated as acks
+        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
+        var eventFired = false;
+        client.NewBlockReceived += (_, _) => eventFired = true;
+
+        client.OnMessageReceived(ResponseMessage.TextMessage("""
+        {
+          "jsonrpc": "2.0",
+          "id": 0,
+          "result": {
+            "data": {
+              "type": "tendermint/event/NewBlock",
+              "value": {
+                "block_id": { "hash": "HASH1" },
+                "block": {
+                  "header": { "height": "10", "time": "2024-01-01T00:00:00+00:00", "proposer_address": "P" },
+                  "data": { "txs": [] }
+                }
+              }
+            }
+          }
+        }
+        """));
+
+        Assert.True(eventFired);
+    }
+
+    [Fact]
     public void OnMessageReceived_MalformedJson_DoesNotThrow()
     {
-        var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(Options.Create(opts));
+        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
 
         var ex = Record.Exception(() =>
             client.OnMessageReceived(ResponseMessage.TextMessage("not valid json {{{")));
@@ -608,12 +683,269 @@ public sealed class WebSocketMessageParserTests
     [Fact]
     public void OnMessageReceived_EmptyText_DoesNotThrow()
     {
-        var opts = new CometBftWebSocketOptions();
-        var client = new CometBftWebSocketClient(Options.Create(opts));
+        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
 
         var ex = Record.Exception(() =>
             client.OnMessageReceived(ResponseMessage.TextMessage("   ")));
 
         Assert.Null(ex);
+    }
+
+    // ── Outgoing request serialization ───────────────────────────────────────
+
+    [Fact]
+    public void WsSubscribeRequest_Serializes_CorrectJsonRpcShape()
+    {
+        var request = new WsSubscribeRequest
+        {
+            Id = 3,
+            Params = new WsSubscribeParams { Query = "tm.event='NewBlock'" },
+        };
+
+        var json = JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsSubscribeRequest);
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        Assert.Equal("2.0", root.GetProperty("jsonrpc").GetString());
+        Assert.Equal("subscribe", root.GetProperty("method").GetString());
+        Assert.Equal(3, root.GetProperty("id").GetInt32());
+        Assert.Equal("tm.event='NewBlock'", root.GetProperty("params").GetProperty("query").GetString());
+    }
+
+    [Fact]
+    public void WsUnsubscribeAllRequest_Serializes_CorrectJsonRpcShape()
+    {
+        var request = new WsUnsubscribeAllRequest { Id = 7 };
+
+        var json = JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsUnsubscribeAllRequest);
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        Assert.Equal("2.0", root.GetProperty("jsonrpc").GetString());
+        Assert.Equal("unsubscribe_all", root.GetProperty("method").GetString());
+        Assert.Equal(7, root.GetProperty("id").GetInt32());
+        Assert.True(root.TryGetProperty("params", out _));
+    }
+
+    // ── Fixture-based tests (real Cosmos Hub payloads) ───────────────────────
+    // Captured live from wss://cosmoshub.tendermintrpc.lava.build at block 30674661.
+    // These tests validate that the full deserialization → domain-object pipeline
+    // handles real network payloads — not just the shapes we imagined.
+
+    [Fact]
+    public void ParseNewBlock_RealFixture_DeserializesWithoutError()
+    {
+        var envelope = LoadFixture("new_block_with_txs.json");
+        var data = Assert.IsType<WsNewBlockData>(envelope.Result!.Data);
+
+        var block = WebSocketMessageParser.ParseNewBlock(data);
+
+        Assert.NotNull(block);
+    }
+
+    [Fact]
+    public void ParseNewBlock_RealFixture_HeightIsCorrect()
+    {
+        var envelope = LoadFixture("new_block_with_txs.json");
+        var data = Assert.IsType<WsNewBlockData>(envelope.Result!.Data);
+
+        var block = WebSocketMessageParser.ParseNewBlock(data);
+
+        Assert.Equal(30_674_661L, block!.Height);
+    }
+
+    [Fact]
+    public void ParseNewBlock_RealFixture_HashIsPopulated()
+    {
+        var envelope = LoadFixture("new_block_with_txs.json");
+        var data = Assert.IsType<WsNewBlockData>(envelope.Result!.Data);
+
+        var block = WebSocketMessageParser.ParseNewBlock(data);
+
+        Assert.Equal("7656AFA79A263C93CC20A1F0775DE3F48193FA4BF25D8B8C7CCB4ED8C83C1DC2", block!.Hash);
+    }
+
+    [Fact]
+    public void ParseNewBlock_RealFixture_ProposerAddressIsCorrect()
+    {
+        var envelope = LoadFixture("new_block_with_txs.json");
+        var data = Assert.IsType<WsNewBlockData>(envelope.Result!.Data);
+
+        var block = WebSocketMessageParser.ParseNewBlock(data);
+
+        Assert.Equal("638C11545DF20961BDE0373D1602ECECB3BC6CD0", block!.Proposer);
+    }
+
+    [Fact]
+    public void ParseNewBlock_RealFixture_TimeIsParsed()
+    {
+        var envelope = LoadFixture("new_block_with_txs.json");
+        var data = Assert.IsType<WsNewBlockData>(envelope.Result!.Data);
+
+        var block = WebSocketMessageParser.ParseNewBlock(data);
+
+        // Nanosecond precision in the wire timestamp is truncated to microsecond by DateTimeOffset.
+        Assert.Equal(2026, block!.Time.Year);
+        Assert.Equal(4, block.Time.Month);
+        Assert.Equal(15, block.Time.Day);
+        Assert.Equal(13, block.Time.Hour);
+        Assert.Equal(2, block.Time.Minute);
+    }
+
+    [Fact]
+    public void ParseNewBlock_RealFixture_HasAtLeastOneTx()
+    {
+        var envelope = LoadFixture("new_block_with_txs.json");
+        var data = Assert.IsType<WsNewBlockData>(envelope.Result!.Data);
+
+        var block = WebSocketMessageParser.ParseNewBlock(data);
+
+        Assert.NotEmpty(block!.Txs);
+        Assert.NotEmpty(block.Txs[0]); // base64-encoded bytes, never empty
+    }
+
+    [Fact]
+    public void ParseTxResult_RealFixture_DeserializesWithoutError()
+    {
+        var envelope = LoadFixture("tx_event.json");
+        var data = Assert.IsType<WsTxData>(envelope.Result!.Data);
+
+        var tx = WebSocketMessageParser.ParseTxResult(data, envelope.Result.Events);
+
+        Assert.NotNull(tx);
+    }
+
+    [Fact]
+    public void ParseTxResult_RealFixture_HeightIsCorrect()
+    {
+        var envelope = LoadFixture("tx_event.json");
+        var data = Assert.IsType<WsTxData>(envelope.Result!.Data);
+
+        var tx = WebSocketMessageParser.ParseTxResult(data, envelope.Result.Events);
+
+        Assert.Equal(30_674_661L, tx!.Height);
+    }
+
+    [Fact]
+    public void ParseTxResult_RealFixture_HashFromTopLevelEvents()
+    {
+        var envelope = LoadFixture("tx_event.json");
+        var data = Assert.IsType<WsTxData>(envelope.Result!.Data);
+
+        var tx = WebSocketMessageParser.ParseTxResult(data, envelope.Result.Events);
+
+        Assert.Equal("32C6A86AED67254A33F15FEEB78D307A64F7803D5B33D7D3D9DFFDB5E7750E7B", tx!.Hash);
+    }
+
+    [Fact]
+    public void ParseTxResult_RealFixture_GasFieldsAreCorrect()
+    {
+        var envelope = LoadFixture("tx_event.json");
+        var data = Assert.IsType<WsTxData>(envelope.Result!.Data);
+
+        var tx = WebSocketMessageParser.ParseTxResult(data, envelope.Result.Events);
+
+        Assert.Equal(134_178L, tx!.GasWanted);
+        Assert.Equal(99_965L, tx!.GasUsed);
+    }
+
+    [Fact]
+    public void ParseTxResult_RealFixture_CodeIsZeroForSuccessfulTx()
+    {
+        var envelope = LoadFixture("tx_event.json");
+        var data = Assert.IsType<WsTxData>(envelope.Result!.Data);
+
+        var tx = WebSocketMessageParser.ParseTxResult(data, envelope.Result.Events);
+
+        Assert.Equal(0u, tx!.Code);
+    }
+
+    [Fact]
+    public void ParseTxResult_RealFixture_AbciEventsArePopulated()
+    {
+        var envelope = LoadFixture("tx_event.json");
+        var data = Assert.IsType<WsTxData>(envelope.Result!.Data);
+
+        var tx = WebSocketMessageParser.ParseTxResult(data, envelope.Result.Events);
+
+        // 17 ABCI events in this MsgSend transaction
+        Assert.Equal(17, tx!.Events.Count);
+        Assert.All(tx.Events, e => Assert.NotEmpty(e.Type));
+    }
+
+    [Fact]
+    public void ParseVote_RealFixture_DeserializesWithoutError()
+    {
+        var envelope = LoadFixture("vote_event.json");
+        var data = Assert.IsType<WsVoteData>(envelope.Result!.Data);
+
+        var vote = WebSocketMessageParser.ParseVote(data);
+
+        Assert.NotNull(vote);
+    }
+
+    [Fact]
+    public void ParseVote_RealFixture_HeightIsCorrect()
+    {
+        var envelope = LoadFixture("vote_event.json");
+        var data = Assert.IsType<WsVoteData>(envelope.Result!.Data);
+
+        var vote = WebSocketMessageParser.ParseVote(data);
+
+        Assert.Equal(30_674_660L, vote!.Height);
+    }
+
+    [Fact]
+    public void ParseVote_RealFixture_TypeAndRoundAreCorrect()
+    {
+        var envelope = LoadFixture("vote_event.json");
+        var data = Assert.IsType<WsVoteData>(envelope.Result!.Data);
+
+        var vote = WebSocketMessageParser.ParseVote(data);
+
+        Assert.Equal(1, vote!.Type);   // prevote
+        Assert.Equal(0, vote.Round);
+    }
+
+    [Fact]
+    public void ParseVote_RealFixture_ValidatorAddressIsCorrect()
+    {
+        var envelope = LoadFixture("vote_event.json");
+        var data = Assert.IsType<WsVoteData>(envelope.Result!.Data);
+
+        var vote = WebSocketMessageParser.ParseVote(data);
+
+        Assert.Equal("B2336DC86A74A6F8552D7F686AC0983EF4E0B0CE", vote!.ValidatorAddress);
+    }
+
+    [Fact]
+    public void ParseVote_RealFixture_TimestampIsParsed()
+    {
+        var envelope = LoadFixture("vote_event.json");
+        var data = Assert.IsType<WsVoteData>(envelope.Result!.Data);
+
+        var vote = WebSocketMessageParser.ParseVote(data);
+
+        // Prevote timestamp from consensus round — verify date and time components.
+        Assert.Equal(2026, vote!.Timestamp.Year);
+        Assert.Equal(4, vote.Timestamp.Month);
+        Assert.Equal(15, vote.Timestamp.Day);
+        Assert.Equal(13, vote.Timestamp.Hour);
+        Assert.Equal(2, vote.Timestamp.Minute);
+    }
+
+    [Fact]
+    public void ParseVote_RealFixture_PrevoteWithEmptyBlockId_StillParses()
+    {
+        // vote_event.json is a prevote (type=1) with an empty block_id.hash —
+        // a normal condition during the prevote phase when the block is not yet locked.
+        var envelope = LoadFixture("vote_event.json");
+        var data = Assert.IsType<WsVoteData>(envelope.Result!.Data);
+
+        var vote = WebSocketMessageParser.ParseVote(data);
+
+        // Parser must return a valid Vote even with an empty block_id in the wire payload.
+        Assert.NotNull(vote);
+        Assert.Equal(1, vote.Type);
     }
 }

@@ -128,9 +128,10 @@ The REST client SHALL implement all public CometBFT RPC HTTP endpoints as define
 - **WHEN** `GetBlockResultsAsync(height, CancellationToken)` is called
 - **THEN** a `ResultBlockResults` record with `TxsResults` and `FinalizeBlockEvents` is returned
 
-#### Scenario: BroadcastTxAsync returns typed response
-- **WHEN** `BroadcastTxAsync(txBytes, BroadcastMode, CancellationToken)` is called with a valid signed transaction
+#### Scenario: BroadcastTxAsync accepts pre-signed transaction bytes
+- **WHEN** `BroadcastTxAsync(txBytes, BroadcastMode, CancellationToken)` is called with a pre-signed `TxRaw` (produced by `ITxSigner` from `Rinzler78.Cosmos.Client`)
 - **THEN** a `ResultBroadcastTx` with non-empty `Hash` is returned
+- **AND** the CometBFT client does not perform any signing — it only broadcasts the bytes as-is; signing is the responsibility of the caller (e.g. `Rinzler78.Cosmos.Client.ITxSigner`)
 
 #### Scenario: TxSearchAsync returns paginated results
 - **WHEN** `TxSearchAsync(query, prove, pageRequest, CancellationToken)` is called
@@ -301,6 +302,92 @@ The repository SHALL enforce Git Flow branching and protect master and develop f
 #### Scenario: Invalid commit message is rejected
 - **WHEN** a commit message does not match conventional commits format
 - **THEN** the commit-msg hook exits with code 1
+
+---
+
+### Requirement: GitHub Release Governance — Tags, SemVer, and Publish Workflow
+
+The repository SHALL enforce a strict release lifecycle: tags are the single source of truth for versioning, GitHub branch protection rules mirror the local git hooks, and the `publish.yml` workflow is the only path to NuGet publication.
+
+#### Tag naming convention
+
+| Tag pattern | Meaning | NuGet feed | GitHub Release |
+|---|---|---|---|
+| `v<MAJOR>.<MINOR>.<PATCH>` | Stable release (e.g. `v1.2.0`) | `nuget.org` stable | Published, not pre-release |
+| `v<x.y.z>-alpha.<n>` | Alpha pre-release (e.g. `v1.2.0-alpha.1`) | `nuget.org` pre-release | Published, marked pre-release |
+| `v<x.y.z>-rc.<n>` | Release candidate (e.g. `v1.2.0-rc.1`) | `nuget.org` pre-release | Published, marked pre-release |
+
+Tags MUST be created **only on `master`** for both stable and pre-release publications. Tags on `develop`, `release/*`, or feature branches are forbidden — `publish.yml` rejects any tag not reachable from `master`.
+
+#### SemVer rules (conventional commits driven)
+
+| Commit prefix | Minimum version bump |
+|---|---|
+| `BREAKING CHANGE` in footer or `!` suffix | **MAJOR** |
+| `feat:` | **MINOR** |
+| `fix:`, `perf:`, `refactor:`, `docs:`, `chore:` | **PATCH** |
+
+#### GitHub branch protection rules (required — configured in `.github/branch-protection.md`)
+
+| Branch | Required checks before merge | Additional rules |
+|---|---|---|
+| `master` | All CI check-runs green (`CI / English-only language check (cspell)`, `CI / Build & Test (.NET 10)`, `CI / Integration Tests`, `CI / E2E Tests`) | Require PR + ≥ 1 approving review; disallow direct push; disallow force-push; restrict tag creation to maintainers |
+| `develop` | All CI check-runs green | Require PR; disallow direct push; disallow force-push |
+| `release/*` | All CI check-runs green | Require PR targeting `master`; delete branch after merge |
+
+Tags matching `v*` SHALL be protected: only repository maintainers (those with `maintain` or `admin` role) may create them.
+
+#### CI/CD workflow structure
+
+**`ci.yml`** — triggered on `push` to `feature/**`/`bugfix/**` and on `pull_request` targeting `develop`, `master`, or `release/**`:
+- `language-check` job: `cspell` English-only check across source, scripts, and docs
+- `build-and-test` job: `dotnet build` + `dotnet format --verify-no-changes` + unit tests with Coverlet coverage gate (≥ 90 %)
+- `integration-tests` job: runs integration tests against public CometBFT endpoints (needs `build-and-test`)
+- `e2e-tests` job: runs E2E tests against public CometBFT endpoints (needs `integration-tests`)
+
+**`publish.yml`** — triggered **only** on `push: tags: ['v*']` (never on branch push):
+1. Validate tag points at a commit reachable from `master` (`git merge-base --is-ancestor HEAD origin/master`); fail otherwise
+2. Extract CHANGELOG section matching the tag version (exact heading match `## [<version>]`); fail if section is missing
+3. `dotnet build --configuration Release`
+4. Run full test suite including coverage gate; fail if any threshold is not met
+5. `dotnet pack --configuration Release --no-build` with `PackageVersion` derived from the tag (e.g. `v1.2.0` → `1.2.0`, `v1.2.0-rc.1` → `1.2.0-rc.1`); NuGet stable vs pre-release is determined by the packed version string
+6. `dotnet nuget push` with `--skip-duplicate`
+7. Create GitHub Release via `gh release create $TAG --notes-file <extracted-changelog-section>` with `--prerelease` flag if tag contains `-alpha` or `-rc`
+8. Upload `.nupkg` and `.snupkg` as release assets
+
+#### CHANGELOG enforcement (pre-publish gate)
+
+Before `dotnet nuget push`, `publish.yml` SHALL extract the CHANGELOG.md section whose heading matches `## [<version>]` (e.g. `## [1.2.0]`). If no matching section is found, the workflow exits non-zero with the message: `CHANGELOG.md has no entry for version <version> — add a [<version>] section before tagging`.
+
+#### Scenario: Stable tag on master triggers NuGet stable publish and GitHub Release
+- **WHEN** a maintainer pushes tag `v1.2.0` pointing at a `master` commit
+- **THEN** `publish.yml` runs, validates the tag is on `master`, finds `## [1.2.0]` in CHANGELOG.md, packs and pushes to nuget.org stable feed, and creates a GitHub Release named `v1.2.0` (not pre-release) with the extracted CHANGELOG section as description
+- **AND** `.nupkg` and `.snupkg` are attached to the GitHub Release as downloadable assets
+
+#### Scenario: Pre-release tag triggers nuget.org pre-release publish and GitHub pre-release
+- **WHEN** a maintainer pushes tag `v1.2.0-rc.1`
+- **THEN** `publish.yml` pushes to nuget.org with the pre-release version identifier
+- **AND** the GitHub Release is created with the `--prerelease` flag
+
+#### Scenario: Tag on non-master branch is rejected by publish.yml
+- **WHEN** a tag matching `v*` is pushed but does not point at a `master` commit
+- **THEN** `publish.yml` fails at the branch validation step with a descriptive error message
+- **AND** no NuGet package is pushed and no GitHub Release is created
+
+#### Scenario: Missing CHANGELOG section blocks publish
+- **WHEN** `publish.yml` runs for tag `v1.3.0` but CHANGELOG.md has no `## [1.3.0]` section
+- **THEN** the workflow exits non-zero with the message `CHANGELOG.md has no entry for version 1.3.0`
+- **AND** no package is pushed
+
+#### Scenario: Direct tag creation by non-maintainer is rejected by GitHub
+- **WHEN** a collaborator without `maintain` or `admin` role attempts to push a `v*` tag to the remote
+- **THEN** GitHub's tag protection rule rejects the push
+- **AND** no publish workflow is triggered
+
+#### Scenario: publish.yml is never triggered by a branch push
+- **WHEN** code is pushed to `develop`, `master`, or any feature branch (not a tag)
+- **THEN** `publish.yml` does NOT run
+- **AND** only `ci.yml` runs
 
 ---
 
@@ -518,6 +605,44 @@ The library SHALL have a `README.md` and `CHANGELOG.md` present from the very fi
 #### Scenario: README updated when public API changes
 - **WHEN** a new public interface, client method, or DI extension is added
 - **THEN** `README.md` is updated to reflect the new capability before the commit is merged
+
+---
+
+### Requirement: NuGet Dependency Chain — Base Layer, Interfaces, and Domain Models
+
+`Rinzler78.CometBFT.Client` is the **root of the client dependency chain**. It has no upstream NuGet dependency on any other `Rinzler78.*` package. It exposes the base public interfaces and domain model types that higher-level libraries (`Rinzler78.Cosmos.Client`, `Rinzler78.Osmosis.Client`) consume directly or extend — without redefining them.
+
+**Dependency chain position:**
+```
+Rinzler78.CometBFT.Client   ← this package (no upstream)
+    ↑
+Rinzler78.Cosmos.Client     (depends on this package, extends interfaces, reuses domain models)
+    ↑
+Rinzler78.Osmosis.Client    (depends on Cosmos.Client, transitively on this package)
+```
+
+**Domain models exposed to downstream libraries:**
+- `Block`, `BlockHeader`, `TxResult`, `Event`, `Attribute` — consumed by `Cosmos.Client.Core`
+- `NodeInfo`, `SyncInfo`, `Validator` — consumed by `Cosmos.Client.Core` where applicable
+
+**Interface inheritance chain:**
+```
+ICometBftSdkGrpcClient  ← defined here
+    ↑ extends
+ICosmosGrpcClient       (defined in Cosmos.Client)
+    ↑ extends
+IOsmosisGrpcClient      (defined in Osmosis.Client)
+```
+
+#### Scenario: No upstream Rinzler78 package reference
+- **WHEN** `CometBFT.Client.Extensions.csproj` is inspected
+- **THEN** it contains no `<PackageReference>` to any other `Rinzler78.*` package
+- **AND** `dotnet list package` on the solution shows no Rinzler78 transitive dependency
+
+#### Scenario: Public interfaces and models are consumable by downstream libraries
+- **WHEN** `Rinzler78.Cosmos.Client` is compiled with a reference to `Rinzler78.CometBFT.Client`
+- **THEN** `ICometBftRestClient`, `ICometBftWebSocketClient`, `ICometBftGrpcClient`, `ICometBftSdkGrpcClient`, and all domain records (`Block`, `TxResult`, `Event`, `Attribute`…) resolve without error
+- **AND** downstream libraries extend interfaces and compose domain types without redefining them
 
 ---
 

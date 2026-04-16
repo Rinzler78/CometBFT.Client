@@ -4,6 +4,7 @@
   "dictionaries": ["en_US", "en-gb"],
   "ignorePaths": [
     ".cspell.json",
+    ".secrets.baseline",
     "coverage/**",
     "artifacts/**",
     ".worktrees/**",
@@ -19,7 +20,8 @@
     "TestResults/**",
     "**/*.g.cs",
     "**/*.generated.cs",
-    "**/LegacyProto/**"
+    "**/LegacyProto/**",
+    "tests/**/Fixtures/**"
   ],
   "words": [
     "CometBFT", "cometbft",
@@ -65,7 +67,12 @@
     "Lava", "lava",
     "kvstore",
     "Prevote",
-    "uatom"
+    "uatom",
+    "mktemp",
+    "Acks",
+    "acks",
+    "contentfiles", "buildtransitive",
+    "Linq"
   ],
   "overrides": [
     {
@@ -81,7 +88,9 @@
         "HASHASYNC", "HASHCOMMIT",
         "TXBYTES", "VALADDR", "AQID",
         "mykey", "myvalue", "mynode",
-        "APPHASH"
+        "APPHASH",
+        "LHASH", "LAHASH", "EHASH", "EAHASH",
+        "EARLIESTHASH", "EARLIESTAPP"
       ]
     }
   ]

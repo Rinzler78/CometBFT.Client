@@ -1,8 +1,9 @@
 name: Publish to NuGet
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -11,10 +12,28 @@ jobs:
   publish:
     name: Pack & Publish NuGet
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    env:
+      COMETBFT_RPC_URL: https://cosmoshub.tendermintrpc.lava.build:443
+      COMETBFT_WS_URL: wss://cosmoshub.tendermintrpc.lava.build:443/websocket
+      COMETBFT_GRPC_URL: cosmoshub.grpc.lava.build
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag is on master
+        run: |
+          git fetch origin master --quiet
+          if ! git merge-base --is-ancestor HEAD origin/master; then
+            echo "ERROR: Tag ${GITHUB_REF_NAME} does not point at a commit reachable from master."
+            echo "Tags must be created only on master. Aborting publish."
+            exit 1
+          fi
 
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
@@ -27,16 +46,60 @@ jobs:
       - name: Build (Release)
         run: dotnet build CometBFT.Client.sln --configuration Release --no-restore
 
-      - name: Run tests
+      - name: Run unit tests with coverage gate
         run: |
           dotnet test CometBFT.Client.sln \
             --configuration Release \
             --no-build \
-            --filter "Category!=Integration"
+            --collect "XPlat Code Coverage" \
+            --logger trx \
+            --results-directory TestResults \
+            --filter "Category!=Integration&Category!=E2E"
+          dotnet run --project tools/CometBFT.Client.CoverageGate/CometBFT.Client.CoverageGate.csproj -- TestResults
+
+      - name: Run integration tests
+        run: |
+          dotnet test tests/CometBFT.Client.Integration.Tests/CometBFT.Client.Integration.Tests.csproj \
+            --configuration Release \
+            --no-build \
+            --logger trx \
+            --results-directory TestResults \
+            --filter "Category=Integration"
+
+      - name: Run E2E tests
+        run: |
+          dotnet test tests/CometBFT.Client.E2E.Tests/CometBFT.Client.E2E.Tests.csproj \
+            --configuration Release \
+            --no-build \
+            --logger trx \
+            --results-directory TestResults \
+            --filter "Category=E2E"
+
+      - name: Extract version and CHANGELOG section
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          if echo "${GITHUB_REF_NAME}" | grep -qE '\-(alpha|rc)\.'; then
+            echo "PRERELEASE=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "PRERELEASE=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          NOTES_FILE="$(mktemp)"
+          awk -v heading="## [${VERSION}]" '$0 == heading{found=1; next} found && /^## \[/{exit} found{print}' CHANGELOG.md > "${NOTES_FILE}"
+
+          if [ ! -s "${NOTES_FILE}" ]; then
+            echo "ERROR: CHANGELOG.md has no entry for version ${VERSION} — add a [${VERSION}] section before tagging."
+            exit 1
+          fi
+
+          echo "NOTES_FILE=${NOTES_FILE}" >> "$GITHUB_OUTPUT"
 
       - name: Pack
         env:
-          PACKAGE_VERSION: ${{ github.event.release.tag_name }}
+          PACKAGE_VERSION: ${{ steps.changelog.outputs.VERSION }}
         run: |
           dotnet pack CometBFT.Client.sln \
             --configuration Release \
@@ -50,3 +113,21 @@ jobs:
             --api-key "${{ secrets.NUGET_API_KEY }}" \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
+
+      - name: Create GitHub Release and upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES_FILE: ${{ steps.changelog.outputs.NOTES_FILE }}
+          PRERELEASE: ${{ steps.changelog.outputs.PRERELEASE }}
+        run: |
+          PRERELEASE_FLAG=""
+          if [ "${PRERELEASE}" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file "${NOTES_FILE}" \
+            ${PRERELEASE_FLAG} \
+            ./artifacts/*.nupkg \
+            ./artifacts/*.snupkg
