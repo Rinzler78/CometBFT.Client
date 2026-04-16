@@ -109,7 +109,7 @@ public sealed class CometBftWebSocketClientTests
         var opts = new CometBftWebSocketOptions();
         await using var client = new CometBftWebSocketClient(Options.Create(opts));
 
-        var handler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.Block>>>();
+        var handler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.Block<string>>>>();
         client.NewBlockReceived += handler;
         client.NewBlockReceived -= handler;
     }
@@ -120,7 +120,7 @@ public sealed class CometBftWebSocketClientTests
         var opts = new CometBftWebSocketOptions();
         await using var client = new CometBftWebSocketClient(Options.Create(opts));
 
-        var handler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.TxResult>>>();
+        var handler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.TxResult<string>>>>();
         client.TxExecuted += handler;
         client.TxExecuted -= handler;
     }
@@ -192,9 +192,9 @@ public sealed class CometBftWebSocketClientTests
         var opts = new CometBftWebSocketOptions();
         await using var client = new CometBftWebSocketClient(Options.Create(opts));
 
-        var blockHandler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.Block>>>();
+        var blockHandler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.Block<string>>>>();
         var headerHandler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.BlockHeader>>>();
-        var txHandler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.TxResult>>>();
+        var txHandler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.TxResult<string>>>>();
         var voteHandler = Substitute.For<EventHandler<CometBftEventArgs<Core.Domain.Vote>>>();
         var validatorHandler = Substitute.For<EventHandler<CometBftEventArgs<IReadOnlyList<Core.Domain.Validator>>>>();
 

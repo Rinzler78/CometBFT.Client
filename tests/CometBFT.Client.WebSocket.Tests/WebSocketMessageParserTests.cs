@@ -433,7 +433,7 @@ public sealed class WebSocketMessageParserTests
     public void OnMessageReceived_NewBlock_FiresNewBlockReceivedEvent()
     {
         var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
-        Block? received = null;
+        Block<string>? received = null;
         client.NewBlockReceived += (_, args) => received = args.Value;
 
         client.OnMessageReceived(ResponseMessage.TextMessage("""
@@ -495,7 +495,7 @@ public sealed class WebSocketMessageParserTests
     public void OnMessageReceived_Tx_FiresTxExecutedEvent()
     {
         var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
-        TxResult? received = null;
+        TxResult<string>? received = null;
         client.TxExecuted += (_, args) => received = args.Value;
 
         client.OnMessageReceived(ResponseMessage.TextMessage("""
