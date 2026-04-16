@@ -15,13 +15,7 @@ Provides REST/JSON-RPC, WebSocket subscription, and gRPC transports with full de
 dotnet add package Rinzler78.CometBFT.Client
 ```
 
-Or add each transport separately:
-
-```
-dotnet add package Rinzler78.CometBFT.Client.Rest
-dotnet add package Rinzler78.CometBFT.Client.WebSocket
-dotnet add package Rinzler78.CometBFT.Client.Grpc
-```
+This single package includes all three transports (REST, WebSocket, gRPC) and DI extensions.
 
 ## Quick Start
 
@@ -89,6 +83,8 @@ await Task.Delay(Timeout.Infinite);
 
 ### gRPC Transport
 
+**CometBFT BroadcastAPI** (legacy Tendermint proto):
+
 ```csharp
 services.AddCometBftGrpc(options =>
 {
@@ -101,6 +97,21 @@ bool alive = await grpcClient.PingAsync();
 Console.WriteLine($"gRPC ping: {alive}");
 ```
 
+**Cosmos SDK gRPC** (`cosmos.base.tendermint.v1beta1` — available on most Cosmos nodes):
+
+```csharp
+services.AddCometBftSdkGrpc(options =>
+{
+    options.BaseUrl = "http://localhost:9090";
+});
+
+var sdkClient = provider.GetRequiredService<ICometBftSdkGrpcClient>();
+
+var (nodeInfo, syncInfo) = await sdkClient.GetStatusAsync();
+var block = await sdkClient.GetLatestBlockAsync();
+var validators = await sdkClient.GetLatestValidatorsAsync();
+```
+
 ## Architecture
 
 | Package | Responsibility |
@@ -108,7 +119,7 @@ Console.WriteLine($"gRPC ping: {alive}");
 | `CometBFT.Client.Core` | Domain types, interfaces, options, exceptions |
 | `CometBFT.Client.Rest` | HTTP/JSON-RPC 2.0 client with Polly resilience |
 | `CometBFT.Client.WebSocket` | WebSocket subscription client with auto-reconnect |
-| `CometBFT.Client.Grpc` | gRPC client with generated proto bindings for CometBFT BroadcastAPI |
+| `CometBFT.Client.Grpc` | gRPC client — CometBFT BroadcastAPI (`ICometBftGrpcClient`) and Cosmos SDK service (`ICometBftSdkGrpcClient`) |
 | `CometBFT.Client.Extensions` | `IServiceCollection` DI registration extensions |
 
 ## Running the Demos

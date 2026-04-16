@@ -6,7 +6,7 @@ Targets [CometBFT](https://github.com/cometbft/cometbft) protocol version **v0.3
 ## Installation
 
 ```
-dotnet add package CometBFT.Client.Extensions
+dotnet add package Rinzler78.CometBFT.Client
 ```
 
 This single package pulls in all three transports (REST, WebSocket, gRPC) and their dependencies.
@@ -46,4 +46,5 @@ services.AddCometBftGrpc(options =>
 |--------|-----------|
 | `AddCometBftRest` | `ICometBftRestClient` + Polly HTTP pipeline |
 | `AddCometBftWebSocket` | `ICometBftWebSocketClient` |
-| `AddCometBftGrpc` | `ICometBftGrpcClient` + gRPC channel |
+| `AddCometBftGrpc` | `ICometBftGrpcClient` + gRPC channel (CometBFT BroadcastAPI) |
+| `AddCometBftSdkGrpc` | `ICometBftSdkGrpcClient` + gRPC channel (Cosmos SDK `cosmos.base.tendermint.v1beta1`) |

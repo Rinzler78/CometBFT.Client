@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`AddCometBftRest`, `AddCometBftWebSocket`, `AddCometBftGrpc`, `AddCometBftSdkGrpc`)
 - Unit tests with WireMock.Net for REST, NSubstitute for gRPC and WebSocket
 - Integration tests and E2E tests against real Cosmos Hub public endpoints
-  (skip-on-missing-env-var pattern); global line coverage ≥ 97 %
+  (skip-on-missing-env-var pattern); global line coverage ≥ 90 %
 - GitHub Actions CI (build + format check + unit/integration/E2E + coverage gate) and publish workflows
 - Git flow configuration, commit-msg hook, branch protection documentation
 - pre-commit configuration with `dotnet format` and `detect-secrets`
