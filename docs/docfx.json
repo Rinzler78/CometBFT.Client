@@ -29,11 +29,11 @@
     ],
     "output": "_site",
     "globalMetadata": {
-      "_appName": "Tendermint.Client",
-      "_appTitle": "Tendermint.Client Documentation",
+      "_appName": "CometBFT.Client",
+      "_appTitle": "CometBFT.Client Documentation",
       "_enableSearch": true,
       "_gitContribute": {
-        "repo": "https://github.com/Rinzler78/Tendermint.Client",
+        "repo": "https://github.com/Rinzler78/CometBFT.Client",
         "branch": "develop"
       }
     },

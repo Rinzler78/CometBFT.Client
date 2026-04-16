@@ -5,9 +5,13 @@ Targets protocol version **v0.38.9**.
 
 ## Installation
 
+Install via the unified package:
+
 ```
-dotnet add package CometBFT.Client.Grpc
+dotnet add package Rinzler78.CometBFT.Client
 ```
+
+This package includes all transports (REST, WebSocket, gRPC) and DI extensions.
 
 ## Quick start
 
