@@ -73,9 +73,17 @@ public sealed class BlockTests
     }
 
     [Fact]
-    public void Txs_IsReadOnly()
+    public void Txs_ContainsInitialItems()
     {
         var block = new Block(1L, "H", DateTimeOffset.UtcNow, "p", new List<string> { "a" }.AsReadOnly());
         Assert.Single(block.Txs);
+    }
+
+    [Fact]
+    public void Txs_IsReadOnly()
+    {
+        var block = new Block(1L, "H", DateTimeOffset.UtcNow, "p", new List<string> { "a" }.AsReadOnly());
+        // ReadOnlyCollection<T> is read-only by design — mutation must throw.
+        Assert.Throws<NotSupportedException>(() => ((System.Collections.Generic.IList<string>)block.Txs).Add("b"));
     }
 }

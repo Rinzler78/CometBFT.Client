@@ -29,6 +29,10 @@ internal sealed class RpcHttpPipeline
             envelope = await JsonSerializer.DeserializeAsync<JsonRpcResponse<T>>(
                 stream, CometBftJsonContext.Default.Options, cancellationToken).ConfigureAwait(false);
         }
+        catch (HttpRequestException ex) when (ex.StatusCode.HasValue)
+        {
+            throw new CometBftRestException($"HTTP request to '{relativeUrl}' failed.", ex.StatusCode.Value, ex);
+        }
         catch (HttpRequestException ex)
         {
             throw new CometBftRestException($"HTTP request to '{relativeUrl}' failed.", ex);
@@ -68,6 +72,10 @@ internal sealed class RpcHttpPipeline
             response.EnsureSuccessStatusCode();
             var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
             root = await JsonNode.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode.HasValue)
+        {
+            throw new CometBftRestException($"HTTP request to '{relativeUrl}' failed.", ex.StatusCode.Value, ex);
         }
         catch (HttpRequestException ex)
         {
@@ -109,6 +117,10 @@ internal sealed class RpcHttpPipeline
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
             response = await _http.PostAsync("/", content, cancellationToken).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode.HasValue)
+        {
+            throw new CometBftRestException($"JSON-RPC call '{method}' failed.", ex.StatusCode.Value, ex);
         }
         catch (HttpRequestException ex)
         {

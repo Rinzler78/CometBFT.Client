@@ -1,0 +1,79 @@
+﻿{
+  "jsonrpc": "2.0",
+  "id": -1,
+  "result": {
+    "last_height": "30674765",
+    "block_metas": [
+      {
+        "block_id": {
+          "hash": "7656AFA79A263C93CC20A1F0775DE3F48193FA4BF25D8B8C7CCB4ED8C83C1DC2",
+          "parts": {
+            "total": 1,
+            "hash": "D065414ABF238471432E8841DA3CCC8BB37309AECFF6C77676D7C6A728FEC015"
+          }
+        },
+        "block_size": "19892",
+        "header": {
+          "version": {
+            "block": "11"
+          },
+          "chain_id": "cosmoshub-4",
+          "height": "30674661",
+          "time": "2026-04-15T13:02:37.812143721Z",
+          "last_block_id": {
+            "hash": "546C4E06F86BE851BB35209691BCB0E6EC49BDAD43B70ED0FBF2C337E129C796",
+            "parts": {
+              "total": 1,
+              "hash": "186687EFC32CB1021B1016AAE172F1AC91DDAA6AC5811BB26024260166F41A2B"
+            }
+          },
+          "last_commit_hash": "04D682096D7348E6B5197E5D8E68EFAAF02425BAED7DA739643E83CFCA05D9D7",
+          "data_hash": "BD5D69681233C15B55759BFD8F5626B549ED5D90A8D475BC0E36D1C9883C29A5",
+          "validators_hash": "CE04BC83CA81696E44D060803309FD49B52C88BB0A960B1B7C0AEE76DC9CAC39",
+          "next_validators_hash": "CE04BC83CA81696E44D060803309FD49B52C88BB0A960B1B7C0AEE76DC9CAC39",
+          "consensus_hash": "20CA5E3F42E07A0CDB7BD986EFF1947A23FC27FF47204303E082BC44BB348E0B",
+          "app_hash": "7A996A6C519F865D1DDD475B9D02E4699AF686907A6AA6C9C8B51052141E2C77",
+          "last_results_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+          "evidence_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+          "proposer_address": "638C11545DF20961BDE0373D1602ECECB3BC6CD0"
+        },
+        "num_txs": "1"
+      },
+      {
+        "block_id": {
+          "hash": "546C4E06F86BE851BB35209691BCB0E6EC49BDAD43B70ED0FBF2C337E129C796",
+          "parts": {
+            "total": 1,
+            "hash": "186687EFC32CB1021B1016AAE172F1AC91DDAA6AC5811BB26024260166F41A2B"
+          }
+        },
+        "block_size": "19574",
+        "header": {
+          "version": {
+            "block": "11"
+          },
+          "chain_id": "cosmoshub-4",
+          "height": "30674660",
+          "time": "2026-04-15T13:02:31.541084395Z",
+          "last_block_id": {
+            "hash": "68F733477DBE7C3B5202893A48BA41F202B5552DBAAABADB422FDC233D866EAB",
+            "parts": {
+              "total": 1,
+              "hash": "315BB72DAED7854E4999370FA439A693D3D053F0E5CF8A6EBB4258EB01687BB8"
+            }
+          },
+          "last_commit_hash": "272B7F3D2192B0CAE9A77419040C1A275335648AABE915C7E7260A26E2011C09",
+          "data_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+          "validators_hash": "CE04BC83CA81696E44D060803309FD49B52C88BB0A960B1B7C0AEE76DC9CAC39",
+          "next_validators_hash": "CE04BC83CA81696E44D060803309FD49B52C88BB0A960B1B7C0AEE76DC9CAC39",
+          "consensus_hash": "20CA5E3F42E07A0CDB7BD986EFF1947A23FC27FF47204303E082BC44BB348E0B",
+          "app_hash": "8D51B4EE831A82BEB79F62EBB4342C9FA6144376874E8BFBB1318A8B128ED37C",
+          "last_results_hash": "18D90942FCEF1EAAA4C843758D5AAD851730AB427B3DF2327C88D6452826AA45",
+          "evidence_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+          "proposer_address": "75DAB316F4CA1367F532AB71A80B7FA65AB69039"
+        },
+        "num_txs": "0"
+      }
+    ]
+  }
+}

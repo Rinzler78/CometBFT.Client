@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Description>One-time tool: captures raw CometBFT WebSocket JSON payloads as test fixtures.</Description>
+    <!-- Opt out of global constraints that don't apply to a throwaway capture tool -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <EnablePackageValidation>false</EnablePackageValidation>
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

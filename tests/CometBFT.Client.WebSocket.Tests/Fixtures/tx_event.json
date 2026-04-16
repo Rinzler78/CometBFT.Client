@@ -1,0 +1,379 @@
+﻿{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": {
+    "query": "tm.event=\u0027Tx\u0027",
+    "data": {
+      "type": "tendermint/event/Tx",
+      "value": {
+        "TxResult": {
+          "height": "30674661",
+          "tx": "CpIBCo8BChwvY29zbW9zLmJhbmsudjFiZXRhMS5Nc2dTZW5kEm8KLWNvc21vczF5eGtyYTc4Z3VxM2Ruemc0dWE4Mzk4c2VjaGFubGgyNm5rNG16NhItY29zbW9zMTJjMmdtbXVnOTBxNzY2ZTU5Z3gzejlobHFucnEzaGs2ajVnN3Q0Gg8KBXVhdG9tEgY0NTA1NTASZgpQCkYKHy9jb3Ntb3MuY3J5cHRvLnNlY3AyNTZrMS5QdWJLZXkSIwohA0QjV\u002Bg2HtgOH2Z1ESONzLPruzjZzMYsD9KwNQyzd/TLEgQKAgh/GAUSEgoMCgV1YXRvbRIDODA2EKKYCBpAt/p9GvDKr7Q0WAVw5QJxG94OE9NzpBd\u002Bzh6fShdvXt8sxiNBAHHorMnC\u002BKrQMU7X\u002ByjKPNTJEH/m7PYop0x1yQ==",
+          "result": {
+            "data": "EiYKJC9jb3Ntb3MuYmFuay52MWJldGExLk1zZ1NlbmRSZXNwb25zZQ==",
+            "gas_wanted": "134178",
+            "gas_used": "99965",
+            "events": [
+              {
+                "type": "tx",
+                "attributes": [
+                  {
+                    "key": "acc_seq",
+                    "value": "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6/5",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "tx",
+                "attributes": [
+                  {
+                    "key": "signature",
+                    "value": "t/p9GvDKr7Q0WAVw5QJxG94OE9NzpBd\u002Bzh6fShdvXt8sxiNBAHHorMnC\u002BKrQMU7X\u002ByjKPNTJEH/m7PYop0x1yQ==",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "coin_spent",
+                "attributes": [
+                  {
+                    "key": "spender",
+                    "value": "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+                    "index": true
+                  },
+                  {
+                    "key": "amount",
+                    "value": "806uatom",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "coin_received",
+                "attributes": [
+                  {
+                    "key": "receiver",
+                    "value": "cosmos13pxn9n3qw79e03844rdadagmg0nshmwf7qvuye",
+                    "index": true
+                  },
+                  {
+                    "key": "amount",
+                    "value": "806uatom",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "transfer",
+                "attributes": [
+                  {
+                    "key": "recipient",
+                    "value": "cosmos13pxn9n3qw79e03844rdadagmg0nshmwf7qvuye",
+                    "index": true
+                  },
+                  {
+                    "key": "sender",
+                    "value": "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+                    "index": true
+                  },
+                  {
+                    "key": "amount",
+                    "value": "806uatom",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "message",
+                "attributes": [
+                  {
+                    "key": "sender",
+                    "value": "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "message",
+                "attributes": [
+                  {
+                    "key": "action",
+                    "value": "/cosmos.bank.v1beta1.MsgSend",
+                    "index": true
+                  },
+                  {
+                    "key": "sender",
+                    "value": "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+                    "index": true
+                  },
+                  {
+                    "key": "module",
+                    "value": "bank",
+                    "index": true
+                  },
+                  {
+                    "key": "msg_index",
+                    "value": "0",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "coin_spent",
+                "attributes": [
+                  {
+                    "key": "spender",
+                    "value": "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+                    "index": true
+                  },
+                  {
+                    "key": "amount",
+                    "value": "450550uatom",
+                    "index": true
+                  },
+                  {
+                    "key": "msg_index",
+                    "value": "0",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "coin_received",
+                "attributes": [
+                  {
+                    "key": "receiver",
+                    "value": "cosmos12c2gmmug90q766e59gx3z9hlqnrq3hk6j5g7t4",
+                    "index": true
+                  },
+                  {
+                    "key": "amount",
+                    "value": "450550uatom",
+                    "index": true
+                  },
+                  {
+                    "key": "msg_index",
+                    "value": "0",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "transfer",
+                "attributes": [
+                  {
+                    "key": "recipient",
+                    "value": "cosmos12c2gmmug90q766e59gx3z9hlqnrq3hk6j5g7t4",
+                    "index": true
+                  },
+                  {
+                    "key": "sender",
+                    "value": "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+                    "index": true
+                  },
+                  {
+                    "key": "amount",
+                    "value": "450550uatom",
+                    "index": true
+                  },
+                  {
+                    "key": "msg_index",
+                    "value": "0",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "message",
+                "attributes": [
+                  {
+                    "key": "sender",
+                    "value": "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+                    "index": true
+                  },
+                  {
+                    "key": "msg_index",
+                    "value": "0",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "coin_spent",
+                "attributes": [
+                  {
+                    "key": "spender",
+                    "value": "cosmos13pxn9n3qw79e03844rdadagmg0nshmwf7qvuye",
+                    "index": true
+                  },
+                  {
+                    "key": "amount",
+                    "value": "412uatom",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "coin_received",
+                "attributes": [
+                  {
+                    "key": "receiver",
+                    "value": "cosmos1vwxpz4za7gykr00qxu73vqhvajemcmxsygnfaj",
+                    "index": true
+                  },
+                  {
+                    "key": "amount",
+                    "value": "412uatom",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "transfer",
+                "attributes": [
+                  {
+                    "key": "recipient",
+                    "value": "cosmos1vwxpz4za7gykr00qxu73vqhvajemcmxsygnfaj",
+                    "index": true
+                  },
+                  {
+                    "key": "sender",
+                    "value": "cosmos13pxn9n3qw79e03844rdadagmg0nshmwf7qvuye",
+                    "index": true
+                  },
+                  {
+                    "key": "amount",
+                    "value": "412uatom",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "message",
+                "attributes": [
+                  {
+                    "key": "sender",
+                    "value": "cosmos13pxn9n3qw79e03844rdadagmg0nshmwf7qvuye",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "fee_pay",
+                "attributes": [
+                  {
+                    "key": "fee",
+                    "value": "394uatom",
+                    "index": true
+                  }
+                ]
+              },
+              {
+                "type": "tip_pay",
+                "attributes": [
+                  {
+                    "key": "tip",
+                    "value": "412uatom",
+                    "index": true
+                  },
+                  {
+                    "key": "tip_payee",
+                    "value": "cosmos1vwxpz4za7gykr00qxu73vqhvajemcmxsygnfaj",
+                    "index": true
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "events": {
+      "tm.event": [
+        "Tx"
+      ],
+      "tx.hash": [
+        "32C6A86AED67254A33F15FEEB78D307A64F7803D5B33D7D3D9DFFDB5E7750E7B"
+      ],
+      "tx.acc_seq": [
+        "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6/5"
+      ],
+      "transfer.recipient": [
+        "cosmos13pxn9n3qw79e03844rdadagmg0nshmwf7qvuye",
+        "cosmos12c2gmmug90q766e59gx3z9hlqnrq3hk6j5g7t4",
+        "cosmos1vwxpz4za7gykr00qxu73vqhvajemcmxsygnfaj"
+      ],
+      "transfer.amount": [
+        "806uatom",
+        "450550uatom",
+        "412uatom"
+      ],
+      "tip_pay.tip": [
+        "412uatom"
+      ],
+      "tx.signature": [
+        "t/p9GvDKr7Q0WAVw5QJxG94OE9NzpBd\u002Bzh6fShdvXt8sxiNBAHHorMnC\u002BKrQMU7X\u002ByjKPNTJEH/m7PYop0x1yQ=="
+      ],
+      "message.sender": [
+        "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+        "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+        "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+        "cosmos13pxn9n3qw79e03844rdadagmg0nshmwf7qvuye"
+      ],
+      "fee_pay.fee": [
+        "394uatom"
+      ],
+      "tx.height": [
+        "30674661"
+      ],
+      "coin_spent.spender": [
+        "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+        "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+        "cosmos13pxn9n3qw79e03844rdadagmg0nshmwf7qvuye"
+      ],
+      "coin_spent.amount": [
+        "806uatom",
+        "450550uatom",
+        "412uatom"
+      ],
+      "coin_received.receiver": [
+        "cosmos13pxn9n3qw79e03844rdadagmg0nshmwf7qvuye",
+        "cosmos12c2gmmug90q766e59gx3z9hlqnrq3hk6j5g7t4",
+        "cosmos1vwxpz4za7gykr00qxu73vqhvajemcmxsygnfaj"
+      ],
+      "coin_received.amount": [
+        "806uatom",
+        "450550uatom",
+        "412uatom"
+      ],
+      "transfer.sender": [
+        "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+        "cosmos1yxkra78guq3dnzg4ua8398sechanlh26nk4mz6",
+        "cosmos13pxn9n3qw79e03844rdadagmg0nshmwf7qvuye"
+      ],
+      "message.action": [
+        "/cosmos.bank.v1beta1.MsgSend"
+      ],
+      "message.module": [
+        "bank"
+      ],
+      "coin_spent.msg_index": [
+        "0"
+      ],
+      "message.msg_index": [
+        "0",
+        "0"
+      ],
+      "coin_received.msg_index": [
+        "0"
+      ],
+      "transfer.msg_index": [
+        "0"
+      ],
+      "tip_pay.tip_payee": [
+        "cosmos1vwxpz4za7gykr00qxu73vqhvajemcmxsygnfaj"
+      ]
+    }
+  }
+}

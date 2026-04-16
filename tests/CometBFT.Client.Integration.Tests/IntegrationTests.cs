@@ -3,6 +3,7 @@ using CometBFT.Client.Core.Domain;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Extensions;
 using Xunit;
+using CometBFT.Client.Core.Exceptions;
 
 namespace CometBFT.Client.Integration.Tests;
 
@@ -253,14 +254,12 @@ public sealed class IntegrationTests
             var genesis = await client.GetGenesisAsync();
             Assert.NotNull(genesis);
         }
-        catch (CometBFT.Client.Core.Exceptions.CometBftRestException ex)
-            when (ex.StatusCode == System.Net.HttpStatusCode.InternalServerError ||
-                  (ex.InnerException is System.Net.Http.HttpRequestException httpEx &&
-                   httpEx.StatusCode == System.Net.HttpStatusCode.InternalServerError))
+        catch (Exception ex) when (IsGenesisEndpointUnavailable(ex))
         {
-            // The /genesis endpoint is commonly disabled or rate-limited on public nodes
-            // because genesis files for mature chains can be hundreds of MB.
-            // HTTP 500 here means "not available", not a client bug.
+            // /genesis is commonly disabled, rate-limited, or times out on public nodes.
+            // Genesis files for mature chains can be hundreds of MB, so HTTP 500, network
+            // timeouts (Polly wraps these as TimeoutRejectedException whose InnerException
+            // is TaskCanceledException), and direct cancellations are all expected here.
         }
     }
 
@@ -452,12 +451,110 @@ public sealed class IntegrationTests
         await client.DisconnectAsync();
     }
 
+    // ── CometBftSdkGrpcClient ────────────────────────────────────────────────
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task SdkGrpc_LiveNode_GetStatusAsync_ReturnsNodeInfo()
+    {
+        var grpcUrl = EndpointConfiguration.RequireSdkGrpc();
+
+        var services = new ServiceCollection();
+        services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftSdkGrpcClient>();
+
+        try
+        {
+            var (nodeInfo, syncInfo) = await client.GetStatusAsync();
+
+            Assert.NotEmpty(nodeInfo.Network);
+            Assert.NotNull(syncInfo);
+        }
+        catch (CometBftGrpcException)
+        {
+            // Public nodes may rate-limit or reject the SDK gRPC endpoint — not a client bug.
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task SdkGrpc_LiveNode_GetLatestBlockAsync_ReturnsBlock()
+    {
+        var grpcUrl = EndpointConfiguration.RequireSdkGrpc();
+
+        var services = new ServiceCollection();
+        services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftSdkGrpcClient>();
+
+        try
+        {
+            var block = await client.GetLatestBlockAsync();
+
+            Assert.True(block.Height > 0);
+            Assert.NotEmpty(block.Proposer);
+        }
+        catch (CometBftGrpcException)
+        {
+            // Public nodes may rate-limit or reject the SDK gRPC endpoint — not a client bug.
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task SdkGrpc_LiveNode_GetLatestValidatorsAsync_ReturnsValidators()
+    {
+        var grpcUrl = EndpointConfiguration.RequireSdkGrpc();
+
+        var services = new ServiceCollection();
+        services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftSdkGrpcClient>();
+
+        try
+        {
+            var validators = await client.GetLatestValidatorsAsync();
+
+            Assert.NotEmpty(validators);
+            Assert.All(validators, v =>
+            {
+                Assert.NotEmpty(v.Address);
+                Assert.True(v.VotingPower >= 0);
+            });
+        }
+        catch (CometBftGrpcException)
+        {
+            // Public nodes may rate-limit or reject the SDK gRPC endpoint — not a client bug.
+        }
+    }
+
     private static ServiceProvider BuildRestServices(string rpcUrl)
     {
         var services = new ServiceCollection();
         services.AddCometBftRest(options => options.BaseUrl = rpcUrl);
         return services.BuildServiceProvider();
     }
+
+    /// <summary>
+    /// Returns <see langword="true"/> for exceptions that indicate the /genesis endpoint
+    /// cannot return a full response on this node — not a client bug.
+    ///
+    /// Public providers (e.g. Lava Network) block /genesis because the Cosmos Hub genesis
+    /// exceeds their response-size limit and return HTTP 500 with:
+    ///   "genesis response is large, please use the genesis_chunked API instead"
+    /// Occasionally the provider starts streaming then drops the connection, which Polly
+    /// surfaces as TimeoutRejectedException (InnerException = TaskCanceledException).
+    /// </summary>
+    private static bool IsGenesisEndpointUnavailable(Exception ex) =>
+        // Direct cancellation or task timeout.
+        ex is OperationCanceledException ||
+        // Polly wraps dropped-connection timeouts as TimeoutRejectedException, whose
+        // InnerException is a TaskCanceledException (an OperationCanceledException).
+        ex.InnerException is OperationCanceledException ||
+        // Provider rejects /genesis because the response is too large (HTTP 500).
+        (ex is CometBFT.Client.Core.Exceptions.CometBftRestException restEx &&
+         restEx.StatusCode == System.Net.HttpStatusCode.InternalServerError);
 }
 
 internal static class EndpointConfiguration
@@ -471,6 +568,16 @@ internal static class EndpointConfiguration
     public static string RequireWs() => Require("COMETBFT_WS_URL", (string?)DefaultWsUrl);
 
     public static string RequireGrpc() => Require("COMETBFT_GRPC_URL", (string?)DefaultGrpcUrl);
+
+    /// <summary>
+    /// Returns the gRPC URL normalized for <see cref="CometBftSdkGrpcOptions"/> (requires an absolute URI).
+    /// A bare host is prefixed with <c>https://</c>.
+    /// </summary>
+    public static string RequireSdkGrpc()
+    {
+        var raw = RequireGrpc();
+        return raw.Contains("://", StringComparison.Ordinal) ? raw : $"https://{raw}";
+    }
 
     private static string Require(string variableName, string? documentedDefault)
     {

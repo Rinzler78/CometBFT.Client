@@ -1,0 +1,35 @@
+﻿{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "query": "tm.event=\u0027Vote\u0027",
+    "data": {
+      "type": "tendermint/event/Vote",
+      "value": {
+        "Vote": {
+          "type": 1,
+          "height": "30674660",
+          "round": 0,
+          "block_id": {
+            "hash": "",
+            "parts": {
+              "total": 0,
+              "hash": ""
+            }
+          },
+          "timestamp": "2026-04-15T13:02:35.855909877Z",
+          "validator_address": "B2336DC86A74A6F8552D7F686AC0983EF4E0B0CE",
+          "validator_index": 115,
+          "signature": "AVBAdljiZoqg4e5V6VwlMcdlzY9bOzMCiWqsegd/5uahUL0RTcGLzRVuFwZ/K7VGby7yHEs5s3NNu/3qz8snCg==",
+          "extension": null,
+          "extension_signature": null
+        }
+      }
+    },
+    "events": {
+      "tm.event": [
+        "Vote"
+      ]
+    }
+  }
+}
