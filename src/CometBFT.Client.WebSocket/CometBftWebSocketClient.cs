@@ -327,9 +327,22 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>
                     var rawBlock = WebSocketMessageParser.ParseNewBlock(newBlockData);
                     if (rawBlock is not null)
                     {
-                        var decodedBlock = typeof(TTx) == typeof(string) && _codec is RawTxCodec
-                            ? (Block<TTx>)(object)rawBlock.DecodeRaw()
-                            : rawBlock.Decode(_codec);
+                        Block<TTx> decodedBlock;
+                        try
+                        {
+                            decodedBlock = typeof(TTx) == typeof(string) && _codec is RawTxCodec
+                                ? (Block<TTx>)(object)rawBlock.DecodeRaw()
+                                : rawBlock.Decode(_codec);
+                        }
+                        catch (Exception decodeEx)
+                        {
+                            ErrorOccurred?.Invoke(this,
+                                new CometBftEventArgs<Exception>(
+                                    new InvalidOperationException(
+                                        $"Failed to decode block at height {rawBlock.Height}.", decodeEx)));
+                            break;
+                        }
+
                         NewBlockReceived?.Invoke(this, new CometBftEventArgs<Block<TTx>>(decodedBlock));
                     }
 
@@ -348,9 +361,22 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>
                     var rawTx = WebSocketMessageParser.ParseTxResult(txData, envelope.Result.Events);
                     if (rawTx is not null)
                     {
-                        var decodedTx = typeof(TTx) == typeof(string) && _codec is RawTxCodec
-                            ? (TxResult<TTx>)(object)rawTx.DecodeRaw()
-                            : rawTx.Decode(_codec);
+                        TxResult<TTx> decodedTx;
+                        try
+                        {
+                            decodedTx = typeof(TTx) == typeof(string) && _codec is RawTxCodec
+                                ? (TxResult<TTx>)(object)rawTx.DecodeRaw()
+                                : rawTx.Decode(_codec);
+                        }
+                        catch (Exception decodeEx)
+                        {
+                            ErrorOccurred?.Invoke(this,
+                                new CometBftEventArgs<Exception>(
+                                    new InvalidOperationException(
+                                        $"Failed to decode transaction {rawTx.Hash} at height {rawTx.Height}.", decodeEx)));
+                            break;
+                        }
+
                         TxExecuted?.Invoke(this, new CometBftEventArgs<TxResult<TTx>>(decodedTx));
                     }
 

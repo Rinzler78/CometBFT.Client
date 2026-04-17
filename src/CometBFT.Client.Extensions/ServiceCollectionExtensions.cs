@@ -127,12 +127,12 @@ public static class ServiceCollectionExtensions
         configure(tempOptions);
         tempOptions.Validate();
 
-        services.Configure<CometBftWebSocketOptions>(configure);
-        services.AddSingleton(codec);
-        services.AddSingleton<ICometBftWebSocketClient<TTx>>(sp =>
-            new CometBftWebSocketClient<TTx>(
-                sp.GetRequiredService<IOptions<CometBftWebSocketOptions>>(),
-                sp.GetRequiredService<ITxCodec<TTx>>()));
+        // Use an isolated options snapshot so this client's configuration does not
+        // collide with the unnamed IOptions<CometBftWebSocketOptions> registered by
+        // the non-generic AddCometBftWebSocket overload when both are used together.
+        var options = Options.Create(tempOptions);
+        services.AddSingleton<ICometBftWebSocketClient<TTx>>(_ =>
+            new CometBftWebSocketClient<TTx>(options, codec));
 
         return services;
     }
