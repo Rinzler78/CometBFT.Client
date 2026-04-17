@@ -34,11 +34,11 @@
       },
       "Spectre.Console": {
         "type": "Direct",
-        "requested": "[0.55.0, )",
-        "resolved": "0.55.0",
-        "contentHash": "2TVhUHFsDux0Z+y2Hv4bFsOMuON4SuotEEKkMparFkp5Rm259naaaEQrN4Sv6C1cbsiGKPjfkJDGgUp+hZPjTw==",
+        "requested": "[0.55.1, )",
+        "resolved": "0.55.1",
+        "contentHash": "euFXUbKESt7/A6EFxFVIORtnC1AGLmKeiynvZvjwkf69KAGdciVnrJeBh4tNtfYP/qIZ9C/soA8EqyS1bfxciw==",
         "dependencies": {
-          "Spectre.Console.Ansi": "0.55.0"
+          "Spectre.Console.Ansi": "0.55.1"
         }
       },
       "Google.Protobuf": {
@@ -361,8 +361,8 @@
       },
       "Spectre.Console.Ansi": {
         "type": "Transitive",
-        "resolved": "0.55.0",
-        "contentHash": "GIfgOvuF8MpU52bprhwtDEtx0gmVIGOepM8bw0lH/TSMD0rg1Xp+5Y53kPG8rFVdcpbNANlhDQ5mEVVPO3/2Tg=="
+        "resolved": "0.55.1",
+        "contentHash": "yQx1gBmo5+1lZ6crz0eBIcJ3Xpl955FXJKVxKDWIspOYbffZK0/boQu12wZcTaz6UWMiYHx4Bracibjh8kQ7rQ=="
       },
       "System.Diagnostics.EventLog": {
         "type": "Transitive",
