@@ -327,8 +327,10 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>
                     var rawBlock = WebSocketMessageParser.ParseNewBlock(newBlockData);
                     if (rawBlock is not null)
                     {
-                        NewBlockReceived?.Invoke(this,
-                            new CometBftEventArgs<Block<TTx>>(rawBlock.Decode(_codec)));
+                        var decodedBlock = typeof(TTx) == typeof(string) && _codec is RawTxCodec
+                            ? (Block<TTx>)(object)rawBlock.DecodeRaw()
+                            : rawBlock.Decode(_codec);
+                        NewBlockReceived?.Invoke(this, new CometBftEventArgs<Block<TTx>>(decodedBlock));
                     }
 
                     break;
@@ -346,8 +348,10 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>
                     var rawTx = WebSocketMessageParser.ParseTxResult(txData, envelope.Result.Events);
                     if (rawTx is not null)
                     {
-                        TxExecuted?.Invoke(this,
-                            new CometBftEventArgs<TxResult<TTx>>(rawTx.Decode(_codec)));
+                        var decodedTx = typeof(TTx) == typeof(string) && _codec is RawTxCodec
+                            ? (TxResult<TTx>)(object)rawTx.DecodeRaw()
+                            : rawTx.Decode(_codec);
+                        TxExecuted?.Invoke(this, new CometBftEventArgs<TxResult<TTx>>(decodedTx));
                     }
 
                     break;
