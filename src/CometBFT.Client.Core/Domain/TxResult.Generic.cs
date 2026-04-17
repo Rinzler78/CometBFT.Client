@@ -36,7 +36,7 @@ public sealed record TxResult<TTx>(
     long GasWanted,
     long GasUsed,
     IReadOnlyList<CometBftEvent> Events,
-    string? Codespace);
+    string? Codespace) where TTx : notnull;
 
 /// <summary>
 /// Extension methods for converting a raw <see cref="TxResult"/> into a typed <see cref="TxResult{TTx}"/>.
@@ -54,7 +54,7 @@ public static class TxResultExtensions
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="result"/> or <paramref name="codec"/> is <c>null</c>.
     /// </exception>
-    public static TxResult<TTx> Decode<TTx>(this TxResult result, ITxCodec<TTx> codec)
+    public static TxResult<TTx> Decode<TTx>(this TxResult result, ITxCodec<TTx> codec) where TTx : notnull
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(codec);
