@@ -4,14 +4,20 @@ using CometBFT.Client.Core.Events;
 namespace CometBFT.Client.Core.Interfaces;
 
 /// <summary>
-/// Provides real-time event subscription over WebSocket to a CometBFT node.
+/// Provides real-time event subscription over WebSocket to a CometBFT node,
+/// with transactions decoded into the application-specific type <typeparamref name="TTx"/>.
 /// </summary>
-public interface ICometBftWebSocketClient : IAsyncDisposable
+/// <typeparam name="TTx">
+/// The application-specific transaction type.
+/// Use <see cref="ICometBftWebSocketClient"/> (non-generic) to receive raw base64 strings.
+/// </typeparam>
+public interface ICometBftWebSocketClient<TTx> : IAsyncDisposable
 {
     /// <summary>
     /// Raised when a new block is committed to the chain.
+    /// Transactions are decoded into <typeparamref name="TTx"/> via the configured codec.
     /// </summary>
-    event EventHandler<CometBftEventArgs<Block>>? NewBlockReceived;
+    event EventHandler<CometBftEventArgs<Block<TTx>>>? NewBlockReceived;
 
     /// <summary>
     /// Raised when a new block header is received (tm.event='NewBlockHeader').
@@ -21,8 +27,9 @@ public interface ICometBftWebSocketClient : IAsyncDisposable
 
     /// <summary>
     /// Raised when a transaction has been executed in a block.
+    /// The transaction bytes are decoded into <typeparamref name="TTx"/> via the configured codec.
     /// </summary>
-    event EventHandler<CometBftEventArgs<TxResult>>? TxExecuted;
+    event EventHandler<CometBftEventArgs<TxResult<TTx>>>? TxExecuted;
 
     /// <summary>
     /// Raised when a vote is received during consensus.
@@ -43,48 +50,52 @@ public interface ICometBftWebSocketClient : IAsyncDisposable
     /// <summary>
     /// Connects to the WebSocket endpoint and begins receiving messages.
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
     Task ConnectAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Disconnects from the WebSocket endpoint.
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
     Task DisconnectAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Subscribes to new block events (tm.event='NewBlock').
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
     Task SubscribeNewBlockAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Subscribes to new block header events (tm.event='NewBlockHeader').
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
     Task SubscribeNewBlockHeaderAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Subscribes to transaction events (tm.event='Tx').
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
     Task SubscribeTxAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Subscribes to vote events (tm.event='Vote').
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
     Task SubscribeVoteAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Subscribes to validator set update events (tm.event='ValidatorSetUpdates').
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
     Task SubscribeValidatorSetUpdatesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Unsubscribes from all active event subscriptions.
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
     Task UnsubscribeAllAsync(CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Provides real-time event subscription over WebSocket to a CometBFT node.
+/// Transactions and blocks are surfaced as raw base64-encoded strings.
+/// </summary>
+/// <remarks>
+/// This is the default, backward-compatible interface equivalent to
+/// <see cref="ICometBftWebSocketClient{TTx}"/> with <c>TTx = string</c>.
+/// Use <see cref="ICometBftWebSocketClient{TTx}"/> with an application-specific
+/// <c>ITxCodec&lt;TTx&gt;</c> to receive decoded, strongly-typed transactions.
+/// </remarks>
+public interface ICometBftWebSocketClient : ICometBftWebSocketClient<string> { }

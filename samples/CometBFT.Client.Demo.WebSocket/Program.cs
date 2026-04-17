@@ -78,7 +78,7 @@ internal sealed class DashboardService : BackgroundService
         await _ws.DisposeAsync();
     }
 
-    private void OnNewBlock(object? sender, CometBftEventArgs<Block> e)
+    private void OnNewBlock(object? sender, CometBftEventArgs<Block<string>> e)
     {
         var block = e.Value;
         var addr = block.Proposer.Length > 0
@@ -87,7 +87,7 @@ internal sealed class DashboardService : BackgroundService
         _state.PrependBlock($"[bold]{block.Height:N0}[/] {block.Time:HH:mm:ss} proposer=[dim]{Markup.Escape(addr)}[/] txs={block.Txs.Count}");
     }
 
-    private void OnTx(object? sender, CometBftEventArgs<TxResult> e)
+    private void OnTx(object? sender, CometBftEventArgs<TxResult<string>> e)
     {
         var tx = e.Value;
         var hashPfx = tx.Hash.Length > 0 ? tx.Hash[..Math.Min(16, tx.Hash.Length)] : "?";

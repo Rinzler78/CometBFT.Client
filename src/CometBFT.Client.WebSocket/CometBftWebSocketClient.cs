@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using CometBFT.Client.Core.Codecs;
 using CometBFT.Client.Core.Domain;
 using CometBFT.Client.Core.Events;
 using CometBFT.Client.Core.Exceptions;
@@ -14,12 +15,16 @@ namespace CometBFT.Client.WebSocket;
 
 /// <summary>
 /// WebSocket-based subscription client for CometBFT events.
+/// Transactions and blocks are decoded into <typeparamref name="TTx"/>
+/// using the provided <see cref="ITxCodec{TTx}"/>.
 /// Uses <see cref="WebsocketClient"/> with automatic reconnection.
 /// </summary>
-public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
+/// <typeparam name="TTx">The application-specific transaction type.</typeparam>
+public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>
 {
     private readonly CometBftWebSocketOptions _options;
     private readonly IWebSocketClientFactory _factory;
+    private readonly ITxCodec<TTx> _codec;
     private readonly SemaphoreSlim _connectLock = new(1, 1);
     private readonly ConcurrentDictionary<string, byte> _activeSubscriptions = new(StringComparer.Ordinal);
 
@@ -37,13 +42,13 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
     private bool _disposed;
 
     /// <inheritdoc />
-    public event EventHandler<CometBftEventArgs<Block>>? NewBlockReceived;
+    public event EventHandler<CometBftEventArgs<Block<TTx>>>? NewBlockReceived;
 
     /// <inheritdoc />
     public event EventHandler<CometBftEventArgs<BlockHeader>>? NewBlockHeaderReceived;
 
     /// <inheritdoc />
-    public event EventHandler<CometBftEventArgs<TxResult>>? TxExecuted;
+    public event EventHandler<CometBftEventArgs<TxResult<TTx>>>? TxExecuted;
 
     /// <inheritdoc />
     public event EventHandler<CometBftEventArgs<Vote>>? VoteReceived;
@@ -55,25 +60,35 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
     public event EventHandler<CometBftEventArgs<Exception>>? ErrorOccurred;
 
     /// <summary>
-    /// Initializes a new instance of <see cref="CometBftWebSocketClient"/>.
+    /// Initializes a new instance of <see cref="CometBftWebSocketClient{TTx}"/>.
     /// </summary>
     /// <param name="options">The WebSocket configuration options.</param>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> is <c>null</c>.</exception>
-    public CometBftWebSocketClient(IOptions<CometBftWebSocketOptions> options)
-        : this(options, new DefaultWebSocketClientFactory())
+    /// <param name="codec">The codec used to decode transaction bytes into <typeparamref name="TTx"/>.</param>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="options"/> or <paramref name="codec"/> is <c>null</c>.
+    /// </exception>
+    public CometBftWebSocketClient(IOptions<CometBftWebSocketOptions> options, ITxCodec<TTx> codec)
+        : this(options, new DefaultWebSocketClientFactory(), codec)
     {
     }
 
     /// <summary>
-    /// Initializes a new instance of <see cref="CometBftWebSocketClient"/> with a custom WebSocket client factory.
+    /// Initializes a new instance of <see cref="CometBftWebSocketClient{TTx}"/> with a custom WebSocket client factory.
     /// </summary>
     /// <param name="options">The WebSocket configuration options.</param>
     /// <param name="factory">The factory used to create the underlying WebSocket client.</param>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> or <paramref name="factory"/> is <c>null</c>.</exception>
-    internal CometBftWebSocketClient(IOptions<CometBftWebSocketOptions> options, IWebSocketClientFactory factory)
+    /// <param name="codec">The codec used to decode transaction bytes into <typeparamref name="TTx"/>.</param>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="options"/>, <paramref name="factory"/>, or <paramref name="codec"/> is <c>null</c>.
+    /// </exception>
+    internal CometBftWebSocketClient(
+        IOptions<CometBftWebSocketOptions> options,
+        IWebSocketClientFactory factory,
+        ITxCodec<TTx> codec)
     {
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _factory = factory ?? throw new ArgumentNullException(nameof(factory));
+        _codec = codec ?? throw new ArgumentNullException(nameof(codec));
     }
 
     /// <inheritdoc />
@@ -201,8 +216,8 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
         }
 
         _disposed = true;
+        GC.SuppressFinalize(this);
 
-        // Cancel all pending subscribe acknowledgments to unblock any awaiting callers.
         foreach (var (_, tcs) in _pendingAcks)
         {
             tcs.TrySetCanceled();
@@ -246,11 +261,6 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
         var request = new WsSubscribeRequest { Id = id, Params = new WsSubscribeParams { Query = query } };
         _client!.Send(JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsSubscribeRequest));
 
-        // Wait for the server's JSON-RPC acknowledgment {"jsonrpc":"2.0","id":<id>,"result":{}}.
-        // This confirms the subscription is active before the caller begins waiting for events.
-        // A timeout is non-fatal: the subscribe request was sent and the subscription is likely
-        // active on the server — some proxy nodes (e.g. Lava) do not reliably forward ACKs
-        // when events are already flowing from prior subscriptions.
         using var ackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         ackCts.CancelAfter(TimeSpan.FromSeconds(30));
         try
@@ -260,7 +270,6 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             _pendingAcks.TryRemove(id, out _);
-            // Surface as an observable error without blocking the caller.
             ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(
                 new CometBftWebSocketException(
                     $"Subscribe ACK for query '{query}' not received within 30 s — subscription was sent and may still be active.")));
@@ -279,7 +288,6 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
 
     private void OnReconnected(ReconnectionInfo _)
     {
-        // Re-send all active subscriptions after a reconnect.
         foreach (var query in _activeSubscriptions.Keys)
         {
             var id = Interlocked.Increment(ref _requestId);
@@ -304,29 +312,38 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
                 return;
             }
 
-            // Complete any pending subscribe acknowledgment for this id.
-            // We check for a registered pending entry rather than "data is null" because some
-            // proxy nodes (e.g. Lava) bundle the ACK with the first event in a single message
-            // (id > 0, result.data present). Completing first then falling through handles both
-            // the clean-ACK case and the bundled-ACK+event case.
             if (envelope.Id > 0 && _pendingAcks.TryRemove(envelope.Id, out var ackTcs))
             {
                 ackTcs.TrySetResult(true);
-                // Clean ACK (no data): nothing more to dispatch.
                 if (envelope.Result?.Data is null)
                 {
                     return;
                 }
-                // Bundled ACK+event: fall through to dispatch the event data below.
             }
 
             switch (envelope.Result?.Data)
             {
                 case WsNewBlockData newBlockData:
-                    var block = WebSocketMessageParser.ParseNewBlock(newBlockData);
-                    if (block is not null)
+                    var rawBlock = WebSocketMessageParser.ParseNewBlock(newBlockData);
+                    if (rawBlock is not null)
                     {
-                        NewBlockReceived?.Invoke(this, new CometBftEventArgs<Block>(block));
+                        Block<TTx> decodedBlock;
+                        try
+                        {
+                            decodedBlock = typeof(TTx) == typeof(string) && _codec is RawTxCodec
+                                ? (Block<TTx>)(object)rawBlock.DecodeRaw()
+                                : rawBlock.Decode(_codec);
+                        }
+                        catch (Exception decodeEx)
+                        {
+                            ErrorOccurred?.Invoke(this,
+                                new CometBftEventArgs<Exception>(
+                                    new InvalidOperationException(
+                                        $"Failed to decode block at height {rawBlock.Height}.", decodeEx)));
+                            break;
+                        }
+
+                        NewBlockReceived?.Invoke(this, new CometBftEventArgs<Block<TTx>>(decodedBlock));
                     }
 
                     break;
@@ -341,10 +358,26 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
                     break;
 
                 case WsTxData txData:
-                    var tx = WebSocketMessageParser.ParseTxResult(txData, envelope.Result.Events);
-                    if (tx is not null)
+                    var rawTx = WebSocketMessageParser.ParseTxResult(txData, envelope.Result.Events);
+                    if (rawTx is not null)
                     {
-                        TxExecuted?.Invoke(this, new CometBftEventArgs<TxResult>(tx));
+                        TxResult<TTx> decodedTx;
+                        try
+                        {
+                            decodedTx = typeof(TTx) == typeof(string) && _codec is RawTxCodec
+                                ? (TxResult<TTx>)(object)rawTx.DecodeRaw()
+                                : rawTx.Decode(_codec);
+                        }
+                        catch (Exception decodeEx)
+                        {
+                            ErrorOccurred?.Invoke(this,
+                                new CometBftEventArgs<Exception>(
+                                    new InvalidOperationException(
+                                        $"Failed to decode transaction {rawTx.Hash} at height {rawTx.Height}.", decodeEx)));
+                            break;
+                        }
+
+                        TxExecuted?.Invoke(this, new CometBftEventArgs<TxResult<TTx>>(decodedTx));
                     }
 
                     break;
@@ -362,7 +395,8 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
                     var validators = WebSocketMessageParser.ParseValidatorSetUpdates(vsData);
                     if (validators is not null)
                     {
-                        ValidatorSetUpdated?.Invoke(this, new CometBftEventArgs<IReadOnlyList<Validator>>(validators));
+                        ValidatorSetUpdated?.Invoke(this,
+                            new CometBftEventArgs<IReadOnlyList<Validator>>(validators));
                     }
 
                     break;
@@ -370,15 +404,46 @@ public sealed class CometBftWebSocketClient : ICometBftWebSocketClient
         }
         catch (JsonException ex)
         {
-            // Parsing errors are non-fatal: the message is malformed or unexpected.
-            // Keep the Rx pipeline alive and notify observers.
             ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(ex));
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
-            // Unexpected error in dispatch or event handler — keep the pipeline alive
-            // but surface the exception so callers can react.
             ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(ex));
         }
+    }
+}
+
+/// <summary>
+/// WebSocket-based subscription client for CometBFT events.
+/// Transactions and blocks are surfaced as raw base64-encoded strings.
+/// </summary>
+/// <remarks>
+/// This is the default, backward-compatible client equivalent to
+/// <see cref="CometBftWebSocketClient{TTx}"/> with <c>TTx = string</c>
+/// and <see cref="RawTxCodec"/> as the codec.
+/// Use <see cref="CometBftWebSocketClient{TTx}"/> directly to receive
+/// decoded, strongly-typed transactions.
+/// </remarks>
+public sealed class CometBftWebSocketClient : CometBftWebSocketClient<string>, ICometBftWebSocketClient
+{
+    /// <summary>
+    /// Initializes a new instance of <see cref="CometBftWebSocketClient"/>.
+    /// </summary>
+    /// <param name="options">The WebSocket configuration options.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> is <c>null</c>.</exception>
+    public CometBftWebSocketClient(IOptions<CometBftWebSocketOptions> options)
+        : base(options, RawTxCodec.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="CometBftWebSocketClient"/> with a custom WebSocket client factory.
+    /// </summary>
+    /// <param name="options">The WebSocket configuration options.</param>
+    /// <param name="factory">The factory used to create the underlying WebSocket client.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> or <paramref name="factory"/> is <c>null</c>.</exception>
+    internal CometBftWebSocketClient(IOptions<CometBftWebSocketOptions> options, IWebSocketClientFactory factory)
+        : base(options, factory, RawTxCodec.Instance)
+    {
     }
 }
