@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CometBFT.Client.Core.Codecs;
 
 namespace CometBFT.Client.Core.Domain;
@@ -22,7 +23,7 @@ public sealed record Block<TTx>(
     string Hash,
     DateTimeOffset Time,
     string Proposer,
-    IReadOnlyList<TTx> Txs);
+    IReadOnlyList<TTx> Txs) where TTx : notnull;
 
 /// <summary>
 /// Extension methods for converting a raw <see cref="Block"/> into a typed <see cref="Block{TTx}"/>.
@@ -40,15 +41,15 @@ public static class BlockExtensions
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="block"/> or <paramref name="codec"/> is <c>null</c>.
     /// </exception>
-    public static Block<TTx> Decode<TTx>(this Block block, ITxCodec<TTx> codec)
+    public static Block<TTx> Decode<TTx>(this Block block, ITxCodec<TTx> codec) where TTx : notnull
     {
         ArgumentNullException.ThrowIfNull(block);
         ArgumentNullException.ThrowIfNull(codec);
 
-        var txs = block.Txs
-            .Select(b64 => codec.Decode(Convert.FromBase64String(b64)))
-            .ToList()
-            .AsReadOnly();
+        var list = new List<TTx>(block.Txs.Count);
+        foreach (var b64 in block.Txs)
+            list.Add(codec.Decode(Convert.FromBase64String(b64)));
+        var txs = new ReadOnlyCollection<TTx>(list);
 
         return new Block<TTx>(block.Height, block.Hash, block.Time, block.Proposer, txs);
     }

@@ -113,11 +113,17 @@ public static class ServiceCollectionExtensions
     /// Registers <see cref="ICometBftWebSocketClient{TTx}"/> as a singleton.
     /// The raw <see cref="ICometBftWebSocketClient"/> is NOT registered by this overload;
     /// call <see cref="AddCometBftWebSocket"/> separately if both are needed.
+    /// <para>
+    /// The supplied <paramref name="codec"/> is registered as a singleton and shared
+    /// across concurrent WebSocket message handlers. Codec implementations must be thread-safe.
+    /// See <see cref="ITxCodec{TTx}"/> remarks for details.
+    /// </para>
     /// </remarks>
     public static IServiceCollection AddCometBftWebSocket<TTx>(
         this IServiceCollection services,
         Action<CometBftWebSocketOptions> configure,
         ITxCodec<TTx> codec)
+        where TTx : notnull
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
@@ -132,8 +138,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITxCodec<TTx>>(codec);
         services.AddSingleton<ICometBftWebSocketClient<TTx>>(sp =>
             new CometBftWebSocketClient<TTx>(
-                sp.GetRequiredService<IOptions<CometBftWebSocketOptions>>(),
-                codec));
+                Options.Create(tempOptions),
+                sp.GetRequiredService<ITxCodec<TTx>>()));
 
         return services;
     }

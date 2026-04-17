@@ -134,24 +134,40 @@ internal sealed class WsState
     private readonly LinkedList<string> _blocks = new();
     private readonly LinkedList<string> _txs = new();
     private readonly Queue<string> _log = new();
+    private readonly object _lock = new();
 
-    public string Blocks => _blocks.Count > 0 ? string.Join("\n", _blocks) : "[dim]Waiting for NewBlock events…[/]";
-    public string Txs => _txs.Count > 0 ? string.Join("\n", _txs) : "[dim]Waiting for Tx events…[/]";
+    public string Blocks
+    {
+        get { lock (_lock) { return _blocks.Count > 0 ? string.Join("\n", _blocks) : "[dim]Waiting for NewBlock events…[/]"; } }
+    }
+
+    public string Txs
+    {
+        get { lock (_lock) { return _txs.Count > 0 ? string.Join("\n", _txs) : "[dim]Waiting for Tx events…[/]"; } }
+    }
+
     public string Header { get; set; } = "[dim]Waiting for NewBlockHeader events…[/]";
     public string ValidatorUpdates { get; set; } = "[dim]Waiting for ValidatorSetUpdates events…[/]";
-    public string Log => _log.Count > 0 ? string.Join("\n", _log.Reverse()) : "[dim](no log entries)[/]";
 
-    public void PrependBlock(string entry) => PrependTo(_blocks, entry);
-    public void PrependTx(string entry) => PrependTo(_txs, entry);
+    public string Log
+    {
+        get { lock (_lock) { return _log.Count > 0 ? string.Join("\n", _log.Reverse()) : "[dim](no log entries)[/]"; } }
+    }
+
+    public void PrependBlock(string entry) { lock (_lock) { PrependTo(_blocks, entry); } }
+    public void PrependTx(string entry) { lock (_lock) { PrependTo(_txs, entry); } }
 
     public void AddLog(string line)
     {
-        if (_log.Count >= MaxItems)
+        lock (_lock)
         {
-            _log.Dequeue();
-        }
+            if (_log.Count >= MaxItems)
+            {
+                _log.Dequeue();
+            }
 
-        _log.Enqueue(line);
+            _log.Enqueue(line);
+        }
     }
 
     private static void PrependTo(LinkedList<string> list, string entry)

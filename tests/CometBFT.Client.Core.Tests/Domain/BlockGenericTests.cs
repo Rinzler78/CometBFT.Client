@@ -118,4 +118,33 @@ public sealed class BlockGenericTests
         var raw = MakeRawBlock();
         Assert.Throws<ArgumentNullException>(() => raw.Decode<string>(null!));
     }
+
+    // ── BlockExtensions.DecodeRaw ────────────────────────────────────────────
+
+    [Fact]
+    public void DecodeRaw_ReusesOriginalTxsList()
+    {
+        var raw = MakeRawBlock(Convert.ToBase64String(new byte[] { 1, 2, 3 }));
+        var typed = raw.DecodeRaw();
+        Assert.Same(raw.Txs, typed.Txs);
+    }
+
+    [Fact]
+    public void DecodeRaw_PreservesConsensusFields()
+    {
+        var time = new DateTimeOffset(2024, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var raw = new Block(99L, "HASH", time, "PROPOSER", new List<string>().AsReadOnly());
+        var typed = raw.DecodeRaw();
+        Assert.Equal(99L, typed.Height);
+        Assert.Equal("HASH", typed.Hash);
+        Assert.Equal(time, typed.Time);
+        Assert.Equal("PROPOSER", typed.Proposer);
+    }
+
+    [Fact]
+    public void DecodeRaw_NullBlock_ThrowsArgumentNullException()
+    {
+        Block raw = null!;
+        Assert.Throws<ArgumentNullException>(() => raw.DecodeRaw());
+    }
 }
