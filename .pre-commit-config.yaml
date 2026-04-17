@@ -8,11 +8,44 @@ repos:
 
   - repo: local
     hooks:
+      - id: dotnet-restore-lock
+        name: Update NuGet lock files
+        language: system
+        # Regenerates packages.lock.json files when .csproj dependencies change.
+        # CI runs with RestoreLockedMode=true (Directory.Build.props), so lock files
+        # must be committed and in sync; this hook keeps them up to date locally.
+        entry: dotnet restore CometBFT.Client.sln --force-evaluate
+        pass_filenames: false
+        files: '\.csproj$|packages\.lock\.json$'
+
+      - id: dotnet-outdated
+        name: Check outdated NuGet packages
+        language: system
+        # Mirrors the CI "Check outdated packages" step: fails if any direct
+        # dependency has a newer version available.
+        entry: bash -c 'dotnet list package --outdated > /tmp/outdated.txt; if grep -q "^   >" /tmp/outdated.txt; then echo "Outdated direct dependencies detected:" && grep "^   >" /tmp/outdated.txt && exit 1; fi'
+        pass_filenames: false
+        files: '\.csproj$'
+
       - id: dotnet-format
         name: dotnet format
         language: system
-        entry: dotnet format CometBFT.Client.sln --verify-no-changes
+        entry: dotnet format CometBFT.Client.sln --verify-no-changes --no-restore
         pass_filenames: false
+
+      - id: dotnet-build
+        name: dotnet build
+        language: system
+        entry: dotnet build CometBFT.Client.sln --configuration Release --no-restore
+        pass_filenames: false
+
+      - id: dotnet-test
+        name: dotnet test (unit)
+        language: system
+        # Runs the same unit test filter as CI, excluding integration and E2E tests.
+        entry: dotnet test CometBFT.Client.sln --configuration Release --no-build --filter "Category!=Integration&Category!=E2E" --logger trx --results-directory TestResults
+        pass_filenames: false
+
       - id: detect-secrets
         name: detect secrets
         language: python
