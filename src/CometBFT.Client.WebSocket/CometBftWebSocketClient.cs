@@ -20,7 +20,7 @@ namespace CometBFT.Client.WebSocket;
 /// Uses <see cref="WebsocketClient"/> with automatic reconnection.
 /// </summary>
 /// <typeparam name="TTx">The application-specific transaction type.</typeparam>
-public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>
+public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where TTx : notnull
 {
     private readonly CometBftWebSocketOptions _options;
     private readonly IWebSocketClientFactory _factory;
@@ -330,7 +330,7 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>
                         Block<TTx> decodedBlock;
                         try
                         {
-                            decodedBlock = typeof(TTx) == typeof(string) && _codec is RawTxCodec
+                            decodedBlock = _codec is RawTxCodec
                                 ? (Block<TTx>)(object)rawBlock.DecodeRaw()
                                 : rawBlock.Decode(_codec);
                         }
@@ -364,7 +364,7 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>
                         TxResult<TTx> decodedTx;
                         try
                         {
-                            decodedTx = typeof(TTx) == typeof(string) && _codec is RawTxCodec
+                            decodedTx = _codec is RawTxCodec
                                 ? (TxResult<TTx>)(object)rawTx.DecodeRaw()
                                 : rawTx.Decode(_codec);
                         }

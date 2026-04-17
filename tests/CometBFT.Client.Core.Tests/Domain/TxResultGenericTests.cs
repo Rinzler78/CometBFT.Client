@@ -108,4 +108,38 @@ public sealed class TxResultGenericTests
         var raw = MakeRawTxResult();
         Assert.Throws<ArgumentNullException>(() => raw.Decode<string>(null!));
     }
+
+    // ── TxResultExtensions.DecodeRaw ─────────────────────────────────────────
+
+    [Fact]
+    public void DecodeRaw_ReusesTxBytesAsTransaction()
+    {
+        var raw = MakeRawTxResult();
+        var typed = raw.DecodeRaw();
+        Assert.Same(raw.TxBytes, typed.Transaction);
+    }
+
+    [Fact]
+    public void DecodeRaw_PreservesConsensusFields()
+    {
+        var raw = MakeRawTxResult();
+        var typed = raw.DecodeRaw();
+        Assert.Equal(raw.Hash, typed.Hash);
+        Assert.Equal(raw.Height, typed.Height);
+        Assert.Equal(raw.Index, typed.Index);
+        Assert.Equal(raw.Code, typed.Code);
+        Assert.Equal(raw.Data, typed.Data);
+        Assert.Equal(raw.Log, typed.Log);
+        Assert.Equal(raw.Info, typed.Info);
+        Assert.Equal(raw.GasWanted, typed.GasWanted);
+        Assert.Equal(raw.GasUsed, typed.GasUsed);
+        Assert.Same(raw.Events, typed.Events);
+    }
+
+    [Fact]
+    public void DecodeRaw_NullResult_ThrowsArgumentNullException()
+    {
+        TxResult raw = null!;
+        Assert.Throws<ArgumentNullException>(() => raw.DecodeRaw());
+    }
 }

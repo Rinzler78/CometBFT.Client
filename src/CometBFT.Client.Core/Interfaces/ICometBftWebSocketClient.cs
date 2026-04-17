@@ -11,7 +11,7 @@ namespace CometBFT.Client.Core.Interfaces;
 /// The application-specific transaction type.
 /// Use <see cref="ICometBftWebSocketClient"/> (non-generic) to receive raw base64 strings.
 /// </typeparam>
-public interface ICometBftWebSocketClient<TTx> : IAsyncDisposable
+public interface ICometBftWebSocketClient<TTx> : IAsyncDisposable where TTx : notnull
 {
     /// <summary>
     /// Raised when a new block is committed to the chain.

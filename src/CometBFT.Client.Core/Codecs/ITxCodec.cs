@@ -11,8 +11,13 @@ namespace CometBFT.Client.Core.Codecs;
 /// to get strongly-typed events and results.
 /// The library provides <see cref="RawTxCodec"/> as the default no-op implementation
 /// that keeps transactions as base64-encoded strings.
+/// <para>
+/// Implementations must be thread-safe. <see cref="Decode"/> may be called
+/// concurrently from multiple threads when WebSocket messages arrive in rapid succession.
+/// Stateless implementations (like <see cref="RawTxCodec"/>) are inherently thread-safe.
+/// </para>
 /// </remarks>
-public interface ITxCodec<TTx>
+public interface ITxCodec<TTx> where TTx : notnull
 {
     /// <summary>
     /// Decodes raw transaction bytes into the application-specific type.
