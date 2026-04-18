@@ -49,6 +49,8 @@
     "cosmoshub",
     "tendermintrpc",
     "dependabot", "gitflow", "editorconfig", "worktrees", "worktree",
+    "userosscache", "docstates", "userprefs",
+    "bmad",
     "snupkg", "nupkg",
     "cspell", "openspec", "warnaserror", "analyzers",
     "Polkachu", "polkachu",
