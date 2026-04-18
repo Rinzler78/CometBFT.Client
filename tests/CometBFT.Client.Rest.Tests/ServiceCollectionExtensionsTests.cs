@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using CometBFT.Client.Core.Codecs;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Core.Options;
 using CometBFT.Client.Extensions;
@@ -111,5 +112,56 @@ public sealed class ServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
         Assert.Throws<ArgumentNullException>(() => services.AddCometBftGrpc(null!));
+    }
+
+    [Fact]
+    public void AddCometBftWebSocket_Typed_RegistersTypedClient()
+    {
+        var services = new ServiceCollection();
+        services.AddCometBftWebSocket<string>(
+            options => options.BaseUrl = "ws://localhost:26657/websocket",
+            RawTxCodec.Instance);
+        var provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetRequiredService<ICometBftWebSocketClient<string>>());
+        Assert.Equal("ws://localhost:26657/websocket",
+            provider.GetRequiredService<IOptions<CometBftWebSocketOptions>>().Value.BaseUrl);
+    }
+
+    [Fact]
+    public void AddCometBftWebSocket_Typed_CodecRegisteredAsSingleton()
+    {
+        var services = new ServiceCollection();
+        services.AddCometBftWebSocket<string>(
+            options => options.BaseUrl = "ws://localhost:26657/websocket",
+            RawTxCodec.Instance);
+        var provider = services.BuildServiceProvider();
+
+        var codec = provider.GetRequiredService<ITxCodec<string>>();
+        Assert.Same(RawTxCodec.Instance, codec);
+    }
+
+    [Fact]
+    public void AddCometBftWebSocket_Typed_NullServices_ThrowsArgumentNullException()
+    {
+        IServiceCollection services = null!;
+        Assert.Throws<ArgumentNullException>(
+            () => services.AddCometBftWebSocket<string>(_ => { }, RawTxCodec.Instance));
+    }
+
+    [Fact]
+    public void AddCometBftWebSocket_Typed_NullConfigure_ThrowsArgumentNullException()
+    {
+        var services = new ServiceCollection();
+        Assert.Throws<ArgumentNullException>(
+            () => services.AddCometBftWebSocket<string>(null!, RawTxCodec.Instance));
+    }
+
+    [Fact]
+    public void AddCometBftWebSocket_Typed_NullCodec_ThrowsArgumentNullException()
+    {
+        var services = new ServiceCollection();
+        Assert.Throws<ArgumentNullException>(
+            () => services.AddCometBftWebSocket<string>(_ => { }, null!));
     }
 }

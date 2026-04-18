@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Polly;
 using Polly.Extensions.Http;
+using CometBFT.Client.Core.Codecs;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Core.Options;
 using CometBFT.Client.Grpc;
@@ -91,6 +92,54 @@ public static class ServiceCollectionExtensions
 
         services.Configure<CometBftWebSocketOptions>(configure);
         services.AddSingleton<ICometBftWebSocketClient, CometBftWebSocketClient>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a typed CometBFT WebSocket subscription client that decodes
+    /// transactions into <typeparamref name="TTx"/> using the provided codec.
+    /// </summary>
+    /// <typeparam name="TTx">The application-specific transaction type.</typeparam>
+    /// <param name="services">The service collection to add services to.</param>
+    /// <param name="configure">An action to configure <see cref="CometBftWebSocketOptions"/>.</param>
+    /// <param name="codec">The codec used to decode transaction bytes into <typeparamref name="TTx"/>.</param>
+    /// <returns>The <paramref name="services"/> for fluent chaining.</returns>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="services"/>, <paramref name="configure"/>,
+    /// or <paramref name="codec"/> is <c>null</c>.
+    /// </exception>
+    /// <remarks>
+    /// Registers <see cref="ICometBftWebSocketClient{TTx}"/> as a singleton.
+    /// The raw <see cref="ICometBftWebSocketClient"/> is NOT registered by this overload;
+    /// call <see cref="AddCometBftWebSocket"/> separately if both are needed.
+    /// <para>
+    /// The supplied <paramref name="codec"/> is registered as a singleton and shared
+    /// across concurrent WebSocket message handlers. Codec implementations must be thread-safe.
+    /// See <see cref="ITxCodec{TTx}"/> remarks for details.
+    /// </para>
+    /// </remarks>
+    public static IServiceCollection AddCometBftWebSocket<TTx>(
+        this IServiceCollection services,
+        Action<CometBftWebSocketOptions> configure,
+        ITxCodec<TTx> codec)
+        where TTx : notnull
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configure);
+        ArgumentNullException.ThrowIfNull(codec);
+
+        var tempOptions = new CometBftWebSocketOptions();
+        configure(tempOptions);
+        tempOptions.Validate();
+
+        services.Configure<CometBftWebSocketOptions>(configure);
+        // Register codec under the interface so it can be resolved via ITxCodec<TTx>.
+        services.AddSingleton<ITxCodec<TTx>>(codec);
+        services.AddSingleton<ICometBftWebSocketClient<TTx>>(sp =>
+            new CometBftWebSocketClient<TTx>(
+                Options.Create(tempOptions),
+                sp.GetRequiredService<ITxCodec<TTx>>()));
 
         return services;
     }
