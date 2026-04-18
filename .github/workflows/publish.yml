@@ -88,7 +88,7 @@ jobs:
           fi
 
           NOTES_FILE="$(mktemp)"
-          awk -v heading="## [${VERSION}]" '$0 == heading{found=1; next} found && /^## \[/{exit} found{print}' CHANGELOG.md > "${NOTES_FILE}"
+          awk -v heading="## [${VERSION}]" 'index($0, heading) == 1{found=1; next} found && /^## \[/{exit} found{print}' CHANGELOG.md > "${NOTES_FILE}"
 
           if [ ! -s "${NOTES_FILE}" ]; then
             echo "ERROR: CHANGELOG.md has no entry for version ${VERSION} — add a [${VERSION}] section before tagging."
