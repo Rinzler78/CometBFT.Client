@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-04-18
+
 ### Added
 - Initial implementation targeting CometBFT protocol version v0.38.9
 - `CometBFT.Client.Core` — domain types (`Block`, `BlockHeader`, `TxResult`, `Event`, `Attribute`,
@@ -38,3 +40,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `WebSocketMessageParser` extracted from `CometBftWebSocketClient` into a dedicated internal class
 - SOLID/clean-code remediation applied across all source projects: single-responsibility split,
   dependency inversion via internal interfaces, dead-code removal, naming consistency
+
+[0.1.0]: https://github.com/Rinzler78/CometBFT.Client/releases/tag/v0.1.0
