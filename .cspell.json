@@ -49,6 +49,8 @@
     "cosmoshub",
     "tendermintrpc",
     "dependabot", "gitflow", "editorconfig", "worktrees", "worktree",
+    "userosscache", "docstates", "userprefs",
+    "bmad",
     "snupkg", "nupkg",
     "cspell", "openspec", "warnaserror", "analyzers",
     "Polkachu", "polkachu",
@@ -72,7 +74,12 @@
     "Acks",
     "acks",
     "contentfiles", "buildtransitive",
-    "Linq"
+    "Linq",
+    "Merkle", "merkle",
+    "bech32", "bech",
+    "iavl", "ics23",
+    "ProofOps", "proofops",
+    "codespace", "Codespace"
   ],
   "overrides": [
     {
