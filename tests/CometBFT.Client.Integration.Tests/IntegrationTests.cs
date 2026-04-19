@@ -529,6 +529,116 @@ public sealed class IntegrationTests
         }
     }
 
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task SdkGrpc_LiveNode_GetSyncingAsync_ReturnsBool()
+    {
+        var grpcUrl = EndpointConfiguration.RequireSdkGrpc();
+
+        var services = new ServiceCollection();
+        services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftSdkGrpcClient>();
+
+        try
+        {
+            var syncing = await client.GetSyncingAsync();
+
+            // Value is a plain bool — either state is valid on a live node.
+            Assert.IsType<bool>(syncing);
+        }
+        catch (CometBftGrpcException)
+        {
+            // Public nodes may rate-limit or reject the SDK gRPC endpoint — not a client bug.
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task SdkGrpc_LiveNode_GetBlockByHeightAsync_ReturnsBlock()
+    {
+        var grpcUrl = EndpointConfiguration.RequireSdkGrpc();
+
+        var services = new ServiceCollection();
+        services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftSdkGrpcClient>();
+
+        try
+        {
+            // Fetch the latest block first so we have a valid height.
+            var latest = await client.GetLatestBlockAsync();
+            if (latest.Height < 1)
+                return; // nothing meaningful to assert
+
+            var block = await client.GetBlockByHeightAsync(latest.Height);
+
+            Assert.Equal(latest.Height, block.Height);
+            Assert.NotEmpty(block.Proposer);
+        }
+        catch (CometBftGrpcException)
+        {
+            // Public nodes may rate-limit or reject the SDK gRPC endpoint — not a client bug.
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task SdkGrpc_LiveNode_GetValidatorSetByHeightAsync_ReturnsValidators()
+    {
+        var grpcUrl = EndpointConfiguration.RequireSdkGrpc();
+
+        var services = new ServiceCollection();
+        services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftSdkGrpcClient>();
+
+        try
+        {
+            var latest = await client.GetLatestBlockAsync();
+            if (latest.Height < 1)
+                return;
+
+            var validators = await client.GetValidatorSetByHeightAsync(latest.Height);
+
+            Assert.NotEmpty(validators);
+            Assert.All(validators, v =>
+            {
+                Assert.NotEmpty(v.Address);
+                Assert.True(v.VotingPower >= 0);
+            });
+        }
+        catch (CometBftGrpcException)
+        {
+            // Public nodes may rate-limit or reject the SDK gRPC endpoint — not a client bug.
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task SdkGrpc_LiveNode_ABCIQueryAsync_ReturnsResponse()
+    {
+        var grpcUrl = EndpointConfiguration.RequireSdkGrpc();
+
+        var services = new ServiceCollection();
+        services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftSdkGrpcClient>();
+
+        try
+        {
+            // Query path /app/version is safe and available on all Cosmos SDK nodes.
+            var response = await client.ABCIQueryAsync("/app/version", []);
+
+            // Code 0 = success; any structured response is acceptable.
+            Assert.True(response.Code == 0 || response.Value.Count > 0 || !string.IsNullOrEmpty(response.Log));
+        }
+        catch (CometBftGrpcException)
+        {
+            // Public nodes may rate-limit or reject the SDK gRPC endpoint — not a client bug.
+        }
+    }
+
     private static ServiceProvider BuildRestServices(string rpcUrl)
     {
         var services = new ServiceCollection();

@@ -93,6 +93,42 @@ internal sealed class DashboardService : BackgroundService
                             state.AddLog($"[red]block: {Markup.Escape(FirstLine(ex.Message))}[/]");
                         }
 
+                        // ── Syncing ───────────────────────────────────────────────
+                        try
+                        {
+                            var syncing = await _client.GetSyncingAsync(stoppingToken);
+                            state.Syncing = syncing
+                                ? "[yellow]catching up[/]"
+                                : "[green]fully synced[/]";
+                        }
+                        catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+                        {
+                            state.Syncing = $"[red]{Markup.Escape(ex.Message)}[/]";
+                            state.AddLog($"[red]syncing: {Markup.Escape(FirstLine(ex.Message))}[/]");
+                        }
+
+                        // ── Block by height ───────────────────────────────────────
+                        try
+                        {
+                            var block = await _client.GetLatestBlockAsync(stoppingToken);
+                            if (block.Height > 1)
+                            {
+                                sw.Restart();
+                                var prev = await _client.GetBlockByHeightAsync(block.Height - 1, stoppingToken);
+                                sw.Stop();
+                                state.BlockByHeight =
+                                    $"Height: [bold]{prev.Height:N0}[/]\n" +
+                                    $"Time: {prev.Time:HH:mm:ss}\n" +
+                                    $"Txs: {prev.Txs.Count}\n" +
+                                    $"[dim]{ts:HH:mm:ss} · {sw.ElapsedMilliseconds} ms[/]";
+                            }
+                        }
+                        catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+                        {
+                            state.BlockByHeight = $"[red]{Markup.Escape(ex.Message)}[/]";
+                            state.AddLog($"[red]block-by-height: {Markup.Escape(FirstLine(ex.Message))}[/]");
+                        }
+
                         // ── Validators ────────────────────────────────────────────
                         sw.Restart();
                         try
@@ -114,6 +150,27 @@ internal sealed class DashboardService : BackgroundService
                         {
                             state.Validators = $"[red]{Markup.Escape(ex.Message)}[/]";
                             state.AddLog($"[red]validators: {Markup.Escape(FirstLine(ex.Message))}[/]");
+                        }
+
+                        // ── ABCI Query ────────────────────────────────────────────
+                        try
+                        {
+                            sw.Restart();
+                            var abci = await _client.ABCIQueryAsync("/app/version", [], cancellationToken: stoppingToken);
+                            sw.Stop();
+                            var value = abci.Value.Count > 0
+                                ? System.Text.Encoding.UTF8.GetString([.. abci.Value])
+                                : "(empty)";
+                            state.AbciQuery =
+                                $"Path: [dim]/app/version[/]\n" +
+                                $"Code: {abci.Code}  Height: {abci.Height}\n" +
+                                $"Value: [bold]{Markup.Escape(value)}[/]\n" +
+                                $"[dim]{ts:HH:mm:ss} · {sw.ElapsedMilliseconds} ms[/]";
+                        }
+                        catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+                        {
+                            state.AbciQuery = $"[red]{Markup.Escape(ex.Message)}[/]";
+                            state.AddLog($"[red]abci-query: {Markup.Escape(FirstLine(ex.Message))}[/]");
                         }
 
                         ctx.UpdateTarget(BuildLayout(state));
@@ -146,7 +203,12 @@ internal sealed class DashboardService : BackgroundService
             new Columns(
                 new Panel(new Markup(s.Status)) { Header = new PanelHeader("Health / Status"), Border = BoxBorder.Rounded },
                 new Panel(new Markup(s.Block)) { Header = new PanelHeader("Latest Block"), Border = BoxBorder.Rounded }),
-            new Panel(new Markup(s.Validators)) { Header = new PanelHeader("Validators"), Border = BoxBorder.Rounded },
+            new Columns(
+                new Panel(new Markup(s.Syncing)) { Header = new PanelHeader("Syncing"), Border = BoxBorder.Rounded },
+                new Panel(new Markup(s.BlockByHeight)) { Header = new PanelHeader("Block by Height (latest-1)"), Border = BoxBorder.Rounded }),
+            new Columns(
+                new Panel(new Markup(s.Validators)) { Header = new PanelHeader("Validators"), Border = BoxBorder.Rounded },
+                new Panel(new Markup(s.AbciQuery)) { Header = new PanelHeader("ABCI Query (/app/version)"), Border = BoxBorder.Rounded }),
             new Panel(new Markup(s.Log)) { Header = new PanelHeader("Log"), Border = BoxBorder.Rounded });
 }
 
@@ -157,7 +219,10 @@ internal sealed class GrpcState
 
     public string Status { get; set; } = "[dim]…[/]";
     public string Block { get; set; } = "[dim]…[/]";
+    public string Syncing { get; set; } = "[dim]…[/]";
+    public string BlockByHeight { get; set; } = "[dim]…[/]";
     public string Validators { get; set; } = "[dim]…[/]";
+    public string AbciQuery { get; set; } = "[dim]…[/]";
     public string Log => _log.Count > 0 ? string.Join("\n", _log.Reverse()) : "[dim](empty)[/]";
 
     public void AddLog(string line)
