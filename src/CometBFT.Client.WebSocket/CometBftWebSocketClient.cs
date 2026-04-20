@@ -262,7 +262,7 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
         _client!.Send(JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsSubscribeRequest));
 
         using var ackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        ackCts.CancelAfter(TimeSpan.FromSeconds(30));
+        ackCts.CancelAfter(_options.SubscribeAckTimeout);
         try
         {
             await tcs.Task.WaitAsync(ackCts.Token).ConfigureAwait(false);
@@ -272,7 +272,7 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
             _pendingAcks.TryRemove(id, out _);
             ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(
                 new CometBftWebSocketException(
-                    $"Subscribe ACK for query '{query}' not received within 30 s — subscription was sent and may still be active.")));
+                    $"Subscribe ACK for query '{query}' not received within {_options.SubscribeAckTimeout.TotalSeconds:F0} s — subscription was sent and may still be active.")));
         }
     }
 
@@ -286,7 +286,7 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
         }
     }
 
-    private void OnReconnected(ReconnectionInfo _)
+    internal void OnReconnected(ReconnectionInfo _)
     {
         foreach (var query in _activeSubscriptions.Keys)
         {

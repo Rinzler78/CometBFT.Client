@@ -28,6 +28,14 @@ internal sealed class GrpcChannelBroadcastApiClient : IBroadcastApiClient
         _client = new BroadcastAPI.BroadcastAPIClient(channel);
     }
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="GrpcChannelBroadcastApiClient"/> with an injected client.
+    /// </summary>
+    internal GrpcChannelBroadcastApiClient(BroadcastAPI.BroadcastAPIClient client)
+    {
+        _client = client ?? throw new ArgumentNullException(nameof(client));
+    }
+
     /// <inheritdoc />
     public async Task<bool> PingAsync(CancellationToken cancellationToken = default)
     {

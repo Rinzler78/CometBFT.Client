@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# pre-commit hook — canonical source, kept in .hooks/ and installed by scripts/install-hooks.sh.
+#
+# Responsibilities (in order):
+#   1. Branch guard   — block direct commits to master/develop
+#   2. pre-commit framework — delegates to .pre-commit-config.yaml for all quality checks
+#      (format, build, unit tests + coverage gate, secrets)
+#
+# To install manually:
+#   cp .hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Preferred install path:
+#   ./scripts/install-hooks.sh
+
+set -euo pipefail
+
+# ── 1. Branch guard ───────────────────────────────────────────────────────────
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || true)
+if [ "$BRANCH" = "master" ] || [ "$BRANCH" = "develop" ]; then
+    echo ""
+    echo "  ERROR: Direct commits to \"$BRANCH\" are not allowed."
+    echo ""
+    echo "  Workflow (git flow + worktree):"
+    echo "    git worktree add .worktrees/<feature-name> -b feature/<feature-name>"
+    echo "    cd .worktrees/<feature-name>"
+    echo "    # work, commit, push, open PR → develop"
+    echo ""
+    echo "  See AGENTS.md §Development Workflow for the full protocol."
+    echo ""
+    exit 1
+fi
+
+# ── 2. Delegate to pre-commit framework ──────────────────────────────────────
+PYTHON="${INSTALL_PYTHON:-python3}"
+if command -v pre-commit > /dev/null 2>&1; then
+    exec pre-commit hook-impl \
+        --config=.pre-commit-config.yaml \
+        --hook-type=pre-commit \
+        --hook-dir "$(dirname "$0")" -- "$@"
+elif "$PYTHON" -mpre_commit --version > /dev/null 2>&1; then
+    exec "$PYTHON" -mpre_commit hook-impl \
+        --config=.pre-commit-config.yaml \
+        --hook-type=pre-commit \
+        --hook-dir "$(dirname "$0")" -- "$@"
+else
+    echo "WARNING: pre-commit framework not found. Run: pip install pre-commit && pre-commit install"
+    echo "Skipping automated checks — branch guard only enforced."
+fi

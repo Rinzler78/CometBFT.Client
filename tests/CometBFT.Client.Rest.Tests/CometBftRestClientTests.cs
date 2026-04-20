@@ -954,4 +954,71 @@ public sealed class CometBftRestClientTests : IDisposable
         await Assert.ThrowsAsync<CometBftRestException>(() =>
             _client.DialPeersAsync(["abc123@10.0.0.1:26656"]));
     }
+
+    // ── Crash-scenario regression tests ─────────────────────────────────────
+    // These tests document the behaviors that caused demo crashes and verify
+    // correct exception propagation from relay-disabled endpoints.
+
+    [Fact]
+    public async Task DumpConsensusStateAsync_PeersContainsObjectNodes_ValueIsRawJsonBlob()
+    {
+        // Verifies that "peers" is returned as a raw JSON string containing curly braces.
+        // Callers must use Markup.Escape() before rendering this value in Spectre.Console.
+        _server
+            .Given(Request.Create().WithPath("/dump_consensus_state").UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(HttpStatusCode.OK)
+                .WithHeader("Content-Type", "application/json")
+                .WithBody("""
+                {
+                  "jsonrpc":"2.0",
+                  "id":1,
+                  "result":{
+                    "round_state":{"height/round/step":"100/0/1"},
+                    "peers":[
+                      {
+                        "node_address":"abc123@10.0.0.1:26656",
+                        "peer_state":{"round_state":{"height":"99","round":"0","step":"6"}}
+                      }
+                    ]
+                  }
+                }
+                """));
+
+        var result = await _client.DumpConsensusStateAsync();
+
+        Assert.True(result.ContainsKey("peers"));
+        Assert.Contains("{", result["peers"], StringComparison.Ordinal);
+        Assert.Contains("node_address", result["peers"], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetGenesisAsync_Returns500_ThrowsCometBftRestException()
+    {
+        _server
+            .Given(Request.Create().WithPath("/genesis").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(HttpStatusCode.InternalServerError));
+
+        await Assert.ThrowsAsync<CometBftRestException>(() => _client.GetGenesisAsync());
+    }
+
+    [Fact]
+    public async Task SearchTxAsync_Returns500_ThrowsCometBftRestException()
+    {
+        _server
+            .Given(Request.Create().WithPath("/tx_search").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(HttpStatusCode.InternalServerError));
+
+        await Assert.ThrowsAsync<CometBftRestException>(() => _client.SearchTxAsync("tx.height=1"));
+    }
+
+    [Fact]
+    public async Task AbciQueryAsync_Returns500_ThrowsCometBftRestException()
+    {
+        _server
+            .Given(Request.Create().WithPath("/abci_query").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(HttpStatusCode.InternalServerError));
+
+        await Assert.ThrowsAsync<CometBftRestException>(() => _client.AbciQueryAsync("/app/version", ""));
+    }
 }

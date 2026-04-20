@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 using CometBFT.Client.Core.Domain;
@@ -16,6 +17,12 @@ var wsUrl = args.FirstOrDefault(a => a.StartsWith("--ws-url=", StringComparison.
 
 // ── DI ───────────────────────────────────────────────────────────────────────
 var host = Host.CreateDefaultBuilder(args)
+    .ConfigureLogging(logging =>
+    {
+        logging.ClearProviders();
+        logging.AddConsole();
+        logging.SetMinimumLevel(LogLevel.Warning);
+    })
     .ConfigureServices(services =>
     {
         services.AddCometBftWebSocket(o => o.BaseUrl = wsUrl);
@@ -75,6 +82,7 @@ internal sealed class DashboardService : BackgroundService
         _ws.TxExecuted -= OnTx;
         _ws.VoteReceived -= OnVote;
         _ws.ValidatorSetUpdated -= OnValidatorSetUpdated;
+        try { await _ws.UnsubscribeAllAsync(); } catch { /* best-effort on shutdown */ }
         await _ws.DisposeAsync();
     }
 

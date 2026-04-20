@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 using CometBFT.Client.Core.Interfaces;
@@ -14,6 +15,12 @@ var grpcUrl = args.FirstOrDefault(a => a.StartsWith("--grpc-url=", StringCompari
 
 // ── DI ───────────────────────────────────────────────────────────────────────
 var host = Host.CreateDefaultBuilder(args)
+    .ConfigureLogging(logging =>
+    {
+        logging.ClearProviders();
+        logging.AddConsole();
+        logging.SetMinimumLevel(LogLevel.Warning);
+    })
     .ConfigureServices(services =>
     {
         services.AddCometBftSdkGrpc(o => o.BaseUrl = grpcUrl);
@@ -29,11 +36,11 @@ internal sealed class DashboardService : BackgroundService
 {
     private const int RefreshSeconds = 10;
     private readonly string _grpcUrl;
-    private readonly ICometBftSdkGrpcClient _client;
+    private readonly ICometBftSdkGrpcClient _sdkClient;
 
-    public DashboardService(ICometBftSdkGrpcClient client)
+    public DashboardService(ICometBftSdkGrpcClient sdkClient)
     {
-        _client = client;
+        _sdkClient = sdkClient;
         _grpcUrl = Environment.GetEnvironmentVariable("COMETBFT_GRPC_URL") ?? DemoDefaults.GrpcUrl;
     }
 
@@ -51,10 +58,11 @@ internal sealed class DashboardService : BackgroundService
                         var ts = DateTimeOffset.UtcNow;
                         var sw = System.Diagnostics.Stopwatch.StartNew();
 
-                        // ── Status ────────────────────────────────────────────────
+                        // ── ICometBftSdkGrpcClient.GetStatusAsync ─────────────────
                         try
                         {
-                            var (nodeInfo, syncInfo) = await _client.GetStatusAsync(stoppingToken);
+                            sw.Restart();
+                            var (nodeInfo, syncInfo) = await _sdkClient.GetStatusAsync(stoppingToken);
                             sw.Stop();
                             state.Status =
                                 $"Network: [yellow]{Markup.Escape(nodeInfo.Network)}[/]  " +
@@ -71,12 +79,28 @@ internal sealed class DashboardService : BackgroundService
                             state.AddLog($"[red]status: {Markup.Escape(FirstLine(ex.Message))}[/]");
                         }
 
-                        // ── Latest block ──────────────────────────────────────────
+                        // ── ICometBftSdkGrpcClient.GetSyncingAsync ────────────────
+                        try
+                        {
+                            var syncing = await _sdkClient.GetSyncingAsync(stoppingToken);
+                            state.Syncing = syncing
+                                ? "[yellow]catching up[/]"
+                                : "[green]fully synced[/]";
+                        }
+                        catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+                        {
+                            state.Syncing = $"[red]{Markup.Escape(ex.Message)}[/]";
+                            state.AddLog($"[red]syncing: {Markup.Escape(FirstLine(ex.Message))}[/]");
+                        }
+
+                        // ── ICometBftSdkGrpcClient.GetLatestBlockAsync ────────────
+                        long latestHeight = 0;
                         sw.Restart();
                         try
                         {
-                            var block = await _client.GetLatestBlockAsync(stoppingToken);
+                            var block = await _sdkClient.GetLatestBlockAsync(stoppingToken);
                             sw.Stop();
+                            latestHeight = block.Height;
                             var proposerPfx = block.Proposer.Length > 0
                                 ? block.Proposer[..Math.Min(16, block.Proposer.Length)]
                                 : "?";
@@ -93,28 +117,13 @@ internal sealed class DashboardService : BackgroundService
                             state.AddLog($"[red]block: {Markup.Escape(FirstLine(ex.Message))}[/]");
                         }
 
-                        // ── Syncing ───────────────────────────────────────────────
+                        // ── ICometBftSdkGrpcClient.GetBlockByHeightAsync ──────────
                         try
                         {
-                            var syncing = await _client.GetSyncingAsync(stoppingToken);
-                            state.Syncing = syncing
-                                ? "[yellow]catching up[/]"
-                                : "[green]fully synced[/]";
-                        }
-                        catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
-                        {
-                            state.Syncing = $"[red]{Markup.Escape(ex.Message)}[/]";
-                            state.AddLog($"[red]syncing: {Markup.Escape(FirstLine(ex.Message))}[/]");
-                        }
-
-                        // ── Block by height ───────────────────────────────────────
-                        try
-                        {
-                            var block = await _client.GetLatestBlockAsync(stoppingToken);
-                            if (block.Height > 1)
+                            if (latestHeight > 1)
                             {
                                 sw.Restart();
-                                var prev = await _client.GetBlockByHeightAsync(block.Height - 1, stoppingToken);
+                                var prev = await _sdkClient.GetBlockByHeightAsync(latestHeight - 1, stoppingToken);
                                 sw.Stop();
                                 state.BlockByHeight =
                                     $"Height: [bold]{prev.Height:N0}[/]\n" +
@@ -129,11 +138,11 @@ internal sealed class DashboardService : BackgroundService
                             state.AddLog($"[red]block-by-height: {Markup.Escape(FirstLine(ex.Message))}[/]");
                         }
 
-                        // ── Validators ────────────────────────────────────────────
+                        // ── ICometBftSdkGrpcClient.GetLatestValidatorsAsync ───────
                         sw.Restart();
                         try
                         {
-                            var vals = await _client.GetLatestValidatorsAsync(stoppingToken);
+                            var vals = await _sdkClient.GetLatestValidatorsAsync(stoppingToken);
                             sw.Stop();
                             var rows = vals.Take(5).Select(v =>
                             {
@@ -152,11 +161,38 @@ internal sealed class DashboardService : BackgroundService
                             state.AddLog($"[red]validators: {Markup.Escape(FirstLine(ex.Message))}[/]");
                         }
 
-                        // ── ABCI Query ────────────────────────────────────────────
+                        // ── ICometBftSdkGrpcClient.GetValidatorSetByHeightAsync ───
+                        try
+                        {
+                            if (latestHeight > 1)
+                            {
+                                sw.Restart();
+                                var vals = await _sdkClient.GetValidatorSetByHeightAsync(latestHeight - 1, stoppingToken);
+                                sw.Stop();
+                                var rows = vals.Take(3).Select(v =>
+                                {
+                                    var addr = v.Address.Length > 0
+                                        ? v.Address[..Math.Min(20, v.Address.Length)]
+                                        : "?";
+                                    return $"[dim]{Markup.Escape(addr)}…[/] power={v.VotingPower:N0}";
+                                });
+                                state.ValidatorsByHeight =
+                                    $"Height: [bold]{latestHeight - 1:N0}[/]\n" +
+                                    string.Join("\n", rows) +
+                                    $"\n[dim]+{Math.Max(0, vals.Count - 3)} more · {sw.ElapsedMilliseconds} ms[/]";
+                            }
+                        }
+                        catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+                        {
+                            state.ValidatorsByHeight = $"[red]{Markup.Escape(ex.Message)}[/]";
+                            state.AddLog($"[red]validators-by-height: {Markup.Escape(FirstLine(ex.Message))}[/]");
+                        }
+
+                        // ── ICometBftSdkGrpcClient.ABCIQueryAsync ─────────────────
                         try
                         {
                             sw.Restart();
-                            var abci = await _client.ABCIQueryAsync("/app/version", [], cancellationToken: stoppingToken);
+                            var abci = await _sdkClient.ABCIQueryAsync("/app/version", [], cancellationToken: stoppingToken);
                             sw.Stop();
                             var value = abci.Value.Count > 0
                                 ? System.Text.Encoding.UTF8.GetString([.. abci.Value])
@@ -186,7 +222,7 @@ internal sealed class DashboardService : BackgroundService
         }
         finally
         {
-            await _client.DisposeAsync();
+            await _sdkClient.DisposeAsync();
         }
     }
 
@@ -199,16 +235,19 @@ internal sealed class DashboardService : BackgroundService
 
     private static IRenderable BuildLayout(GrpcState s) =>
         new Rows(
-            new Panel(new Markup("[bold cyan]CometBFT.Client.Demo.Grpc[/]  [dim](cosmos.base.tendermint.v1beta1.Service)[/]")) { Border = BoxBorder.Rounded },
+            new Panel(new Markup("[bold cyan]CometBFT.Client.Demo.Grpc[/]  [dim](cosmos.base.tendermint.v1beta1.Service — ICometBftSdkGrpcClient)[/]")) { Border = BoxBorder.Rounded },
             new Columns(
-                new Panel(new Markup(s.Status)) { Header = new PanelHeader("Health / Status"), Border = BoxBorder.Rounded },
-                new Panel(new Markup(s.Block)) { Header = new PanelHeader("Latest Block"), Border = BoxBorder.Rounded }),
+                new Panel(new Markup(s.Status)) { Header = new PanelHeader("Node Status (GetStatusAsync)"), Border = BoxBorder.Rounded },
+                new Panel(new Markup(s.Syncing)) { Header = new PanelHeader("Syncing (GetSyncingAsync)"), Border = BoxBorder.Rounded }),
             new Columns(
-                new Panel(new Markup(s.Syncing)) { Header = new PanelHeader("Syncing"), Border = BoxBorder.Rounded },
-                new Panel(new Markup(s.BlockByHeight)) { Header = new PanelHeader("Block by Height (latest-1)"), Border = BoxBorder.Rounded }),
+                new Panel(new Markup(s.Block)) { Header = new PanelHeader("Latest Block (GetLatestBlockAsync)"), Border = BoxBorder.Rounded },
+                new Panel(new Markup(s.BlockByHeight)) { Header = new PanelHeader("Block by Height (GetBlockByHeightAsync)"), Border = BoxBorder.Rounded }),
             new Columns(
-                new Panel(new Markup(s.Validators)) { Header = new PanelHeader("Validators"), Border = BoxBorder.Rounded },
-                new Panel(new Markup(s.AbciQuery)) { Header = new PanelHeader("ABCI Query (/app/version)"), Border = BoxBorder.Rounded }),
+                new Panel(new Markup(s.Validators)) { Header = new PanelHeader("Latest Validators (GetLatestValidatorsAsync)"), Border = BoxBorder.Rounded },
+                new Panel(new Markup(s.ValidatorsByHeight)) { Header = new PanelHeader("Validators by Height (GetValidatorSetByHeightAsync)"), Border = BoxBorder.Rounded }),
+            new Columns(
+                new Panel(new Markup(s.AbciQuery)) { Header = new PanelHeader("ABCI Query (ABCIQueryAsync)"), Border = BoxBorder.Rounded },
+                new Panel(new Markup("[dim]ICometBftGrpcClient (PingAsync, BroadcastTxAsync)[/]\n[dim]uses cometbft.rpc.grpc.v1beta1.BroadcastAPI[/]\n[dim]requires direct node access —[/]\n[dim]not available on public relays.[/]\n[dim]See integration tests.[/]")) { Header = new PanelHeader("Raw gRPC (ICometBftGrpcClient)"), Border = BoxBorder.Rounded }),
             new Panel(new Markup(s.Log)) { Header = new PanelHeader("Log"), Border = BoxBorder.Rounded });
 }
 
@@ -218,10 +257,11 @@ internal sealed class GrpcState
     private readonly Queue<string> _log = new();
 
     public string Status { get; set; } = "[dim]…[/]";
-    public string Block { get; set; } = "[dim]…[/]";
     public string Syncing { get; set; } = "[dim]…[/]";
+    public string Block { get; set; } = "[dim]…[/]";
     public string BlockByHeight { get; set; } = "[dim]…[/]";
     public string Validators { get; set; } = "[dim]…[/]";
+    public string ValidatorsByHeight { get; set; } = "[dim]…[/]";
     public string AbciQuery { get; set; } = "[dim]…[/]";
     public string Log => _log.Count > 0 ? string.Join("\n", _log.Reverse()) : "[dim](empty)[/]";
 

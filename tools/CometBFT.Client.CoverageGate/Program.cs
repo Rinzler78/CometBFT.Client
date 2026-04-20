@@ -3,21 +3,8 @@ using System.Xml.Linq;
 
 const decimal threshold = 90m;
 var root = args.Length > 0 ? args[0] : Path.Combine(Environment.CurrentDirectory, "TestResults");
-var excludedPrefixes = new[]
-{
-    "CometBFT.Client.Core/Domain/",
-    "CometBFT.Client.Core/Events/",
-    "CometBFT.Client.Core/Exceptions/",
-    "CometBFT.Client.Core/Options/",
-};
-var excludedSuffixes = new[]
-{
-    "CometBFT.Client.Rest/Json/RpcModels.cs",
-    "CometBFT.Client.Grpc/Internal/GrpcChannelBroadcastApiClient.cs",
-    "CometBFT.Client.Grpc/Internal/LegacyBroadcastApiClient.cs",
-    "CometBFT.Client.Grpc/Internal/BroadcastApiClientFactory.cs",
-    "CometBFT.Client.WebSocket/CometBftWebSocketClient.cs",
-};
+var excludedPrefixes = Array.Empty<string>();
+var excludedSuffixes = Array.Empty<string>();
 
 if (!Directory.Exists(root))
 {
