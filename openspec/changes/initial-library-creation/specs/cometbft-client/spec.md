@@ -713,3 +713,165 @@ The repository SHALL provide a gRPC demo that connects to a real CometBFT gRPC e
 - **WHEN** the refresh cycle runs
 - **THEN** the following are called: `PingAsync()`, `BroadcastTxAsync()` (dry-run only), and Cosmos SDK `GetTxAsync()` via `ICometBftSdkGrpcClient`
 - **AND** each panel shows call timestamp and latency in ms
+
+---
+
+### Requirement: Demo Unified Dashboard (`samples/CometBFT.Client.Demo.Dashboard/`)
+
+The repository SHALL provide a unified, real-time Avalonia 12 desktop dashboard that aggregates WebSocket events, REST polling, and Cosmos SDK gRPC enrichment into a single persistent window. The dashboard connects to all three transports simultaneously and updates live as new blocks, transactions, and events arrive.
+
+**Stack** : Avalonia 12.0, `Microsoft.Extensions.Hosting`, `CommunityToolkit.Mvvm`, `Avalonia.Controls.DataGrid`, `Avalonia.Themes.Fluent`
+**Config** : `COMETBFT_RPC_URL`, `COMETBFT_WS_URL`, `COMETBFT_GRPC_URL` env vars or `--rpc-url`, `--ws-url`, `--grpc-url` CLI args. Falls back to validated Cosmos Hub public endpoints.
+
+#### Design System (Mintscan-inspired)
+
+| Token | Value | Usage |
+|---|---|---|
+| Background | `#060b18` | Window background |
+| Card surface | `#0c1426` | All card backgrounds |
+| Card border | `#162039` | All card borders |
+| Cyan accent | `#29b6f6` | Primary accent, validator bars |
+| Mint green | `#69f0ae` | Block heights, LIVE indicator |
+| Warm orange | `#ffb74d` | Transaction accent, pending badge |
+| Lavender | `#b39ddb` | Event log accent |
+| Hash / address | `#40c4ff` | Monospace hash and address fields |
+| Text primary | `#e3eaf5` | Values and labels |
+| Text muted | `#455a64` | Column headers, secondary text |
+
+Window minimum: 1600×960. All cards: `CornerRadius="12"`, `BorderThickness="1"`, `BorderBrush="#162039"`, card header band `Background="#0a1220"`.
+
+#### Layout
+
+```
+┌───────────────────────────────────────────────────────────────────────┐
+│ HEADER (gradient): ⬡  CometBFT  | NODE pill | VERSION pill | SYNCED  │
+│                                                              ● Connected│
+├───────────────────────────────────────────────────────────────────────┤
+│ KPI ROW:  #LATEST BLOCK  |  BLOCK TXS  |  MEMPOOL  |  PEERS          │
+├───────────────┬──────────────────────────────────┬────────────────────┤
+│ Node Info     │  Recent Blocks  │  Recent Txs     │  Event Log        │
+│ (status card) │  (left half)    │  (right half)   │  (typed entries)  │
+│               │                 │                 │                   │
+│ Validators    │                 │                 │                   │
+│ (rank + bar)  │                 │                 │                   │
+└───────────────┴─────────────────┴─────────────────┴────────────────────┘
+```
+
+The center area is a `Grid` with `ColumnDefinitions="*,10,*"` — Recent Blocks and Recent Transactions occupy equal width side by side (not stacked).
+
+#### Header bar
+
+- Gradient background `#060d1e` → `#0a1830`, height 58 px, bottom border `#0e1a30`
+- Left: hex icon `⬡` in `#0d2040` rounded badge, "CometBFT" title (15 px bold), ChainId sub-label
+- Center: NODE pill (Moniker), VERSION pill (NodeVersion), SYNCED pill (`SyncStatusText` + green dot)
+- Right: connection pill (`ConnectionStatus` + green dot), `Background="#0a1e10"`, `BorderBrush="#1a3a20"`
+
+#### KPI stats row
+
+Four headline metrics separated by 1 px dividers. Each metric: label (9 px, `#37474f`), large colored number (26 px bold), sub-label (9 px, `#455a64`).
+
+| Metric | Binding | Color |
+|---|---|---|
+| LATEST BLOCK | `LatestHeight` `StringFormat='#{0:N0}'` Consolas monospace | `#69f0ae` |
+| BLOCK TXS | `LatestBlockTxCount` | `#ffb74d` |
+| MEMPOOL | `PendingTxCount` | `#29b6f6` |
+| PEERS | `PeerCount` | `#b39ddb` |
+
+Sub-label for LATEST BLOCK: `LatestBlockTime`.
+
+#### Node Info card (left column, top)
+
+- Header band: ChainId pill (`#0d2040` / `#1a3a6b` border) + Synced badge (`#0a1e10` / `#1a3a20` border, green dot + `SyncStatusText`)
+- Body: Moniker (15 px bold `#e3eaf5`) as large title, horizontal separator, then key-value rows for Node ID (10 px monospace cyan `#40c4ff`, truncated), Version, Peers (colored number `#b39ddb` + "nodes" label)
+- `SyncStatusText` computed property: `IsSyncing ? "Syncing…" : "Synced"`, decorated with `[NotifyPropertyChangedFor(nameof(SyncStatusText))]`
+
+#### Validators card (left column, fills remaining height)
+
+- Header band: "Validators" title (cyan left-accent strip 3 px) + count badge
+- Manual column headers row: `#` | ADDRESS | POWER %
+- Custom `ListBox` with `x:DataType="vm:ValidatorRow"` (compiled bindings):
+  - Rank badge: `#0d1e38` background, `#546e7a` text, 22 px width
+  - Address: 11 px monospace `#90a4ae`, truncated
+  - Power bar: `ProgressBar` 3 px height, `Foreground="#29b6f6"`, `Background="#0e1a30"`, bound to `VotingPowerPct` (0–100), `Maximum="100"`
+  - Percentage label: 11 px `#29b6f6`, right-aligned
+- `ValidatorRow(int Rank, string Address, long VotingPower, long ProposerPriority, double VotingPowerPct)`
+- `DashboardBackgroundService.RefreshValidatorsAsync` computes: `totalPower = Sum(VotingPower)`, `VotingPowerPct = Round(v.VotingPower / totalPower * 100, 1)`, rank = sort index + 1
+
+#### Recent Blocks card (center-left column)
+
+- Header band: "Recent Blocks" (green left-accent strip) + LIVE badge (green dot + "LIVE")
+- Manual column headers: HEIGHT | TIME | TXS | PROPOSER
+- `ListBox` with `x:DataType="vm:BlockRow"`:
+  - Row: `Border` with `BorderThickness="3,0,0,0"`, `BorderBrush="#1a3a24"`, hover state via `Border.Styles` `Border:pointerover` selector changing `BorderBrush` to `#69f0ae` and `Background` to `#0a1220`
+  - Height: 12 px bold monospace `#69f0ae`
+  - Time: 11 px `#546e7a`
+  - Tx count badge: `#0e1e10` / `#1e3e1e` border, `#81c784` text
+  - Proposer: 10 px cyan monospace, truncated
+- Collection: `ObservableCollection<BlockRow>`, max 50 entries (insert at 0, trim tail)
+
+#### Recent Transactions card (center-right column)
+
+- Header band: "Transactions" (orange left-accent strip) + `PendingTxCount` pending badge
+- Manual column headers: HASH | HEIGHT | STATUS
+- `ListBox` with `x:DataType="vm:TxRow"`:
+  - Row: two-line `StackPanel` inside `Border` with left-accent border (`#2a1e08`, hover `#ffb74d`)
+  - Line 1: Hash (11 px cyan monospace, truncated) + Height (11 px `#546e7a` monospace) + Status badge
+  - Line 2: Log (10 px `#37474f`, truncated, `TextTrimming="CharacterEllipsis"`)
+  - Status badge: `#0b1f0f` / `#1a4228` border, `#4caf50` text bound to `StatusText`
+- `TxRow` computed properties: `StatusText => Code == 0 ? "OK" : "ERR"`, `IsSuccess => Code == 0`
+- Collection: max 50 entries
+
+#### Event Log card (right column)
+
+- Header band: "Event Log" (lavender left-accent strip) + entry count badge
+- `ListBox` with `x:DataType="vm:EventLogRow"`:
+  - Row: `Grid ColumnDefinitions="10,*"` — category dot (`Ellipse` 6 px, `#455a64`) + stacked content (timestamp 9 px monospace `#37474f` / description 10 px `#78909c`, wrapping)
+- `EventLogRow(string Timestamp, string Category, string Description)` — `Category` values: `"block"`, `"tx"`, `"vote"`, `"validator"`, `"header"`, `"error"`
+- `AppendEventLog(string category, string message)` — inserts at index 0, caps at 100 entries
+
+#### Background service
+
+`DashboardBackgroundService` implements `BackgroundService` and:
+- Subscribes to WS events: `NewBlock`, `NewBlockHeader`, `Tx`, `Vote`, `ValidatorSetUpdates`
+- On `NewBlock`: calls `ICometBftSdkGrpcClient.GetLatestBlockAsync()` to enrich the block row, then `ICometBftRestClient.GetNumUnconfirmedTxsAsync()` for mempool count
+- On startup: calls `ICometBftSdkGrpcClient.GetStatusAsync()` (chain meta), `GetLatestValidatorsAsync()` (validators), `ICometBftRestClient.GetNetInfoAsync()` (peers)
+- Periodic timer every 30 s: refreshes node info and peer count
+- All UI mutations via `Dispatcher.UIThread.InvokeAsync()`; all async library calls use `ConfigureAwait(false)`
+
+#### Scenario: Dashboard starts and connects to all three transports
+- **WHEN** the dashboard starts with valid endpoint env vars
+- **THEN** `ConnectionStatus` transitions from "Connecting…" to "Connected" within 5 seconds
+- **AND** all KPI metrics populate from the initial load calls before the first block event arrives
+
+#### Scenario: KPI row updates on every new block
+- **WHEN** a `NewBlock` WebSocket event is received
+- **THEN** `LatestHeight`, `LatestBlockTime`, and `LatestBlockTxCount` update within one UI frame
+- **AND** `PendingTxCount` refreshes via REST `GetNumUnconfirmedTxsAsync()`
+
+#### Scenario: Validators display with rank and power bars
+- **WHEN** `GetLatestValidatorsAsync()` returns N validators
+- **THEN** each `ValidatorRow` has `Rank` 1…N (sorted descending by `VotingPower`) and `VotingPowerPct = VotingPower / totalPower × 100` rounded to one decimal
+- **AND** the `ProgressBar` in each row accurately reflects the validator's share
+
+#### Scenario: Blocks list caps at 50 entries
+- **WHEN** more than 50 `NewBlock` events have been received
+- **THEN** `Blocks` contains exactly 50 entries — the 50 most recent — with the latest at index 0
+
+#### Scenario: Transactions list caps at 50 entries
+- **WHEN** more than 50 `TxExecuted` events have been received
+- **THEN** `Transactions` contains exactly 50 entries — the 50 most recent
+
+#### Scenario: SyncStatusText reflects node sync state
+- **WHEN** `GetStatusAsync()` returns `IsSyncing = false`
+- **THEN** the Synced pill in the header shows "Synced" with a green dot
+- **WHEN** `GetStatusAsync()` returns `IsSyncing = true`
+- **THEN** the pill shows "Syncing…"
+
+#### Scenario: Event log preserves category metadata
+- **WHEN** `AppendEventLog("block", "Block #30750376 — 3 txs")` is called
+- **THEN** the inserted `EventLogRow` has `Category = "block"` and a UTC timestamp
+- **AND** it appears at index 0 in `EventLog`
+
+#### Scenario: Dashboard shuts down cleanly on window close
+- **WHEN** the Avalonia window is closed
+- **THEN** `host.StopAsync()` is awaited, all WebSocket event handlers are unsubscribed, and the process exits with code 0
