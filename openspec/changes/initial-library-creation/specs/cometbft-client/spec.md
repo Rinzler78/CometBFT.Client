@@ -661,58 +661,27 @@ The repository SHALL produce exactly **one** NuGet package: `Rinzler78.CometBFT.
 
 ---
 
-### Requirement: Demo REST (`samples/CometBFT.Client.Demo.Rest/`)
+### Requirement: Demo Console Sample (`samples/CometBFT.Client.Sample/`)
 
-The repository SHALL provide a REST demo that connects to a real CometBFT RPC endpoint, calls all public REST endpoints grouped by category, and displays results in a live Spectre.Console dashboard refreshed every 10 seconds.
+The repository SHALL provide a minimal console application that exercises all three transports
+sequentially to serve as a quick integration reference.
 
-**Config** : `COMETBFT_RPC_URL` env var or `--rpc-url` CLI arg. Exit with usage message if absent.
+**Config** : `COMETBFT_RPC_URL`, `COMETBFT_WS_URL`, `COMETBFT_GRPC_URL` env vars
+or `--rpc-url`, `--ws-url`, `--grpc-url` CLI args. Falls back to Cosmos Hub mainnet defaults.
 
-#### Scenario: REST demo starts and renders full dashboard
-- **WHEN** the REST demo is run with a valid `COMETBFT_RPC_URL`
-- **THEN** a Spectre.Console dashboard renders with panels for all endpoint groups and populates on startup
-- **AND** all panels refresh every 10 seconds
-
-#### Scenario: REST demo covers all endpoint groups
-- **WHEN** the refresh cycle runs
-- **THEN** the following are called and displayed:
-  - **Info** : `GetStatusAsync()`, `GetNetInfoAsync()`, `GetHealthAsync()`, `GetBlockAsync(latest)`, `GetBlockResultsAsync(latest)`, `GetValidatorsAsync(latest)`, `GetConsensusStateAsync()`
-  - **ABCI** : `GetAbciInfoAsync()`
-  - **Mempool** : `GetNumUnconfirmedTxsAsync()`
-- **AND** each panel shows call timestamp and latency in ms
+#### Scenario: Console sample exercises REST, WebSocket and gRPC in sequence
+- **WHEN** the sample is run with valid endpoint env vars
+- **THEN** it calls at least one REST endpoint, subscribes to one WebSocket event stream
+  for a bounded duration, calls at least one gRPC method, and exits 0 without error
 
 ---
 
-### Requirement: Demo WebSocket (`samples/CometBFT.Client.Demo.WebSocket/`)
-
-The repository SHALL provide a WebSocket demo that subscribes to all CometBFT event types and displays incoming events in a live Spectre.Console feed.
-
-**Config** : `COMETBFT_WS_URL` env var or `--ws-url` CLI arg.
-
-#### Scenario: WebSocket demo subscribes to all event types
-- **WHEN** the WebSocket demo starts with a valid `COMETBFT_WS_URL`
-- **THEN** it subscribes to `NewBlock`, `NewBlockHeader`, `Tx`, `Vote`, and `ValidatorSetUpdates`
-- **AND** each received event is displayed with event type, height, and timestamp
-
-#### Scenario: WebSocket demo reconnects on disconnect
-- **WHEN** the WebSocket connection drops
-- **THEN** the demo logs a WARN and attempts reconnection before resuming the event feed
-
----
-
-### Requirement: Demo gRPC (`samples/CometBFT.Client.Demo.Grpc/`)
-
-The repository SHALL provide a gRPC demo that connects to a real CometBFT gRPC endpoint, calls all available gRPC services, and displays results in a live Spectre.Console dashboard.
-
-**Config** : `COMETBFT_GRPC_URL` env var or `--grpc-url` CLI arg.
-
-#### Scenario: gRPC demo starts and renders dashboard
-- **WHEN** the gRPC demo starts with a valid `COMETBFT_GRPC_URL`
-- **THEN** a Spectre.Console dashboard renders with gRPC service panels and populates on startup
-
-#### Scenario: gRPC demo covers all services
-- **WHEN** the refresh cycle runs
-- **THEN** the following are called: `PingAsync()`, `BroadcastTxAsync()` (dry-run only), and Cosmos SDK `GetTxAsync()` via `ICometBftSdkGrpcClient`
-- **AND** each panel shows call timestamp and latency in ms
+> **Note — transport-specific Spectre.Console demos removed (v0.2.0)**
+>
+> `samples/CometBFT.Client.Demo.Rest/`, `samples/CometBFT.Client.Demo.WebSocket/`, and
+> `samples/CometBFT.Client.Demo.Grpc/` were consolidated into the unified Avalonia dashboard
+> below. The scripts `demo-rest.sh`, `demo-ws.sh`, and `demo-grpc.sh` no longer exist;
+> use `./scripts/demo.sh` instead.
 
 ---
 
