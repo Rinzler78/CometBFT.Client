@@ -4,153 +4,510 @@
         x:Class="CometBFT.Client.Demo.Dashboard.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="CometBFT Dashboard"
-        Width="1200"
-        Height="800"
-        MinWidth="900"
-        MinHeight="600">
+        Width="1440"
+        Height="920"
+        MinWidth="1024"
+        MinHeight="680"
+        Background="#060b18">
 
     <DockPanel>
-        <!-- Footer: connection status -->
-        <Border DockPanel.Dock="Bottom"
-                Background="#1e1e2e"
-                Padding="8,4">
-            <TextBlock Text="{Binding ConnectionStatus}" Foreground="#cdd6f4" FontSize="12" VerticalAlignment="Center" />
+
+        <!-- ═══════════════════════════════════════════
+             TOP HEADER BAR  (Mintscan-style nav)
+        ═══════════════════════════════════════════ -->
+        <Border DockPanel.Dock="Top" Height="56" Padding="20,0">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                    <GradientStop Color="#070e1e" Offset="0" />
+                    <GradientStop Color="#0b1730" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+            <Border.BorderThickness>0,0,0,1</Border.BorderThickness>
+            <Border.BorderBrush>#111d35</Border.BorderBrush>
+
+            <DockPanel VerticalAlignment="Center">
+
+                <!-- Left: brand + chain -->
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                    <Border Background="#0d2040" CornerRadius="8" Width="34" Height="34"
+                            BorderThickness="1" BorderBrush="#1a3a6b">
+                        <TextBlock Text="⬡" FontSize="17" Foreground="#29b6f6"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center" Spacing="1">
+                        <TextBlock Text="CometBFT" FontSize="15" FontWeight="SemiBold" Foreground="#e3eaf5" />
+                        <TextBlock Text="{Binding ChainId}" FontSize="10" Foreground="#455a64" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Right: connection indicator -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Ellipse Width="7" Height="7" Fill="#4caf50" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ConnectionStatus}" FontSize="11" Foreground="#546e7a" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Center: node meta pills -->
+                <StackPanel Orientation="Horizontal" Spacing="28"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="NODE" FontSize="9" Foreground="#37474f"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Moniker}" FontSize="12" FontWeight="Medium"
+                                   Foreground="#90caf9" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <Border Width="1" Height="14" Background="#1a2744" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="VERSION" FontSize="9" Foreground="#37474f" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding NodeVersion}" FontSize="12"
+                                   Foreground="#90caf9" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <Border Width="1" Height="14" Background="#1a2744" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="SYNCING" FontSize="9" Foreground="#37474f" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding IsSyncing}" FontSize="12"
+                                   Foreground="#90caf9" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                </StackPanel>
+            </DockPanel>
         </Border>
 
-        <!-- Main 3-column layout -->
-        <Grid Margin="8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="260" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="260" />
-            </Grid.ColumnDefinitions>
+        <!-- ═══════════════════════════════════════════
+             KPI STATS ROW  (4 headline metrics)
+        ═══════════════════════════════════════════ -->
+        <Border DockPanel.Dock="Top" Background="#080e1c" Padding="24,10"
+                BorderThickness="0,0,0,1" BorderBrush="#0e1a30">
+            <Grid ColumnDefinitions="*,1,*,1,*,1,*">
 
-            <!-- ── Left column ── -->
+                <!-- Latest Block -->
+                <StackPanel Grid.Column="0" HorizontalAlignment="Center" Spacing="2">
+                    <TextBlock Text="LATEST BLOCK" FontSize="9" Foreground="#37474f"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding LatestHeight, StringFormat='#{0:N0}'}"
+                               FontSize="24" FontWeight="Bold" Foreground="#69f0ae"
+                               HorizontalAlignment="Center" FontFamily="Consolas,Monospace" />
+                    <TextBlock Text="{Binding LatestBlockTime}" FontSize="9" Foreground="#455a64"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+
+                <Border Grid.Column="1" Width="1" Background="#0e1a30" Margin="0,6" />
+
+                <!-- Block Txs -->
+                <StackPanel Grid.Column="2" HorizontalAlignment="Center" Spacing="2">
+                    <TextBlock Text="BLOCK TXS" FontSize="9" Foreground="#37474f"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding LatestBlockTxCount}"
+                               FontSize="24" FontWeight="Bold" Foreground="#ffb74d"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="in latest block" FontSize="9" Foreground="#455a64"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+
+                <Border Grid.Column="3" Width="1" Background="#0e1a30" Margin="0,6" />
+
+                <!-- Mempool -->
+                <StackPanel Grid.Column="4" HorizontalAlignment="Center" Spacing="2">
+                    <TextBlock Text="MEMPOOL" FontSize="9" Foreground="#37474f"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding PendingTxCount}"
+                               FontSize="24" FontWeight="Bold" Foreground="#29b6f6"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="pending txs" FontSize="9" Foreground="#455a64"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+
+                <Border Grid.Column="5" Width="1" Background="#0e1a30" Margin="0,6" />
+
+                <!-- Peers -->
+                <StackPanel Grid.Column="6" HorizontalAlignment="Center" Spacing="2">
+                    <TextBlock Text="PEERS" FontSize="9" Foreground="#37474f"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding PeerCount}"
+                               FontSize="24" FontWeight="Bold" Foreground="#b39ddb"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="connected nodes" FontSize="9" Foreground="#455a64"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+
+            </Grid>
+        </Border>
+
+        <!-- ═══════════════════════════════════════════
+             FOOTER STATUS BAR
+        ═══════════════════════════════════════════ -->
+        <Border DockPanel.Dock="Bottom" Background="#040810" Padding="16,5"
+                BorderThickness="0,1,0,0" BorderBrush="#0e1a30">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Right"
+                           Text="{Binding NodeId, StringFormat='Node: {0}'}"
+                           Foreground="#37474f" FontSize="10"
+                           FontFamily="Consolas,Monospace"
+                           VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Ellipse Width="6" Height="6" Fill="#4caf50" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ConnectionStatus}" Foreground="#455a64"
+                               FontSize="10" VerticalAlignment="Center" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ═══════════════════════════════════════════
+             MAIN CONTENT GRID  (3 columns)
+        ═══════════════════════════════════════════ -->
+        <Grid Margin="12,8" ColumnDefinitions="260,*,250">
+
+            <!-- ──────────────────────────────────────
+                 LEFT COLUMN — Node info + Validators
+            ────────────────────────────────────── -->
             <DockPanel Grid.Column="0" Margin="0,0,8,0">
-                <!-- Node info card -->
-                <Border DockPanel.Dock="Top" Background="#1e1e2e" CornerRadius="6" Padding="12" Margin="0,0,0,8">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Node" FontWeight="Bold" Foreground="#cba6f7" FontSize="13" />
-                        <Separator />
-                        <Grid ColumnDefinitions="80,*">
-                            <TextBlock Text="Chain" Foreground="#888" FontSize="11" Grid.Column="0" />
-                            <TextBlock Text="{Binding ChainId}" Foreground="#cdd6f4" FontSize="11" Grid.Column="1" TextTrimming="CharacterEllipsis" />
-                        </Grid>
-                        <Grid ColumnDefinitions="80,*">
-                            <TextBlock Text="Moniker" Foreground="#888" FontSize="11" Grid.Column="0" />
-                            <TextBlock Text="{Binding Moniker}" Foreground="#cdd6f4" FontSize="11" Grid.Column="1" TextTrimming="CharacterEllipsis" />
-                        </Grid>
-                        <Grid ColumnDefinitions="80,*">
-                            <TextBlock Text="Node ID" Foreground="#888" FontSize="11" Grid.Column="0" />
-                            <TextBlock Text="{Binding NodeId}" Foreground="#cdd6f4" FontSize="11" Grid.Column="1" TextTrimming="CharacterEllipsis" />
-                        </Grid>
-                        <Grid ColumnDefinitions="80,*">
-                            <TextBlock Text="Version" Foreground="#888" FontSize="11" Grid.Column="0" />
-                            <TextBlock Text="{Binding NodeVersion}" Foreground="#cdd6f4" FontSize="11" Grid.Column="1" />
-                        </Grid>
-                        <Grid ColumnDefinitions="80,*">
-                            <TextBlock Text="Syncing" Foreground="#888" FontSize="11" Grid.Column="0" />
-                            <TextBlock Text="{Binding IsSyncing}" Foreground="#cdd6f4" FontSize="11" Grid.Column="1" />
-                        </Grid>
-                        <Grid ColumnDefinitions="80,*">
-                            <TextBlock Text="Peers" Foreground="#888" FontSize="11" Grid.Column="0" />
-                            <TextBlock Text="{Binding PeerCount}" Foreground="#cdd6f4" FontSize="11" Grid.Column="1" />
-                        </Grid>
+
+                <!-- Node Info card -->
+                <Border DockPanel.Dock="Top"
+                        Background="#0c1426" CornerRadius="10" Padding="16"
+                        Margin="0,0,0,8"
+                        BorderThickness="1" BorderBrush="#162039">
+                    <StackPanel Spacing="12">
+
+                        <!-- Card title -->
+                        <DockPanel>
+                            <Border DockPanel.Dock="Left" Width="3" Height="15"
+                                    Background="#29b6f6" CornerRadius="2"
+                                    Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Node Info" FontWeight="SemiBold"
+                                       Foreground="#90caf9" FontSize="13"
+                                       VerticalAlignment="Center" />
+                        </DockPanel>
+
+                        <Border Height="1" Background="#111d35" />
+
+                        <!-- Fields -->
+                        <StackPanel Spacing="9">
+
+                            <Grid ColumnDefinitions="68,*">
+                                <TextBlock Text="Chain ID" Grid.Column="0"
+                                           Foreground="#455a64" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding ChainId}" Grid.Column="1"
+                                           Foreground="#e3eaf5" FontSize="11" FontWeight="Medium"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="68,*">
+                                <TextBlock Text="Moniker" Grid.Column="0"
+                                           Foreground="#455a64" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Moniker}" Grid.Column="1"
+                                           Foreground="#e3eaf5" FontSize="11"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="68,*">
+                                <TextBlock Text="Node ID" Grid.Column="0"
+                                           Foreground="#455a64" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding NodeId}" Grid.Column="1"
+                                           Foreground="#40c4ff" FontSize="10"
+                                           FontFamily="Consolas,Monospace"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="68,*">
+                                <TextBlock Text="Version" Grid.Column="0"
+                                           Foreground="#455a64" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding NodeVersion}" Grid.Column="1"
+                                           Foreground="#e3eaf5" FontSize="11" VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="68,*">
+                                <TextBlock Text="Syncing" Grid.Column="0"
+                                           Foreground="#455a64" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding IsSyncing}" Grid.Column="1"
+                                           Foreground="#e3eaf5" FontSize="11" VerticalAlignment="Center" />
+                            </Grid>
+
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <!-- Validators — x:CompileBindings="False" because DataGridTextColumn row type is runtime -->
-                <Border Background="#1e1e2e" CornerRadius="6" Padding="12">
+                <!-- Validators card -->
+                <Border Background="#0c1426" CornerRadius="10" Padding="16"
+                        BorderThickness="1" BorderBrush="#162039">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Validators" FontWeight="Bold" Foreground="#cba6f7" FontSize="13" Margin="0,0,0,4" />
+
+                        <!-- Card title -->
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <Border DockPanel.Dock="Left" Width="3" Height="15"
+                                    Background="#29b6f6" CornerRadius="2"
+                                    Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Validators" FontWeight="SemiBold"
+                                       Foreground="#90caf9" FontSize="13" VerticalAlignment="Center" />
+                            <Border DockPanel.Dock="Right" Background="#0d1e38" CornerRadius="10"
+                                    Padding="8,2" BorderThickness="1" BorderBrush="#1a3060">
+                                <TextBlock Text="{Binding Validators.Count}" FontSize="10"
+                                           Foreground="#29b6f6" VerticalAlignment="Center" />
+                            </Border>
+                        </DockPanel>
+
+                        <Border DockPanel.Dock="Top" Height="1" Background="#111d35" Margin="0,0,0,6" />
+
+                        <!-- Column headers -->
+                        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,70" Margin="2,0,2,4">
+                            <TextBlock Text="ADDRESS" Grid.Column="0" FontSize="9"
+                                       Foreground="#37474f" FontWeight="SemiBold" />
+                            <TextBlock Text="POWER" Grid.Column="1" FontSize="9"
+                                       Foreground="#37474f" FontWeight="SemiBold"
+                                       HorizontalAlignment="Right" />
+                        </Grid>
+                        <Border DockPanel.Dock="Top" Height="1" Background="#0c1828" Margin="0,0,0,2" />
+
+                        <!-- x:CompileBindings="False" — row type resolved at runtime -->
                         <DataGrid x:CompileBindings="False"
                                   ItemsSource="{Binding Validators}"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   CanUserReorderColumns="False"
+                                  CanUserResizeColumns="False"
+                                  CanUserSortColumns="False"
                                   FontSize="11"
-                                  Background="Transparent">
+                                  Background="Transparent"
+                                  RowBackground="Transparent"
+                                  GridLinesVisibility="None"
+                                  HeadersVisibility="None">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="*" />
-                                <DataGridTextColumn Header="Power" Binding="{Binding VotingPower}" Width="70" />
+                                <DataGridTextColumn Binding="{Binding Address}" Width="*" />
+                                <DataGridTextColumn Binding="{Binding VotingPower}" Width="65" />
                             </DataGrid.Columns>
                         </DataGrid>
+
                     </DockPanel>
                 </Border>
+
             </DockPanel>
 
-            <!-- ── Center column ── -->
+            <!-- ──────────────────────────────────────
+                 CENTER COLUMN — Blocks + Transactions
+            ────────────────────────────────────── -->
             <DockPanel Grid.Column="1" Margin="0,0,8,0">
-                <!-- Block header card -->
-                <Border DockPanel.Dock="Top" Background="#1e1e2e" CornerRadius="6" Padding="12" Margin="0,0,0,8">
-                    <StackPanel Spacing="2">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="Block" FontWeight="Bold" Foreground="#cba6f7" FontSize="13" />
-                            <TextBlock Text="{Binding LatestHeight, StringFormat='#{0}'}" Foreground="#a6e3a1" FontWeight="Bold" FontSize="13" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="16">
-                            <TextBlock Text="{Binding LatestBlockTime}" Foreground="#888" FontSize="11" />
-                            <TextBlock Text="{Binding LatestBlockTxCount, StringFormat='{}{0} txs'}" Foreground="#fab387" FontSize="11" />
-                            <TextBlock Text="{Binding PendingTxCount, StringFormat='mempool: {0}'}" Foreground="#89dceb" FontSize="11" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
 
-                <!-- Block feed -->
-                <Border DockPanel.Dock="Top" Background="#1e1e2e" CornerRadius="6" Padding="12" Height="240" Margin="0,0,0,8">
+                <!-- Recent Blocks card -->
+                <Border DockPanel.Dock="Top"
+                        Background="#0c1426" CornerRadius="10" Padding="16"
+                        Height="310" Margin="0,0,0,8"
+                        BorderThickness="1" BorderBrush="#162039">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Recent Blocks" FontWeight="Bold" Foreground="#cba6f7" FontSize="13" Margin="0,0,0,4" />
-                        <ListBox ItemsSource="{Binding Blocks}" Background="Transparent" FontSize="11">
+
+                        <!-- Header row -->
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <Border DockPanel.Dock="Left" Width="3" Height="15"
+                                    Background="#69f0ae" CornerRadius="2"
+                                    Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Recent Blocks" FontWeight="SemiBold"
+                                       Foreground="#90caf9" FontSize="13" VerticalAlignment="Center" />
+                            <!-- LIVE badge -->
+                            <Border DockPanel.Dock="Right"
+                                    Background="#0b1f0f" CornerRadius="4" Padding="9,3"
+                                    BorderThickness="1" BorderBrush="#1a4228">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <Ellipse Width="5" Height="5" Fill="#4caf50" VerticalAlignment="Center" />
+                                    <TextBlock Text="LIVE" FontSize="9" Foreground="#4caf50"
+                                               FontWeight="Bold" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                        </DockPanel>
+
+                        <Border DockPanel.Dock="Top" Height="1" Background="#111d35" />
+
+                        <!-- Column headers -->
+                        <Grid DockPanel.Dock="Top" ColumnDefinitions="90,120,80,*"
+                              Margin="8,6,8,2">
+                            <TextBlock Text="HEIGHT" Grid.Column="0" FontSize="9"
+                                       Foreground="#37474f" FontWeight="SemiBold" />
+                            <TextBlock Text="TIME" Grid.Column="1" FontSize="9"
+                                       Foreground="#37474f" FontWeight="SemiBold" />
+                            <TextBlock Text="TXS" Grid.Column="2" FontSize="9"
+                                       Foreground="#37474f" FontWeight="SemiBold" />
+                            <TextBlock Text="PROPOSER" Grid.Column="3" FontSize="9"
+                                       Foreground="#37474f" FontWeight="SemiBold" />
+                        </Grid>
+
+                        <Border DockPanel.Dock="Top" Height="1" Background="#0c1828" />
+
+                        <ListBox ItemsSource="{Binding Blocks}" Background="Transparent" Padding="0">
+                            <ListBox.ItemContainerTheme>
+                                <ControlTheme TargetType="ListBoxItem">
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="Padding" Value="8,7,8,7" />
+                                    <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                    <Setter Property="BorderBrush" Value="#0c1828" />
+                                </ControlTheme>
+                            </ListBox.ItemContainerTheme>
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:BlockRow">
-                                    <Grid ColumnDefinitions="70,110,50,*">
-                                        <TextBlock Text="{Binding Height, StringFormat='#{0}'}" Foreground="#a6e3a1" Grid.Column="0" />
-                                        <TextBlock Text="{Binding Time}" Foreground="#888" Grid.Column="1" />
-                                        <TextBlock Text="{Binding TxCount, StringFormat='{}{0} txs'}" Foreground="#fab387" Grid.Column="2" />
-                                        <TextBlock Text="{Binding Proposer}" Foreground="#89b4fa" Grid.Column="3" TextTrimming="CharacterEllipsis" />
+                                    <Grid ColumnDefinitions="90,120,80,*">
+                                        <TextBlock Text="{Binding Height, StringFormat='#{0}'}"
+                                                   Foreground="#69f0ae" Grid.Column="0"
+                                                   FontWeight="SemiBold" FontSize="12"
+                                                   FontFamily="Consolas,Monospace"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Time}"
+                                                   Foreground="#546e7a" Grid.Column="1"
+                                                   FontSize="11" VerticalAlignment="Center" />
+                                        <!-- Tx count badge -->
+                                        <Border Grid.Column="2" CornerRadius="4" Padding="8,2"
+                                                Background="#101e10"
+                                                BorderThickness="1" BorderBrush="#1e3e1e"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Left">
+                                            <TextBlock Text="{Binding TxCount}"
+                                                       Foreground="#81c784" FontSize="10" />
+                                        </Border>
+                                        <TextBlock Text="{Binding Proposer}"
+                                                   Foreground="#40c4ff" Grid.Column="3"
+                                                   FontFamily="Consolas,Monospace"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   FontSize="11" VerticalAlignment="Center" />
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+
                     </DockPanel>
                 </Border>
 
-                <!-- Transaction feed -->
-                <Border Background="#1e1e2e" CornerRadius="6" Padding="12">
+                <!-- Recent Transactions card -->
+                <Border Background="#0c1426" CornerRadius="10" Padding="16"
+                        BorderThickness="1" BorderBrush="#162039">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Recent Transactions" FontWeight="Bold" Foreground="#cba6f7" FontSize="13" Margin="0,0,0,4" />
-                        <ListBox ItemsSource="{Binding Transactions}" Background="Transparent" FontSize="11">
+
+                        <!-- Header row -->
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <Border DockPanel.Dock="Left" Width="3" Height="15"
+                                    Background="#ffb74d" CornerRadius="2"
+                                    Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Recent Transactions" FontWeight="SemiBold"
+                                       Foreground="#90caf9" FontSize="13" VerticalAlignment="Center" />
+                            <!-- Mempool badge -->
+                            <Border DockPanel.Dock="Right"
+                                    Background="#1a1408" CornerRadius="4" Padding="9,3"
+                                    BorderThickness="1" BorderBrush="#3a2c00">
+                                <TextBlock Text="{Binding PendingTxCount, StringFormat='{}{0} PENDING'}"
+                                           FontSize="9" Foreground="#ffb74d" FontWeight="Bold" />
+                            </Border>
+                        </DockPanel>
+
+                        <Border DockPanel.Dock="Top" Height="1" Background="#111d35" />
+
+                        <!-- Column headers -->
+                        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,90,55,110"
+                              Margin="8,6,8,2">
+                            <TextBlock Text="HASH" Grid.Column="0" FontSize="9"
+                                       Foreground="#37474f" FontWeight="SemiBold" />
+                            <TextBlock Text="HEIGHT" Grid.Column="1" FontSize="9"
+                                       Foreground="#37474f" FontWeight="SemiBold" />
+                            <TextBlock Text="CODE" Grid.Column="2" FontSize="9"
+                                       Foreground="#37474f" FontWeight="SemiBold" />
+                            <TextBlock Text="LOG" Grid.Column="3" FontSize="9"
+                                       Foreground="#37474f" FontWeight="SemiBold" />
+                        </Grid>
+
+                        <Border DockPanel.Dock="Top" Height="1" Background="#0c1828" />
+
+                        <ListBox ItemsSource="{Binding Transactions}" Background="Transparent" Padding="0">
+                            <ListBox.ItemContainerTheme>
+                                <ControlTheme TargetType="ListBoxItem">
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="Padding" Value="8,7,8,7" />
+                                    <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                    <Setter Property="BorderBrush" Value="#0c1828" />
+                                </ControlTheme>
+                            </ListBox.ItemContainerTheme>
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:TxRow">
-                                    <Grid ColumnDefinitions="*,70,60,*">
-                                        <TextBlock Text="{Binding Hash}" Foreground="#89b4fa" Grid.Column="0" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Height, StringFormat='h={0}'}" Foreground="#888" Grid.Column="1" />
-                                        <TextBlock Text="{Binding Code, StringFormat='code={0}'}" Foreground="#fab387" Grid.Column="2" />
-                                        <TextBlock Text="{Binding Log}" Foreground="#888" Grid.Column="3" TextTrimming="CharacterEllipsis" />
+                                    <Grid ColumnDefinitions="*,90,55,110">
+                                        <TextBlock Text="{Binding Hash}"
+                                                   Foreground="#40c4ff" Grid.Column="0"
+                                                   FontFamily="Consolas,Monospace"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   FontSize="11" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Height, StringFormat='#{0}'}"
+                                                   Foreground="#546e7a" Grid.Column="1"
+                                                   FontFamily="Consolas,Monospace"
+                                                   FontSize="11" VerticalAlignment="Center" />
+                                        <!-- Status badge -->
+                                        <Border Grid.Column="2" CornerRadius="4" Padding="7,2"
+                                                Background="#0b1f0f"
+                                                BorderThickness="1" BorderBrush="#1a4228"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Left">
+                                            <TextBlock Text="{Binding Code}"
+                                                       Foreground="#4caf50" FontSize="10" />
+                                        </Border>
+                                        <TextBlock Text="{Binding Log}"
+                                                   Foreground="#546e7a" Grid.Column="3"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   FontSize="11" VerticalAlignment="Center" />
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+
                     </DockPanel>
                 </Border>
+
             </DockPanel>
 
-            <!-- ── Right column: event log ── -->
-            <Border Grid.Column="2" Background="#1e1e2e" CornerRadius="6" Padding="12">
+            <!-- ──────────────────────────────────────
+                 RIGHT COLUMN — Event Log
+            ────────────────────────────────────── -->
+            <Border Grid.Column="2"
+                    Background="#0c1426" CornerRadius="10" Padding="16"
+                    BorderThickness="1" BorderBrush="#162039">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Event Log" FontWeight="Bold" Foreground="#cba6f7" FontSize="13" Margin="0,0,0,4" />
-                    <ListBox ItemsSource="{Binding EventLog}" Background="Transparent" FontSize="10">
+
+                    <!-- Card title -->
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Border DockPanel.Dock="Left" Width="3" Height="15"
+                                Background="#b39ddb" CornerRadius="2"
+                                Margin="0,0,10,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Event Log" FontWeight="SemiBold"
+                                   Foreground="#90caf9" FontSize="13" VerticalAlignment="Center" />
+                        <Border DockPanel.Dock="Right" Background="#110e1e" CornerRadius="10"
+                                Padding="8,2" BorderThickness="1" BorderBrush="#2a1e4a">
+                            <TextBlock Text="{Binding EventLog.Count}" FontSize="10"
+                                       Foreground="#b39ddb" VerticalAlignment="Center" />
+                        </Border>
+                    </DockPanel>
+
+                    <Border DockPanel.Dock="Top" Height="1" Background="#111d35" Margin="0,0,0,4" />
+
+                    <ListBox ItemsSource="{Binding EventLog}" Background="Transparent" Padding="0">
+                        <ListBox.ItemContainerTheme>
+                            <ControlTheme TargetType="ListBoxItem">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="Padding" Value="4,6,4,6" />
+                                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                <Setter Property="BorderBrush" Value="#0a1422" />
+                            </ControlTheme>
+                        </ListBox.ItemContainerTheme>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:EventLogRow">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="{Binding Timestamp}" Foreground="#888" />
-                                    <TextBlock Text="{Binding Description}" Foreground="#cdd6f4" TextWrapping="Wrap" />
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="{Binding Timestamp}"
+                                               Foreground="#37474f" FontSize="9"
+                                               FontFamily="Consolas,Monospace" />
+                                    <TextBlock Text="{Binding Description}"
+                                               Foreground="#78909c" FontSize="10"
+                                               TextWrapping="Wrap" />
                                 </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+
                 </DockPanel>
             </Border>
+
         </Grid>
     </DockPanel>
 </Window>
