@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <Description>Unified CometBFT real-time dashboard — event-driven GUI powered by WebSocket events, REST and Cosmos SDK gRPC enrichment.</Description>
+    <Description>Unified CometBFT real-time dashboard — event-driven GUI powered by WebSocket events and REST polling.</Description>
     <EnablePackageValidation>false</EnablePackageValidation>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>

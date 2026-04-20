@@ -183,11 +183,24 @@ The WebSocket client SHALL subscribe to all CometBFT event types defined in the 
 
 ---
 
-### Requirement: Complete gRPC Client Coverage (CometBFT + Cosmos SDK Tx)
+### Requirement: Complete gRPC Client Coverage (CometBFT native BroadcastAPI)
 
-The gRPC client SHALL be compiled from the proto files of the latest stable CometBFT release (`/proto/cometbft/`) and expose all available gRPC services. An additional `ICometBftSdkGrpcClient` SHALL target `cosmos.tx.v1beta1` from the Cosmos SDK. All methods SHALL be async with `CancellationToken` support.
+The gRPC client SHALL be compiled from the proto files of the latest stable CometBFT release
+(`/proto/cometbft/`) and expose the native CometBFT gRPC surface only. All methods SHALL be
+async with `CancellationToken` support.
 
-**Wire protocol note** : The proto package `tendermint.rpc.grpc` and the enum value `GrpcProtocol.TendermintLegacy` are intentionally preserved for backward-compatibility with legacy CometBFT nodes — these are not renamed.
+**CometBFT native gRPC scope** : The proto `cometbft.rpc.grpc.BroadcastAPI` (and its
+legacy alias `tendermint.rpc.grpc.BroadcastAPI`) exposes exactly two RPCs: `Ping` and `BroadcastTx`.
+This is the complete CometBFT-native gRPC surface. All other node data (status, blocks,
+validators, syncing) is available via the REST client (`ICometBftRestClient`).
+
+**Note** : `cosmos.base.tendermint.v1beta1.Service` is a Cosmos SDK proto that provides a
+gRPC interface for CometBFT consensus data. It does NOT belong in this library — it is
+part of `Rinzler78.Cosmos.Client` which depends on this package.
+
+**Wire protocol note** : The proto package `tendermint.rpc.grpc` and the enum value
+`GrpcProtocol.TendermintLegacy` are intentionally preserved for backward-compatibility with
+legacy CometBFT nodes — these are not renamed.
 
 #### Scenario: PingAsync returns without error
 - **WHEN** `PingAsync(CancellationToken)` is called via gRPC
@@ -196,10 +209,6 @@ The gRPC client SHALL be compiled from the proto files of the latest stable Come
 #### Scenario: BroadcastTxAsync returns typed response
 - **WHEN** `BroadcastTxAsync(txBytes, CancellationToken)` is called via gRPC
 - **THEN** a `ResponseBroadcastTx` record is returned
-
-#### Scenario: Cosmos SDK gRPC GetTxAsync returns typed TxResponse
-- **WHEN** `GetTxAsync(txHash, CancellationToken)` is called via `ICometBftSdkGrpcClient`
-- **THEN** a typed `TxResponse` record is returned
 
 #### Scenario: gRPC client throws CometBftGrpcException on unavailable
 - **WHEN** the gRPC server is unreachable after Polly retries
@@ -222,10 +231,6 @@ The library SHALL provide `IServiceCollection` extension methods for registering
 #### Scenario: AddCometBftGrpc registers ICometBftGrpcClient
 - **WHEN** `services.AddCometBftGrpc(opts => opts.BaseUrl = "http://localhost:9090")` is called
 - **THEN** `services.GetRequiredService<ICometBftGrpcClient>()` resolves without error
-
-#### Scenario: AddCometBftSdkGrpc registers ICometBftSdkGrpcClient
-- **WHEN** `services.AddCometBftSdkGrpc(opts => opts.BaseUrl = "http://localhost:9090")` is called
-- **THEN** `services.GetRequiredService<ICometBftSdkGrpcClient>()` resolves without error
 
 ---
 
@@ -627,12 +632,15 @@ Rinzler78.Osmosis.Client    (depends on Cosmos.Client, transitively on this pack
 
 **Interface inheritance chain:**
 ```
-ICometBftSdkGrpcClient  ← defined here
-    ↑ extends
-ICosmosGrpcClient       (defined in Cosmos.Client)
-    ↑ extends
-IOsmosisGrpcClient      (defined in Osmosis.Client)
+ICometBftGrpcClient     (CometBFT native BroadcastAPI, defined here)
+    ↑ consumed by
+ICosmosGrpcClient       (cosmos.base.tendermint.v1beta1 + SDK modules, defined in Cosmos.Client)
+    ↑ consumed by
+IOsmosisGrpcClient      (Osmosis modules, defined in Osmosis.Client)
 ```
+
+> `ICometBftSdkGrpcClient` (`cosmos.base.tendermint.v1beta1.Service`) is NOT defined here.
+> It belongs in `Rinzler78.Cosmos.Client` which depends on this package.
 
 #### Scenario: No upstream Rinzler78 package reference
 - **WHEN** `CometBFT.Client.Extensions.csproj` is inspected
@@ -641,7 +649,7 @@ IOsmosisGrpcClient      (defined in Osmosis.Client)
 
 #### Scenario: Public interfaces and models are consumable by downstream libraries
 - **WHEN** `Rinzler78.Cosmos.Client` is compiled with a reference to `Rinzler78.CometBFT.Client`
-- **THEN** `ICometBftRestClient`, `ICometBftWebSocketClient`, `ICometBftGrpcClient`, `ICometBftSdkGrpcClient`, and all domain records (`Block`, `TxResult`, `Event`, `Attribute`…) resolve without error
+- **THEN** `ICometBftRestClient`, `ICometBftWebSocketClient`, `ICometBftGrpcClient`, and all domain records (`Block`, `TxResult`, `Event`, `Attribute`…) resolve without error
 - **AND** downstream libraries extend interfaces and compose domain types without redefining them
 
 ---
@@ -669,6 +677,9 @@ sequentially to serve as a quick integration reference.
 **Config** : `COMETBFT_RPC_URL`, `COMETBFT_WS_URL`, `COMETBFT_GRPC_URL` env vars
 or `--rpc-url`, `--ws-url`, `--grpc-url` CLI args. Falls back to Cosmos Hub mainnet defaults.
 
+> The console sample exercises all three CometBFT-native transports. The unified dashboard below
+> uses only WebSocket + REST.
+
 #### Scenario: Console sample exercises REST, WebSocket and gRPC in sequence
 - **WHEN** the sample is run with valid endpoint env vars
 - **THEN** it calls at least one REST endpoint, subscribes to one WebSocket event stream
@@ -687,10 +698,12 @@ or `--rpc-url`, `--ws-url`, `--grpc-url` CLI args. Falls back to Cosmos Hub main
 
 ### Requirement: Demo Unified Dashboard (`samples/CometBFT.Client.Demo.Dashboard/`)
 
-The repository SHALL provide a unified, real-time Avalonia 12 desktop dashboard that aggregates WebSocket events, REST polling, and Cosmos SDK gRPC enrichment into a single persistent window. The dashboard connects to all three transports simultaneously and updates live as new blocks, transactions, and events arrive.
+The repository SHALL provide a unified, real-time Avalonia 12 desktop dashboard that aggregates WebSocket events and REST polling into a single persistent window. The dashboard connects to WebSocket and REST simultaneously and updates live as new blocks, transactions, and events arrive.
+
+**Transports used** : WebSocket (live events) + REST (block enrichment, node status, validators, mempool, net info). The gRPC BroadcastAPI transport (`ICometBftGrpcClient`) is not used by this dashboard.
 
 **Stack** : Avalonia 12.0, `Microsoft.Extensions.Hosting`, `CommunityToolkit.Mvvm`, `Avalonia.Controls.DataGrid`, `Avalonia.Themes.Fluent`
-**Config** : `COMETBFT_RPC_URL`, `COMETBFT_WS_URL`, `COMETBFT_GRPC_URL` env vars or `--rpc-url`, `--ws-url`, `--grpc-url` CLI args. Falls back to validated Cosmos Hub public endpoints.
+**Config** : `COMETBFT_RPC_URL`, `COMETBFT_WS_URL` env vars or `--rpc-url`, `--ws-url` CLI args. Falls back to validated Cosmos Hub public endpoints.
 
 #### Design System (Mintscan-inspired)
 
@@ -802,8 +815,8 @@ Sub-label for LATEST BLOCK: `LatestBlockTime`.
 
 `DashboardBackgroundService` implements `BackgroundService` and:
 - Subscribes to WS events: `NewBlock`, `NewBlockHeader`, `Tx`, `Vote`, `ValidatorSetUpdates`
-- On `NewBlock`: calls `ICometBftSdkGrpcClient.GetLatestBlockAsync()` to enrich the block row, then `ICometBftRestClient.GetNumUnconfirmedTxsAsync()` for mempool count
-- On startup: calls `ICometBftSdkGrpcClient.GetStatusAsync()` (chain meta), `GetLatestValidatorsAsync()` (validators), `ICometBftRestClient.GetNetInfoAsync()` (peers)
+- On `NewBlock`: calls `ICometBftRestClient.GetBlockAsync()` to enrich the block row, then `ICometBftRestClient.GetNumUnconfirmedTxsAsync()` for mempool count
+- On startup: calls `ICometBftRestClient.GetStatusAsync()` (chain meta), `ICometBftRestClient.GetValidatorsAsync()` (validators), `ICometBftRestClient.GetNetInfoAsync()` (peers)
 - Periodic timer every 30 s: refreshes node info and peer count
 - All UI mutations via `Dispatcher.UIThread.InvokeAsync()`; all async library calls use `ConfigureAwait(false)`
 

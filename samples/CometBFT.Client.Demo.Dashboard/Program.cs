@@ -2,7 +2,6 @@ using Avalonia;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using CometBFT.Client.Core.Options;
 using CometBFT.Client.Extensions;
 using CometBFT.Client.Demo.Dashboard;
 using CometBFT.Client.Demo.Dashboard.Services;
@@ -22,7 +21,6 @@ static string Arg(string[] args, string flag, string envVar, string fallback)
 }
 
 var rpcUrl = Arg(args, "rpc-url", "COMETBFT_RPC_URL", DemoDefaults.RpcUrl);
-var grpcUrl = Arg(args, "grpc-url", "COMETBFT_GRPC_URL", DemoDefaults.GrpcUrl);
 var wsUrl = Arg(args, "ws-url", "COMETBFT_WS_URL", DemoDefaults.WsUrl);
 
 // ── Build IHost ───────────────────────────────────────────────────────────────
@@ -36,12 +34,8 @@ var host = Host.CreateDefaultBuilder(args)
     })
     .ConfigureServices(services =>
     {
-        services.AddCometBftClient(o =>
-        {
-            o.RestBaseUrl = rpcUrl;
-            o.GrpcBaseUrl = grpcUrl;
-            o.WebSocketBaseUrl = wsUrl;
-        });
+        services.AddCometBftRest(o => o.BaseUrl = rpcUrl);
+        services.AddCometBftWebSocket(o => o.BaseUrl = wsUrl);
 
         services.AddSingleton<MainWindowViewModel>();
         services.AddHostedService<DashboardBackgroundService>();

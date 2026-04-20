@@ -17,6 +17,24 @@ dotnet add package Rinzler78.CometBFT.Client
 
 This single package includes all three transports (REST, WebSocket, gRPC) and DI extensions.
 
+## Breaking Change Notice
+
+The removal of `ICometBftSdkGrpcClient`, `CometBftSdkGrpcClient`,
+`CometBftSdkGrpcOptions`, and `AddCometBftSdkGrpc()` is a **breaking API change**.
+Under this repository's SemVer rules, any release that contains this removal must be a
+**major** release.
+
+### Migration from v0.2.0
+
+If your code used the Cosmos SDK gRPC service (`cosmos.base.tendermint.v1beta1`):
+
+- replace `AddCometBftSdkGrpc(...)` with the equivalent registration from
+  `Rinzler78.Cosmos.Client`
+- replace `ICometBftSdkGrpcClient` with the Cosmos-layer client from
+  `Rinzler78.Cosmos.Client`
+- keep using `Rinzler78.CometBFT.Client` for CometBFT-native transports only:
+  REST, WebSocket, and gRPC `BroadcastAPI` (`Ping`, `BroadcastTx`)
+
 ## Quick Start
 
 ### Unified registration (recommended)
@@ -37,7 +55,7 @@ services.AddCometBftClient(options =>
 ```
 
 `AddCometBftClient` registers `ICometBftRestClient`, `ICometBftWebSocketClient`,
-`ICometBftGrpcClient`, and `ICometBftSdkGrpcClient` in one call.
+and `ICometBftGrpcClient` in one call.
 Use the individual `Add*` methods below only when you need per-transport customisation.
 
 ### REST Transport
@@ -120,9 +138,9 @@ services.AddCometBftWebSocket<MyTx>(options => { ... }, new MyTxCodec());
 
 Two gRPC clients are available depending on which proto the target node exposes.
 
-**`ICometBftGrpcClient`** — original CometBFT BroadcastAPI proto
-(`tendermint.rpc.grpc.v1beta1`). Use this when the node only exposes the
-raw CometBFT gRPC surface:
+**`ICometBftGrpcClient`** — CometBFT native BroadcastAPI proto
+(`cometbft.rpc.grpc`, legacy `tendermint.rpc.grpc`). Use this when the node
+only exposes the raw CometBFT gRPC surface:
 
 ```csharp
 services.AddCometBftGrpc(options =>
@@ -136,41 +154,10 @@ var grpc = provider.GetRequiredService<ICometBftGrpcClient>();
 bool alive = await grpc.PingAsync();
 ```
 
-**`ICometBftSdkGrpcClient`** — `cosmos.base.tendermint.v1beta1.Service`
-proto. This is the **CometBFT consensus service** that the Cosmos SDK
-standardised in its proto namespace: it exposes node status, blocks, and
-validator sets — still strictly consensus-layer data, not Cosmos application
-modules (bank, staking, governance, etc.). Most nodes running a Cosmos SDK
-application expose this service alongside the standard CometBFT REST API:
-
-```csharp
-services.AddCometBftSdkGrpc(options =>
-{
-    options.BaseUrl = "http://localhost:9090";
-});
-
-var sdk = provider.GetRequiredService<ICometBftSdkGrpcClient>();
-
-var (nodeInfo, syncInfo) = await sdk.GetStatusAsync();
-bool syncing             = await sdk.GetSyncingAsync();
-var latestBlock          = await sdk.GetLatestBlockAsync();
-var blockAtHeight        = await sdk.GetBlockByHeightAsync(height: 1_234_567);
-var latestValidators     = await sdk.GetLatestValidatorsAsync();
-var validatorsAtHeight   = await sdk.GetValidatorSetByHeightAsync(height: 1_234_567);
-
-// ABCIQueryAsync tunnels a raw ABCI query through the consensus layer.
-// Use it to reach application-layer modules only when no higher-level
-// client (e.g. Rinzler78.Cosmos.Client) is available.
-var abciResult = await sdk.ABCIQueryAsync(
-    path: "/store/bank/key",
-    data: Array.Empty<byte>(),
-    height: 0,
-    prove: false);
-```
-
-> **Scope boundary** — `ICometBftSdkGrpcClient` is limited to CometBFT
-> consensus data. For Cosmos SDK application modules (bank balances, staking
-> validators, governance proposals, etc.) use `Rinzler78.Cosmos.Client`.
+> **gRPC scope** — CometBFT’s native gRPC surface exposes only `Ping` and `BroadcastTx`.
+> All other node data (status, blocks, validators, syncing) is available via the REST client.
+> The `cosmos.base.tendermint.v1beta1` gRPC service is a Cosmos SDK addition;
+> it belongs in `Rinzler78.Cosmos.Client`.
 
 ## Architecture
 
@@ -179,7 +166,7 @@ var abciResult = await sdk.ABCIQueryAsync(
 | `CometBFT.Client.Core` | Domain types, interfaces, options, exceptions |
 | `CometBFT.Client.Rest` | HTTP/JSON-RPC 2.0 client with Polly resilience |
 | `CometBFT.Client.WebSocket` | WebSocket subscription client with auto-reconnect |
-| `CometBFT.Client.Grpc` | gRPC client — CometBFT BroadcastAPI (`ICometBftGrpcClient`) and Cosmos SDK service (`ICometBftSdkGrpcClient`) |
+| `CometBFT.Client.Grpc` | gRPC client — CometBFT BroadcastAPI (`ICometBftGrpcClient`: `Ping`, `BroadcastTx`) |
 | `CometBFT.Client.Extensions` | `IServiceCollection` DI registration extensions |
 
 ## Running the Demos
@@ -189,7 +176,7 @@ Override any endpoint via environment variable or CLI flag.
 
 ### Unified Dashboard (Avalonia GUI)
 
-Real-time desktop dashboard combining WebSocket events, REST polling, and Cosmos SDK gRPC data:
+Real-time desktop dashboard combining WebSocket events and REST polling:
 
 ```bash
 # Zero-config (Cosmos Hub mainnet)
@@ -198,14 +185,12 @@ Real-time desktop dashboard combining WebSocket events, REST polling, and Cosmos
 # Custom endpoints
 COMETBFT_RPC_URL=https://cosmoshub.tendermintrpc.lava.build:443 \
 COMETBFT_WS_URL=wss://cosmoshub.tendermintrpc.lava.build:443/websocket \
-COMETBFT_GRPC_URL=https://cosmoshub.grpc.lava.build:443 \
 ./scripts/demo.sh
 
 # CLI flags
 ./scripts/demo.sh \
   --rpc-url=https://cosmoshub.tendermintrpc.lava.build:443 \
-  --ws-url=wss://cosmoshub.tendermintrpc.lava.build:443/websocket \
-  --grpc-url=https://cosmoshub.grpc.lava.build:443
+  --ws-url=wss://cosmoshub.tendermintrpc.lava.build:443/websocket
 
 # Via Docker
 ./scripts/docker/demo.sh
@@ -213,6 +198,7 @@ COMETBFT_GRPC_URL=https://cosmoshub.grpc.lava.build:443 \
 
 The dashboard displays: latest block KPI, block feed, transaction feed, validator list with
 voting-power bars, node info, and a live event log — all updating in real time.
+It uses WebSocket + REST only; gRPC is not required for the dashboard.
 
 ### Console Sample
 
