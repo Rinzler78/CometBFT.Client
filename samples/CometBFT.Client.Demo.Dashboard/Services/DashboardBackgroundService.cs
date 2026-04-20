@@ -88,13 +88,13 @@ internal sealed class DashboardBackgroundService : BackgroundService
         _ = HandleNewBlockAsync(e.Value);
 
     private void OnNewBlockHeader(object? sender, CometBftEventArgs<BlockHeader> e) =>
-        AppendEventLog($"Header #{e.Value.Height} — {e.Value.Time:HH:mm:ss}");
+        AppendEventLog("header", $"Header #{e.Value.Height} — {e.Value.Time:HH:mm:ss}");
 
     private void OnTxExecuted(object? sender, CometBftEventArgs<TxResult<string>> e) =>
         _ = HandleTxAsync(e.Value);
 
     private void OnVote(object? sender, CometBftEventArgs<Vote> e) =>
-        AppendEventLog($"Vote h={e.Value.Height} r={e.Value.Round} type={e.Value.Type}");
+        AppendEventLog("vote", $"Vote h={e.Value.Height} r={e.Value.Round} type={e.Value.Type}");
 
     private void OnValidatorSetUpdated(object? sender, CometBftEventArgs<IReadOnlyList<Validator>> e) =>
         _ = HandleValidatorSetUpdatedAsync();
@@ -102,7 +102,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
     private void OnError(object? sender, CometBftEventArgs<Exception> e)
     {
         _vm.ConnectionStatus = $"Error: {e.Value.Message}";
-        AppendEventLog($"[ERR] {e.Value.Message}");
+        AppendEventLog("error", $"{e.Value.Message}");
     }
 
     // ── Async enrichment ──────────────────────────────────────────────────────
@@ -128,11 +128,11 @@ internal sealed class DashboardBackgroundService : BackgroundService
                     _vm.Blocks.RemoveAt(_vm.Blocks.Count - 1);
             });
 
-            AppendEventLog($"Block #{block.Height} — {block.Txs.Count} txs");
+            AppendEventLog("block", $"Block #{block.Height} — {block.Txs.Count} txs");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            AppendEventLog($"[ERR] GetLatestBlock: {ex.Message}");
+            AppendEventLog("error", $"GetLatestBlock: {ex.Message}");
         }
     }
 
@@ -164,16 +164,16 @@ internal sealed class DashboardBackgroundService : BackgroundService
                 while (_vm.Transactions.Count > MaxTxs)
                     _vm.Transactions.RemoveAt(_vm.Transactions.Count - 1);
             });
-            AppendEventLog($"[ERR] GetNumUnconfirmedTxs: {ex.Message}");
+            AppendEventLog("error", $"GetNumUnconfirmedTxs: {ex.Message}");
         }
 
-        AppendEventLog($"Tx {row.Hash} h={tx.Height} code={tx.Code}");
+        AppendEventLog("tx", $"Tx {row.Hash} h={tx.Height} code={tx.Code}");
     }
 
     private async Task HandleValidatorSetUpdatedAsync()
     {
         await RefreshValidatorsAsync(CancellationToken.None);
-        AppendEventLog("ValidatorSet updated");
+        AppendEventLog("validator", "ValidatorSet updated");
     }
 
     // ── Periodic refresh helpers ──────────────────────────────────────────────
@@ -191,7 +191,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            AppendEventLog($"[ERR] GetStatus: {ex.Message}");
+            AppendEventLog("error", $"GetStatus: {ex.Message}");
         }
     }
 
@@ -200,13 +200,16 @@ internal sealed class DashboardBackgroundService : BackgroundService
         try
         {
             var validators = await _grpc.GetLatestValidatorsAsync(ct).ConfigureAwait(false);
-            var rows = validators
-                .OrderByDescending(v => v.VotingPower)
-                .Select(v => new ValidatorRow(
-                    v.Address[..Math.Min(16, v.Address.Length)] + "…",
-                    v.VotingPower,
-                    v.ProposerPriority))
-                .ToList();
+            var sorted = validators.OrderByDescending(v => v.VotingPower).ToList();
+            var totalPower = sorted.Sum(v => (double)v.VotingPower);
+            var rows = sorted
+                    .Select((v, i) => new ValidatorRow(
+                        i + 1,
+                        v.Address[..Math.Min(16, v.Address.Length)] + "…",
+                        v.VotingPower,
+                        v.ProposerPriority,
+                        totalPower > 0 ? Math.Round(v.VotingPower / totalPower * 100, 1) : 0))
+                    .ToList();
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -217,7 +220,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            AppendEventLog($"[ERR] GetLatestValidators: {ex.Message}");
+            AppendEventLog("error", $"GetLatestValidators: {ex.Message}");
         }
     }
 
@@ -230,15 +233,15 @@ internal sealed class DashboardBackgroundService : BackgroundService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            AppendEventLog($"[ERR] GetNetInfo: {ex.Message}");
+            AppendEventLog("error", $"GetNetInfo: {ex.Message}");
         }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private void AppendEventLog(string message)
+    private void AppendEventLog(string category, string message)
     {
-        var row = new EventLogRow(DateTime.UtcNow.ToString("HH:mm:ss"), message);
+        var row = new EventLogRow(DateTime.UtcNow.ToString("HH:mm:ss"), category, message);
         Dispatcher.UIThread.Post(() =>
         {
             _vm.EventLog.Insert(0, row);

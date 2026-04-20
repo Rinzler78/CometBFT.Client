@@ -16,7 +16,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _moniker = "—";
     [ObservableProperty] private string _nodeId = "—";
     [ObservableProperty] private string _nodeVersion = "—";
-    [ObservableProperty] private bool _isSyncing;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SyncStatusText))]
+    private bool _isSyncing;
+
+    /// <summary>Human-readable sync status shown as a badge.</summary>
+    public string SyncStatusText => IsSyncing ? "Syncing…" : "Synced";
 
     // ── Latest block (gRPC GetLatestBlockAsync on NewBlock) ───────────────────
 
