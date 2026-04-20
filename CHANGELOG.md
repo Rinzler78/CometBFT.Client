@@ -8,33 +8,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial implementation targeting CometBFT protocol version v0.38.9
-- `CometBFT.Client.Core` — domain types (`Block`, `BlockHeader`, `TxResult`, `Event`, `Attribute`,
-  `NodeInfo`, `SyncInfo`, `Validator`, `BroadcastTxResult`), service interfaces, options, and exceptions
+- Unified real-time Avalonia 12 dashboard (`samples/CometBFT.Client.Demo.Dashboard/`)
+  combining WebSocket events, REST polling, and Cosmos SDK gRPC data in a single window
+  with a Mintscan-inspired dark design system (deep-navy palette, KPI stats row,
+  validators with voting-power `ProgressBar`, blocks and transactions side by side,
+  event log with category-typed entries)
+- `ValidatorRow.Rank` and `ValidatorRow.VotingPowerPct` computed from total voting power
+- `TxRow.StatusText` (`OK` / `ERR`) and `TxRow.IsSuccess` computed properties
+- `EventLogRow.Category` string (`block`, `tx`, `vote`, `validator`, `header`, `error`)
+- `MainWindowViewModel.SyncStatusText` computed property via `[NotifyPropertyChangedFor]`
+- `./scripts/demo.sh` — single launcher script for the unified dashboard demo
+- OpenSpec requirement added for Demo Unified Dashboard in `openspec/`
+
+### Removed
+- `samples/CometBFT.Client.Demo.Rest/`, `samples/CometBFT.Client.Demo.WebSocket/`,
+  and `samples/CometBFT.Client.Demo.Grpc/` — consolidated into the unified Dashboard
+
+---
+
+## [0.2.0] - 2026-04-19
+
+Protocol: [CometBFT v0.38.9](https://github.com/cometbft/cometbft/releases/tag/v0.38.9)
+
+### Added
+- `ITxCodec<TTx>` interface and generic wrappers `Block<TTx>`, `TxResult<TTx>` — decodes
+  raw transaction bytes into a caller-supplied type on the WebSocket hot path
+- `AddCometBftWebSocket<TTx>(configure, codec)` DI extension for the generic WebSocket client
+- `ICometBftSdkGrpcClient` — four additional `cosmos.base.tendermint.v1beta1` methods:
+  `GetSyncingAsync()`, `GetBlockByHeightAsync(long)`, `GetValidatorSetByHeightAsync(long)`,
+  `ABCIQueryAsync(string, byte[], long, bool)`
+- `AddCometBftClient(Action<CometBftClientOptions>?)` — unified DI registration method that
+  registers REST, WebSocket, gRPC, and SDK gRPC clients in a single call
+- `.env.example` template with documented environment variable names
+- Thread-safety fixes in `CometBftWebSocketClient` and DI isolation guards
+
+### Fixed
+- `NotNullAttribute` added on nullable-forgiven parameters throughout `Core` and `WebSocket`
+- `CometBftWebSocketClient` state machine hardened against concurrent `ConnectAsync` calls
+- `DecodeRawAsync` error context improved to include raw bytes length on failure
+- `IServiceCollection` isolation: `AddCometBft*` no longer mutates a shared options instance
+
+---
+
+## [0.1.0] - 2026-04-18
+
+Protocol: [CometBFT v0.38.9](https://github.com/cometbft/cometbft/releases/tag/v0.38.9)
+
+### Added
+- Initial implementation of `Rinzler78.CometBFT.Client` targeting CometBFT protocol v0.38.9
+- `CometBFT.Client.Core` — immutable `record` domain types (`Block`, `BlockHeader`,
+  `TxResult`, `Event`, `Attribute`, `NodeInfo`, `SyncInfo`, `Validator`,
+  `BroadcastTxResult`); segregated service interfaces; options classes; typed exceptions
 - `CometBFT.Client.Rest` — full REST/JSON-RPC 2.0 client with Polly-based resilience
-  - Endpoints: health, status, block, block by hash, block results, validators,
+  - Endpoints covered: health, status, block, block by hash, block results, validators,
     tx search, tx by hash, broadcast async/sync/commit, abci info, abci query,
     net_info, blockchain, header, header_by_hash, commit, genesis, genesis_chunked,
     dump_consensus_state, consensus_state, consensus_params, unconfirmed_txs,
     num_unconfirmed_txs, block_search, broadcast_evidence, check_tx, dial_seeds, dial_peers
-- `CometBFT.Client.WebSocket` — real-time event subscription client using `Websocket.Client`
-  with auto-reconnect; events: `NewBlockReceived`, `TxExecuted`, `VoteReceived`,
-  `ValidatorSetUpdated`, `NewBlockHeaderReceived`
-- `CometBFT.Client.Grpc` — gRPC client with `PingAsync` and `BroadcastTxAsync`
-  (`GrpcProtocol.TendermintLegacy`); `CometBftSdkGrpcClient` targeting Cosmos SDK
-  `cosmos.tx.v1beta1` gRPC surface (`GrpcProtocol.CosmosSdk`)
-- `CometBFT.Client.Extensions` — `IServiceCollection` extension methods
-  (`AddCometBftRest`, `AddCometBftWebSocket`, `AddCometBftGrpc`, `AddCometBftSdkGrpc`)
-- Unit tests with WireMock.Net for REST, NSubstitute for gRPC and WebSocket
+- `CometBFT.Client.WebSocket` — real-time event subscription client with auto-reconnect;
+  events: `NewBlockReceived`, `TxExecuted`, `VoteReceived`, `ValidatorSetUpdated`,
+  `NewBlockHeaderReceived`, `ErrorOccurred`
+- `CometBFT.Client.Grpc` — CometBFT `BroadcastAPI` gRPC client (`ICometBftGrpcClient`:
+  `PingAsync`, `BroadcastTxAsync`); `CometBftSdkGrpcClient` targeting Cosmos SDK
+  `cosmos.base.tendermint.v1beta1.Service` (`ICometBftSdkGrpcClient`: `GetStatusAsync`,
+  `GetLatestBlockAsync`, `GetLatestValidatorsAsync`)
+- `CometBFT.Client.Extensions` — `IServiceCollection` extension methods:
+  `AddCometBftRest`, `AddCometBftWebSocket`, `AddCometBftGrpc`, `AddCometBftSdkGrpc`
+- Unit tests with WireMock.Net (REST), NSubstitute (gRPC, WebSocket)
 - Integration tests and E2E tests against real Cosmos Hub public endpoints
   (skip-on-missing-env-var pattern); global line coverage ≥ 90 %
-- GitHub Actions CI (build + format check + unit/integration/E2E + coverage gate) and publish workflows
-- Git flow configuration, commit-msg hook, branch protection documentation
-- pre-commit configuration with `dotnet format` and `detect-secrets`
+- GitHub Actions CI (`ci.yml`: build + format + unit/integration/E2E + coverage gate)
+  and tag-triggered publish workflow (`publish.yml`)
+- Git Flow configuration, commit-msg hook, pre-commit hooks (`dotnet format`, `detect-secrets`,
+  `cspell` English-only check), pre-push branch-protection and coverage gate
+- `CONTRIBUTING.md` with full development workflow, coding conventions, and test standards
 
 ### Changed
-- All public `Tendermint`-prefixed identifiers renamed to `CometBft` prefix
-  (`ITendermintRestClient` → `ICometBftRestClient`, `TendermintGrpcClient` → `CometBftGrpcClient`, etc.)
-- `WebSocketMessageParser` extracted from `CometBftWebSocketClient` into a dedicated internal class
-- SOLID/clean-code remediation applied across all source projects: single-responsibility split,
-  dependency inversion via internal interfaces, dead-code removal, naming consistency
+- All `Tendermint`-prefixed public identifiers renamed to `CometBft` prefix
+  (`ITendermintRestClient` → `ICometBftRestClient`, etc.);
+  wire-level names (`tendermint.rpc.grpc`, `GrpcProtocol.TendermintLegacy`) preserved for
+  backward-compatibility
+- `WebSocketMessageParser` extracted from `CometBftWebSocketClient` into a dedicated
+  internal class with its own unit-test suite
+- SOLID/clean-code remediation applied across all source projects: single-responsibility
+  split, dependency inversion via internal interfaces, dead-code removal, naming consistency

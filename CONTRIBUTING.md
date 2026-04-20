@@ -87,9 +87,9 @@ These conventions are enforced at code-review time. Violations block merge.
 | Parameter | Default |
 |-----------|---------|
 | Retry count | 3 |
-| Backoff | Exponential: `TimeSpan.FromMilliseconds(100) * Math.Pow(2, retryAttempt)` |
-| Circuit breaker — failure threshold | 5 failures within 30 s |
-| Circuit breaker — open duration | 1 minute |
+| Backoff | Exponential: `RetryDelay (1 s) * Math.Pow(2, attempt - 1)` + random jitter (0–100 ms) |
+| Circuit breaker — failure threshold | 5 consecutive failures |
+| Circuit breaker — open duration | 30 seconds |
 
 ### Numeric Types for Financial / Amount Fields
 
@@ -170,8 +170,6 @@ Run locally:
 | `./scripts/build.sh` | Build the solution |
 | `./scripts/test.sh` | Run tests + coverage gate |
 | `./scripts/publish.sh` | Pack and push to NuGet (reads `NUGET_API_KEY` from env) |
-| `./scripts/demo-rest.sh` | Run the REST demo |
-| `./scripts/demo-ws.sh` | Run the WebSocket demo |
-| `./scripts/demo-grpc.sh` | Run the gRPC demo |
+| `./scripts/demo.sh` | Run the unified Avalonia dashboard demo (REST + WebSocket + gRPC) |
 
 Docker equivalents live in `scripts/docker/`.

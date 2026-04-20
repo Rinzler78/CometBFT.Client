@@ -19,66 +19,101 @@ This single package includes all three transports (REST, WebSocket, gRPC) and DI
 
 ## Quick Start
 
-### REST Transport
+### Unified registration (recommended)
+
+Register all three transports in a single call:
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
-using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Extensions;
 
 var services = new ServiceCollection();
+services.AddCometBftClient(options =>
+{
+    options.RestBaseUrl    = "http://localhost:26657";
+    options.WebSocketBaseUrl = "ws://localhost:26657/websocket";
+    options.GrpcBaseUrl    = "http://localhost:9090";
+});
+```
+
+`AddCometBftClient` registers `ICometBftRestClient`, `ICometBftWebSocketClient`,
+`ICometBftGrpcClient`, and `ICometBftSdkGrpcClient` in one call.
+Use the individual `Add*` methods below only when you need per-transport customisation.
+
+### REST Transport
+
+```csharp
 services.AddCometBftRest(options =>
 {
-    options.BaseUrl = "http://localhost:26657";
-    options.Timeout = TimeSpan.FromSeconds(30);
-    options.MaxRetryAttempts = 3;
+    options.BaseUrl           = "http://localhost:26657";
+    options.Timeout           = TimeSpan.FromSeconds(30);
+    options.MaxRetryAttempts  = 3;
 });
 
-var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<ICometBftRestClient>();
 
 // Health check
 bool healthy = await client.GetHealthAsync();
 
-// Get node status
+// Node status
 var (nodeInfo, syncInfo) = await client.GetStatusAsync();
 Console.WriteLine($"Chain: {nodeInfo.Network}, Height: {syncInfo.LatestBlockHeight}");
 
-// Get latest block
+// Latest block
 var block = await client.GetBlockAsync();
 Console.WriteLine($"Block #{block.Height}: {block.Hash}");
 
-// Query validators
+// Validators
 var validators = await client.GetValidatorsAsync();
 Console.WriteLine($"Active validators: {validators.Count}");
 
 // Broadcast a transaction
 var result = await client.BroadcastTxSyncAsync("<base64-tx-bytes>");
-Console.WriteLine($"Broadcast code: {result.Code}, hash: {result.Hash}");
+Console.WriteLine($"Code: {result.Code}, Hash: {result.Hash}");
 ```
 
-### WebSocket Transport (real-time events)
+### WebSocket Transport
 
 ```csharp
 services.AddCometBftWebSocket(options =>
 {
-    options.BaseUrl = "ws://localhost:26657/websocket";
+    options.BaseUrl               = "ws://localhost:26657/websocket";
+    options.ReconnectTimeout      = TimeSpan.FromSeconds(30); // reconnect after clean disconnect
+    options.ErrorReconnectTimeout = TimeSpan.FromSeconds(10); // reconnect after error
+    options.SubscribeAckTimeout   = TimeSpan.FromSeconds(30); // wait for subscription ack
 });
 
-var wsClient = provider.GetRequiredService<ICometBftWebSocketClient>();
+var ws = provider.GetRequiredService<ICometBftWebSocketClient>();
 
-wsClient.NewBlockReceived += (_, args) =>
-    Console.WriteLine($"New block: #{args.Value.Height}");
+// Subscribe to events
+ws.NewBlockReceived       += (_, e) => Console.WriteLine($"Block  #{e.Value.Height}");
+ws.NewBlockHeaderReceived += (_, e) => Console.WriteLine($"Header #{e.Value.Height}");
+ws.TxExecuted             += (_, e) => Console.WriteLine($"Tx {e.Value.Hash}");
+ws.VoteReceived           += (_, e) => Console.WriteLine($"Vote h={e.Value.Height} r={e.Value.Round}");
+ws.ValidatorSetUpdated    += (_, e) => Console.WriteLine($"ValidatorSet: {e.Value.Count} validators");
+ws.ErrorOccurred          += (_, e) => Console.WriteLine($"[ERR] {e.Value.Message}");
 
-wsClient.TxExecuted += (_, args) =>
-    Console.WriteLine($"Tx executed: {args.Value.Hash}");
+await ws.ConnectAsync();
 
-await wsClient.ConnectAsync();
-await wsClient.SubscribeNewBlockAsync();
-await wsClient.SubscribeTxAsync();
+// Subscribe to desired event streams
+await ws.SubscribeNewBlockAsync();
+await ws.SubscribeNewBlockHeaderAsync();
+await ws.SubscribeTxAsync();
+await ws.SubscribeVoteAsync();
+await ws.SubscribeValidatorSetUpdatesAsync();
 
-// Keep alive...
 await Task.Delay(Timeout.Infinite);
+
+// Graceful shutdown
+await ws.UnsubscribeAllAsync();
+await ws.DisconnectAsync();
+```
+
+**Generic WebSocket** — decode transaction bytes into a custom type via `ITxCodec<TTx>`:
+
+```csharp
+services.AddCometBftWebSocket<MyTx>(options => { ... }, new MyTxCodec());
+// Resolves ICometBftWebSocketClient<MyTx>
 ```
 
 ### gRPC Transport
@@ -88,12 +123,13 @@ await Task.Delay(Timeout.Infinite);
 ```csharp
 services.AddCometBftGrpc(options =>
 {
-    options.BaseUrl = "http://localhost:9090";
+    options.BaseUrl  = "http://localhost:9090";
+    // options.Protocol = GrpcProtocol.Auto; // Auto | CometBft | TendermintLegacy
 });
 
-var grpcClient = provider.GetRequiredService<ICometBftGrpcClient>();
+var grpc = provider.GetRequiredService<ICometBftGrpcClient>();
 
-bool alive = await grpcClient.PingAsync();
+bool alive = await grpc.PingAsync();
 Console.WriteLine($"gRPC ping: {alive}");
 ```
 
@@ -105,11 +141,18 @@ services.AddCometBftSdkGrpc(options =>
     options.BaseUrl = "http://localhost:9090";
 });
 
-var sdkClient = provider.GetRequiredService<ICometBftSdkGrpcClient>();
+var sdk = provider.GetRequiredService<ICometBftSdkGrpcClient>();
 
-var (nodeInfo, syncInfo) = await sdkClient.GetStatusAsync();
-var block = await sdkClient.GetLatestBlockAsync();
-var validators = await sdkClient.GetLatestValidatorsAsync();
+var (nodeInfo, syncInfo) = await sdk.GetStatusAsync();
+bool syncing             = await sdk.GetSyncingAsync();
+var latestBlock          = await sdk.GetLatestBlockAsync();
+var blockAtHeight        = await sdk.GetBlockByHeightAsync(height: 1234567);
+var latestValidators     = await sdk.GetLatestValidatorsAsync();
+var validatorsAtHeight   = await sdk.GetValidatorSetByHeightAsync(height: 1234567);
+var abciResult           = await sdk.ABCIQueryAsync(path: "/cosmos.bank.v1beta1.Query/Balance",
+                                                     data: Array.Empty<byte>(),
+                                                     height: 0,
+                                                     prove: false);
 ```
 
 ## Architecture
@@ -124,38 +167,46 @@ var validators = await sdkClient.GetLatestValidatorsAsync();
 
 ## Running the Demos
 
-Each demo connects to validated public CometBFT endpoints by default — no configuration needed.
+Each demo connects to validated public Cosmos Hub endpoints by default — no configuration needed.
 Override any endpoint via environment variable or CLI flag.
 
-### REST demo
+### Unified Dashboard (Avalonia GUI)
+
+Real-time desktop dashboard combining WebSocket events, REST polling, and Cosmos SDK gRPC data:
 
 ```bash
-# Zero-config (testnet)
-./scripts/demo-rest.sh
+# Zero-config (Cosmos Hub mainnet)
+./scripts/demo.sh
 
-# Custom endpoint
-TENDERMINT_RPC_URL=https://cosmoshub.tendermintrpc.lava.build:443 ./scripts/demo-rest.sh
-./scripts/demo-rest.sh --rpc-url=https://cosmoshub.tendermintrpc.lava.build:443
+# Custom endpoints
+COMETBFT_RPC_URL=https://cosmoshub.tendermintrpc.lava.build:443 \
+COMETBFT_WS_URL=wss://cosmoshub.tendermintrpc.lava.build:443/websocket \
+COMETBFT_GRPC_URL=https://cosmoshub.grpc.lava.build:443 \
+./scripts/demo.sh
+
+# CLI flags
+./scripts/demo.sh \
+  --rpc-url=https://cosmoshub.tendermintrpc.lava.build:443 \
+  --ws-url=wss://cosmoshub.tendermintrpc.lava.build:443/websocket \
+  --grpc-url=https://cosmoshub.grpc.lava.build:443
 
 # Via Docker
-./scripts/docker/demo-rest.sh
-TENDERMINT_RPC_URL=https://cosmoshub.tendermintrpc.lava.build:443 ./scripts/docker/demo-rest.sh
+./scripts/docker/demo.sh
 ```
 
-### WebSocket demo
+The dashboard displays: latest block KPI, block feed, transaction feed, validator list with
+voting-power bars, node info, and a live event log — all updating in real time.
+
+### Console Sample
+
+Minimal console application exercising all three transports sequentially:
 
 ```bash
-./scripts/demo-ws.sh
-TENDERMINT_WS_URL=wss://cosmoshub.tendermintrpc.lava.build:443/websocket ./scripts/demo-ws.sh
-./scripts/docker/demo-ws.sh
-```
+cd samples/CometBFT.Client.Sample
+dotnet run
 
-### gRPC demo
-
-```bash
-./scripts/demo-grpc.sh
-TENDERMINT_GRPC_URL=cosmoshub.grpc.lava.build ./scripts/demo-grpc.sh
-./scripts/docker/demo-grpc.sh
+# Override endpoints
+COMETBFT_RPC_URL=https://... dotnet run
 ```
 
 ## Building and Publishing
@@ -164,7 +215,7 @@ TENDERMINT_GRPC_URL=cosmoshub.grpc.lava.build ./scripts/demo-grpc.sh
 # Build
 ./scripts/build.sh
 
-# Test (coverage gate ≥ 90 %)
+# Test (coverage gate >= 90 %)
 ./scripts/test.sh
 
 # Publish to NuGet (dry-run)
@@ -186,15 +237,20 @@ NUGET_API_KEY=<key> ./scripts/docker/publish.sh
 
 ## Validated Public Endpoints
 
-- RPC: `https://cosmoshub.tendermintrpc.lava.build:443`
-- WebSocket: `wss://cosmoshub.tendermintrpc.lava.build:443/websocket`
-- gRPC: `cosmoshub.grpc.lava.build`
+| Transport | URL |
+|---|---|
+| REST / RPC | `https://cosmoshub.tendermintrpc.lava.build:443` |
+| WebSocket | `wss://cosmoshub.tendermintrpc.lava.build:443/websocket` |
+| gRPC | `https://cosmoshub.grpc.lava.build:443` |
 
 ## Contributing
 
 1. Fork and create a `feature/<name>` branch from `develop`.
 2. Commit using [Conventional Commits](https://www.conventionalcommits.org/).
 3. Open a PR to `develop`. CI must pass before merge.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development workflow, coding conventions,
+Polly policy values, and test standards.
 
 ## License
 
