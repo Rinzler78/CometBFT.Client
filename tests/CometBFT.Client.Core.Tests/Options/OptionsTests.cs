@@ -182,4 +182,69 @@ public sealed class OptionsTests
         var opts = new CometBftSdkGrpcOptions { Timeout = TimeSpan.Zero };
         Assert.Throws<InvalidOperationException>(opts.Validate);
     }
+
+    // ── CometBftClientOptions (aggregated options, no Validate) ─────────────
+
+    [Fact]
+    public void CometBftClientOptions_DefaultRestBaseUrl()
+    {
+        var opts = new CometBftClientOptions();
+        Assert.Equal("https://cosmoshub.tendermintrpc.lava.build:443", opts.RestBaseUrl);
+    }
+
+    [Fact]
+    public void CometBftClientOptions_DefaultGrpcBaseUrl()
+    {
+        var opts = new CometBftClientOptions();
+        Assert.Equal("https://cosmoshub.grpc.lava.build:443", opts.GrpcBaseUrl);
+    }
+
+    [Fact]
+    public void CometBftClientOptions_DefaultWebSocketBaseUrl()
+    {
+        var opts = new CometBftClientOptions();
+        Assert.Equal("wss://cosmoshub.tendermintrpc.lava.build:443/websocket", opts.WebSocketBaseUrl);
+    }
+
+    [Fact]
+    public void CometBftClientOptions_DefaultTimeout_Is30Seconds()
+    {
+        var opts = new CometBftClientOptions();
+        Assert.Equal(TimeSpan.FromSeconds(30), opts.Timeout);
+    }
+
+    [Fact]
+    public void CometBftClientOptions_DefaultMaxRetryAttempts_Is3()
+    {
+        var opts = new CometBftClientOptions();
+        Assert.Equal(3, opts.MaxRetryAttempts);
+    }
+
+    [Fact]
+    public void CometBftClientOptions_DefaultRetryDelay_Is1Second()
+    {
+        var opts = new CometBftClientOptions();
+        Assert.Equal(TimeSpan.FromSeconds(1), opts.RetryDelay);
+    }
+
+    [Fact]
+    public void CometBftClientOptions_CanOverrideAllProperties()
+    {
+        var opts = new CometBftClientOptions
+        {
+            RestBaseUrl = "http://mynode:26657",
+            GrpcBaseUrl = "http://mynode:9090",
+            WebSocketBaseUrl = "ws://mynode:26657/websocket",
+            Timeout = TimeSpan.FromSeconds(60),
+            MaxRetryAttempts = 5,
+            RetryDelay = TimeSpan.FromMilliseconds(500),
+        };
+
+        Assert.Equal("http://mynode:26657", opts.RestBaseUrl);
+        Assert.Equal("http://mynode:9090", opts.GrpcBaseUrl);
+        Assert.Equal("ws://mynode:26657/websocket", opts.WebSocketBaseUrl);
+        Assert.Equal(TimeSpan.FromSeconds(60), opts.Timeout);
+        Assert.Equal(5, opts.MaxRetryAttempts);
+        Assert.Equal(TimeSpan.FromMilliseconds(500), opts.RetryDelay);
+    }
 }

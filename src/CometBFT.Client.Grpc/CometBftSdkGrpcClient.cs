@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+using System.Collections.ObjectModel;
 using Grpc.Core;
 using Grpc.Net.Client;
 using CometBFT.Client.Core.Domain;
@@ -10,6 +10,8 @@ using Microsoft.Extensions.Options;
 // Alias proto-generated names that clash with Core.Domain names.
 using DomainBlock = CometBFT.Client.Core.Domain.Block;
 using DomainValidator = CometBFT.Client.Core.Domain.Validator;
+using ProtoBlock = CometBFT.Client.Grpc.Proto.CosmosBase.Tendermint.V1beta1.Block;
+using ProtoValidator = CometBFT.Client.Grpc.Proto.CosmosBase.Tendermint.V1beta1.Validator;
 
 namespace CometBFT.Client.Grpc;
 
@@ -19,12 +21,9 @@ namespace CometBFT.Client.Grpc;
 /// This service is available on all Cosmos-ecosystem nodes that expose port 9090 and is
 /// the recommended way to query chain state from public infrastructure.
 /// </summary>
-// Covered by integration tests (CometBFT.Client.Integration.Tests, Category=Integration).
-// Live gRPC connectivity is required, so unit-test mocking adds no safety signal here.
-[ExcludeFromCodeCoverage]
 public sealed class CometBftSdkGrpcClient : ICometBftSdkGrpcClient
 {
-    private readonly GrpcChannel _channel;
+    private readonly GrpcChannel? _channel;
     private readonly Service.ServiceClient _client;
     private readonly CometBftSdkGrpcOptions _options;
     private bool _disposed;
@@ -51,6 +50,19 @@ public sealed class CometBftSdkGrpcClient : ICometBftSdkGrpcClient
         _channel = channel ?? throw new ArgumentNullException(nameof(channel));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _client = new Service.ServiceClient(channel);
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="CometBftSdkGrpcClient"/> with an injected client.
+    /// Allows injecting a <see cref="Service.ServiceClient"/> backed by a fake call invoker for unit tests.
+    /// </summary>
+    internal CometBftSdkGrpcClient(Service.ServiceClient client, CometBftSdkGrpcOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(options);
+        _channel = null!;
+        _client = client;
+        _options = options;
     }
 
     /// <inheritdoc />
@@ -128,29 +140,7 @@ public sealed class CometBftSdkGrpcClient : ICometBftSdkGrpcClient
                 .ResponseAsync
                 .ConfigureAwait(false);
 
-            var header = resp.Block?.Header;
-            var data = resp.Block?.Data;
-
-            var time = header?.Time != null
-                ? DateTimeOffset.FromUnixTimeSeconds(header.Time.Seconds)
-                      .AddTicks(header.Time.Nanos / 100)
-                : DateTimeOffset.MinValue;
-
-            var proposer = header?.ProposerAddress?.Length > 0
-                ? Convert.ToHexString(header.ProposerAddress.ToByteArray())
-                : string.Empty;
-
-            var txs = data?.Txs
-                .Select(t => Convert.ToBase64String(t.ToByteArray()))
-                .ToList()
-                ?? [];
-
-            return new DomainBlock(
-                Height: header?.Height ?? 0,
-                Hash: string.Empty,   // not provided by GetLatestBlock
-                Time: time,
-                Proposer: proposer,
-                Txs: txs);
+            return MapBlock(resp.Block);
         }
         catch (OperationCanceledException)
         {
@@ -188,14 +178,7 @@ public sealed class CometBftSdkGrpcClient : ICometBftSdkGrpcClient
                 .ResponseAsync
                 .ConfigureAwait(false);
 
-            return resp.Validators
-                .Select(v => new DomainValidator(
-                    Address: v.Address,
-                    PubKey: v.PubKey?.Value != null ? Convert.ToBase64String(v.PubKey.Value.ToByteArray()) : string.Empty,
-                    VotingPower: v.VotingPower,
-                    ProposerPriority: v.ProposerPriority))
-                .ToList()
-                .AsReadOnly();
+            return MapValidators(resp.Validators);
         }
         catch (OperationCanceledException)
         {
@@ -216,15 +199,222 @@ public sealed class CometBftSdkGrpcClient : ICometBftSdkGrpcClient
     }
 
     /// <inheritdoc />
+    public async Task<bool> GetSyncingAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        try
+        {
+            var deadline = DateTime.UtcNow.Add(_options.Timeout);
+            var resp = await _client
+                .GetSyncingAsync(new GetSyncingRequest(),
+                    new CallOptions(cancellationToken: cancellationToken, deadline: deadline))
+                .ResponseAsync
+                .ConfigureAwait(false);
+
+            return resp.Syncing;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (RpcException ex)
+        {
+            throw new CometBftGrpcException($"SDK gRPC GetSyncing failed: {ex.Status.Detail}", (int)ex.StatusCode, ex);
+        }
+        catch (CometBftGrpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new CometBftGrpcException("SDK gRPC GetSyncing failed.", ex);
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<DomainBlock> GetBlockByHeightAsync(long height, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        try
+        {
+            var deadline = DateTime.UtcNow.Add(_options.Timeout);
+            var resp = await _client
+                .GetBlockByHeightAsync(new GetBlockByHeightRequest { Height = height },
+                    new CallOptions(cancellationToken: cancellationToken, deadline: deadline))
+                .ResponseAsync
+                .ConfigureAwait(false);
+
+            return MapBlock(resp.Block);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (RpcException ex)
+        {
+            throw new CometBftGrpcException($"SDK gRPC GetBlockByHeight failed: {ex.Status.Detail}", (int)ex.StatusCode, ex);
+        }
+        catch (CometBftGrpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new CometBftGrpcException("SDK gRPC GetBlockByHeight failed.", ex);
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<DomainValidator>> GetValidatorSetByHeightAsync(long height, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        try
+        {
+            var deadline = DateTime.UtcNow.Add(_options.Timeout);
+            var request = new GetValidatorSetByHeightRequest
+            {
+                Height = height,
+                Pagination = new PageRequest { Limit = _options.ValidatorPageSize }
+            };
+
+            var resp = await _client
+                .GetValidatorSetByHeightAsync(request,
+                    new CallOptions(cancellationToken: cancellationToken, deadline: deadline))
+                .ResponseAsync
+                .ConfigureAwait(false);
+
+            return MapValidators(resp.Validators);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (RpcException ex)
+        {
+            throw new CometBftGrpcException($"SDK gRPC GetValidatorSetByHeight failed: {ex.Status.Detail}", (int)ex.StatusCode, ex);
+        }
+        catch (CometBftGrpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new CometBftGrpcException("SDK gRPC GetValidatorSetByHeight failed.", ex);
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<AbciQueryResponse> ABCIQueryAsync(string path, byte[] data, long height = 0, bool prove = false, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(data);
+        try
+        {
+            var deadline = DateTime.UtcNow.Add(_options.Timeout);
+            var request = new ABCIQueryRequest
+            {
+                Path = path ?? string.Empty,
+                Data = Google.Protobuf.ByteString.CopyFrom(data),
+                Height = height,
+                Prove = prove
+            };
+
+            var resp = await _client
+                .ABCIQueryAsync(request,
+                    new CallOptions(cancellationToken: cancellationToken, deadline: deadline))
+                .ResponseAsync
+                .ConfigureAwait(false);
+
+            AbciProofOps? proofOps = null;
+            if (resp.ProofOps?.Ops?.Count > 0)
+            {
+                proofOps = new AbciProofOps(
+                    resp.ProofOps.Ops
+                        .Select(op => new AbciProofOp(op.Type, op.Key.ToByteArray(), op.Data.ToByteArray()))
+                        .ToList()
+                        .AsReadOnly());
+            }
+
+            return new AbciQueryResponse(
+                Code: resp.Code,
+                Log: resp.Log ?? string.Empty,
+                Info: resp.Info ?? string.Empty,
+                Index: resp.Index,
+                Key: (IReadOnlyList<byte>)resp.Key.ToByteArray(),
+                Value: (IReadOnlyList<byte>)resp.Value.ToByteArray(),
+                ProofOps: proofOps,
+                Height: resp.Height,
+                Codespace: resp.Codespace ?? string.Empty);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (RpcException ex)
+        {
+            throw new CometBftGrpcException($"SDK gRPC ABCIQuery failed: {ex.Status.Detail}", (int)ex.StatusCode, ex);
+        }
+        catch (CometBftGrpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new CometBftGrpcException("SDK gRPC ABCIQuery failed.", ex);
+        }
+    }
+
+    /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
             return;
 
         _disposed = true;
-        await _channel.ShutdownAsync().ConfigureAwait(false);
-        _channel.Dispose();
+        if (_channel is not null)
+        {
+            await _channel.ShutdownAsync().ConfigureAwait(false);
+            _channel.Dispose();
+        }
     }
+
+    private static DomainBlock MapBlock(ProtoBlock? block)
+    {
+        var header = block?.Header;
+        var data = block?.Data;
+
+        var time = header?.Time != null
+            ? DateTimeOffset.FromUnixTimeSeconds(header.Time.Seconds)
+                  .AddTicks(header.Time.Nanos / 100)
+            : DateTimeOffset.MinValue;
+
+        var proposer = header?.ProposerAddress?.Length > 0
+            ? Convert.ToHexString(header.ProposerAddress.ToByteArray())
+            : string.Empty;
+
+        var txs = data?.Txs
+            .Select(t => Convert.ToBase64String(t.ToByteArray()))
+            .ToList()
+            ?? [];
+
+        return new DomainBlock(
+            Height: header?.Height ?? 0,
+            Hash: string.Empty,   // not provided by this gRPC call
+            Time: time,
+            Proposer: proposer,
+            Txs: txs);
+    }
+
+    private static ReadOnlyCollection<DomainValidator> MapValidators(
+        IEnumerable<ProtoValidator> validators) =>
+        validators
+            .Select(v => new DomainValidator(
+                Address: v.Address,
+                PubKey: v.PubKey?.Value != null ? Convert.ToBase64String(v.PubKey.Value.ToByteArray()) : string.Empty,
+                VotingPower: v.VotingPower,
+                ProposerPriority: v.ProposerPriority))
+            .ToList()
+            .AsReadOnly();
 
     private static string NormalizeAddress(string baseUrl)
     {

@@ -74,4 +74,63 @@ public sealed class ExceptionTests
         var ex = new CometBftGrpcException("unavailable", 14);
         Assert.Equal(14, ex.GrpcStatusCode);
     }
+
+    // ── Additional overloads ─────────────────────────────────────────────────
+
+    [Fact]
+    public void CometBftRestException_Parameterless_IsException()
+    {
+        var ex = new CometBftRestException();
+        Assert.IsAssignableFrom<CometBftClientException>(ex);
+    }
+
+    [Fact]
+    public void CometBftRestException_MessageAndStatusCode_WithInner()
+    {
+        var inner = new InvalidOperationException("inner");
+        var ex = new CometBftRestException("msg", System.Net.HttpStatusCode.InternalServerError, inner);
+        Assert.Equal(System.Net.HttpStatusCode.InternalServerError, ex.StatusCode);
+        Assert.Same(inner, ex.InnerException);
+    }
+
+    [Fact]
+    public void CometBftRestException_MessageAndRpcCode_WithInner()
+    {
+        var inner = new InvalidOperationException("inner");
+        var ex = new CometBftRestException("msg", -32600, inner);
+        Assert.Equal(-32600, ex.RpcErrorCode);
+        Assert.Same(inner, ex.InnerException);
+    }
+
+    [Fact]
+    public void CometBftRestException_MessageAndInner()
+    {
+        var inner = new InvalidOperationException("inner");
+        var ex = new CometBftRestException("msg", inner);
+        Assert.Equal("msg", ex.Message);
+        Assert.Same(inner, ex.InnerException);
+    }
+
+    [Fact]
+    public void CometBftWebSocketException_Parameterless_IsException()
+    {
+        var ex = new CometBftWebSocketException();
+        Assert.IsAssignableFrom<CometBftClientException>(ex);
+    }
+
+    [Fact]
+    public void CometBftGrpcException_Parameterless_IsException()
+    {
+        var ex = new CometBftGrpcException();
+        Assert.IsAssignableFrom<CometBftClientException>(ex);
+    }
+
+    [Fact]
+    public void CometBftGrpcException_MessageAndCodeAndInner()
+    {
+        var inner = new InvalidOperationException("inner");
+        var ex = new CometBftGrpcException("unavailable", 14, inner);
+        Assert.Equal(14, ex.GrpcStatusCode);
+        Assert.Same(inner, ex.InnerException);
+    }
 }

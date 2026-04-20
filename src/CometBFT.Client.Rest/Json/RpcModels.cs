@@ -81,12 +81,6 @@ internal sealed class RpcSyncInfo
     public bool CatchingUp { get; init; }
 }
 
-internal sealed class RpcBlockResult
-{
-    [JsonPropertyName("block")]
-    public RpcBlock? Block { get; init; }
-}
-
 internal sealed class RpcBlock
 {
     [JsonPropertyName("header")]

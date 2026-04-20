@@ -18,7 +18,10 @@ service Service {
   rpc GetNodeInfo(GetNodeInfoRequest) returns (GetNodeInfoResponse);
   rpc GetSyncing(GetSyncingRequest) returns (GetSyncingResponse);
   rpc GetLatestBlock(GetLatestBlockRequest) returns (GetLatestBlockResponse);
+  rpc GetBlockByHeight(GetBlockByHeightRequest) returns (GetBlockByHeightResponse);
   rpc GetLatestValidatorSet(GetLatestValidatorSetRequest) returns (GetLatestValidatorSetResponse);
+  rpc GetValidatorSetByHeight(GetValidatorSetByHeightRequest) returns (GetValidatorSetByHeightResponse);
+  rpc ABCIQuery(ABCIQueryRequest) returns (ABCIQueryResponse);
 }
 
 // ── Node info ─────────────────────────────────────────────────────────────────
@@ -71,7 +74,17 @@ message GetSyncingResponse {
 
 message GetLatestBlockRequest {}
 
+message GetBlockByHeightRequest {
+  int64 height = 1;
+}
+
 message GetLatestBlockResponse {
+  // field 1 is block_id — skipped
+  Block block = 2;
+  // field 3 is sdk_block (SDK ≥ 0.47) — skipped
+}
+
+message GetBlockByHeightResponse {
   // field 1 is block_id — skipped
   Block block = 2;
   // field 3 is sdk_block (SDK ≥ 0.47) — skipped
@@ -109,12 +122,56 @@ message GetLatestValidatorSetResponse {
   // field 3 is PageResponse — skipped
 }
 
+message GetValidatorSetByHeightRequest {
+  int64 height = 1;
+  PageRequest pagination = 2;
+}
+
+message GetValidatorSetByHeightResponse {
+  int64 block_height = 1;
+  repeated Validator validators = 2;
+  // field 3 is PageResponse — skipped
+}
+
 // cosmos.base.tendermint.v1beta1.Validator (address is bech32 string).
 message Validator {
   string address = 1;
   google.protobuf.Any pub_key = 2;
   int64 voting_power = 3;
   int64 proposer_priority = 4;
+}
+
+// ── ABCI Query ────────────────────────────────────────────────────────────────
+
+message ABCIQueryRequest {
+  bytes data = 1;
+  string path = 2;
+  int64 height = 3;
+  bool prove = 4;
+}
+
+message ABCIQueryResponse {
+  uint32 code = 1;
+  // field 2 is reserved
+  // field 3 is reserved
+  string log = 4;
+  string info = 5;
+  int64 index = 6;
+  bytes key = 7;
+  bytes value = 8;
+  ProofOps proof_ops = 9;
+  int64 height = 10;
+  string codespace = 11;
+}
+
+message ProofOps {
+  repeated ProofOp ops = 1;
+}
+
+message ProofOp {
+  string type = 1;
+  bytes key = 2;
+  bytes data = 3;
 }
 
 // Minimal cosmos.base.query.v1beta1.PageRequest.
