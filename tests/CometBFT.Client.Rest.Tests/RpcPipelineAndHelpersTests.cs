@@ -134,6 +134,26 @@ public sealed class RpcPipelineAndHelpersTests : IDisposable
         await Assert.ThrowsAsync<CometBftRestException>(() => _client.GetNetInfoAsync());
     }
 
+    [Fact]
+    public async Task GetRpcResultNodeAsync_ErrorWithoutMessage_UsesFallbackMessage()
+    {
+        _server
+            .Given(Request.Create().WithPath("/net_info").UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(HttpStatusCode.OK)
+                .WithHeader("Content-Type", "application/json")
+                .WithBody("""
+                {
+                  "jsonrpc":"2.0",
+                  "id":1,
+                  "error":{"code":5}
+                }
+                """));
+
+        var ex = await Assert.ThrowsAsync<CometBftRestException>(() => _client.GetNetInfoAsync());
+        Assert.Equal("Unknown RPC error.", ex.Message);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // PostRpcResultAsync<T> — error branches (lines 113/115)
     // ReadRpcResponseAsync — error branches (lines 133/135, 140, 145-147, 152)
