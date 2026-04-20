@@ -15,18 +15,15 @@ internal sealed class DashboardBackgroundService : BackgroundService
 
     private readonly ICometBftWebSocketClient _ws;
     private readonly ICometBftRestClient _rest;
-    private readonly ICometBftSdkGrpcClient _grpc;
     private readonly MainWindowViewModel _vm;
 
     public DashboardBackgroundService(
         ICometBftWebSocketClient ws,
         ICometBftRestClient rest,
-        ICometBftSdkGrpcClient grpc,
         MainWindowViewModel vm)
     {
         _ws = ws;
         _rest = rest;
-        _grpc = grpc;
         _vm = vm;
     }
 
@@ -111,7 +108,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
     {
         try
         {
-            var block = await _grpc.GetLatestBlockAsync().ConfigureAwait(false);
+            var block = await _rest.GetBlockAsync().ConfigureAwait(false);
             var row = new BlockRow(
                 block.Height,
                 block.Time.ToString("HH:mm:ss"),
@@ -182,7 +179,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
     {
         try
         {
-            var (nodeInfo, syncInfo) = await _grpc.GetStatusAsync(ct).ConfigureAwait(false);
+            var (nodeInfo, syncInfo) = await _rest.GetStatusAsync(ct).ConfigureAwait(false);
             _vm.ChainId = nodeInfo.Network;
             _vm.Moniker = nodeInfo.Moniker;
             _vm.NodeId = nodeInfo.Id[..Math.Min(16, nodeInfo.Id.Length)] + "…";
@@ -199,7 +196,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
     {
         try
         {
-            var validators = await _grpc.GetLatestValidatorsAsync(ct).ConfigureAwait(false);
+            var validators = await _rest.GetValidatorsAsync(cancellationToken: ct).ConfigureAwait(false);
             var sorted = validators.OrderByDescending(v => v.VotingPower).ToList();
             var totalPower = sorted.Sum(v => (double)v.VotingPower);
             var rows = sorted

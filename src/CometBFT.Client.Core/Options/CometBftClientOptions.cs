@@ -1,8 +1,8 @@
 namespace CometBFT.Client.Core.Options;
 
 /// <summary>
-/// Aggregated configuration options for the full CometBFT client stack
-/// (REST, gRPC, Cosmos SDK gRPC, and WebSocket).
+/// Aggregated configuration options for the CometBFT client stack
+/// (REST, gRPC BroadcastAPI, and WebSocket).
 /// All URL defaults target the same public Cosmos Hub mainnet operator (Lava Network).
 /// </summary>
 public sealed class CometBftClientOptions
@@ -14,7 +14,7 @@ public sealed class CometBftClientOptions
     public string RestBaseUrl { get; set; } = "https://cosmoshub.tendermintrpc.lava.build:443";
 
     /// <summary>
-    /// Gets or sets the gRPC endpoint (serves both CometBFT raw gRPC and Cosmos SDK gRPC).
+    /// Gets or sets the gRPC endpoint for the CometBFT BroadcastAPI (<c>tendermint.rpc.grpc.v1beta1</c>).
     /// Defaults to the Lava Network public Cosmos Hub relay.
     /// </summary>
     public string GrpcBaseUrl { get; set; } = "https://cosmoshub.grpc.lava.build:443";

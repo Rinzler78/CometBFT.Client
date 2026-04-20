@@ -170,7 +170,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers the complete CometBFT client stack: REST, raw gRPC, Cosmos SDK gRPC, and WebSocket.
+    /// Registers the complete CometBFT client stack: REST, gRPC BroadcastAPI, and WebSocket.
     /// All clients are configured from a single <see cref="CometBftClientOptions"/> instance.
     /// Default URLs target the Lava Network public Cosmos Hub mainnet relay.
     /// </summary>
@@ -200,39 +200,7 @@ public static class ServiceCollectionExtensions
 
         services.AddCometBftGrpc(o => o.BaseUrl = opts.GrpcBaseUrl);
 
-        services.AddCometBftSdkGrpc(o =>
-        {
-            o.BaseUrl = opts.GrpcBaseUrl;
-            o.Timeout = opts.Timeout;
-        });
-
         services.AddCometBftWebSocket(o => o.BaseUrl = opts.WebSocketBaseUrl);
-
-        return services;
-    }
-
-    /// <summary>
-    /// Registers the Cosmos SDK gRPC client (<c>cosmos.base.tendermint.v1beta1.Service</c>)
-    /// and its dependencies.
-    /// </summary>
-    /// <param name="services">The service collection to add services to.</param>
-    /// <param name="configure">An action to configure <see cref="CometBftSdkGrpcOptions"/>.</param>
-    /// <returns>The <paramref name="services"/> for fluent chaining.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="services"/> or <paramref name="configure"/> is <c>null</c>.</exception>
-    public static IServiceCollection AddCometBftSdkGrpc(
-        this IServiceCollection services,
-        Action<CometBftSdkGrpcOptions> configure)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(configure);
-
-        // Validate eagerly at registration time using a temporary instance.
-        var tempOptions = new CometBftSdkGrpcOptions();
-        configure(tempOptions);
-        tempOptions.Validate();
-
-        services.Configure<CometBftSdkGrpcOptions>(configure);
-        services.AddSingleton<ICometBftSdkGrpcClient, CometBftSdkGrpcClient>();
 
         return services;
     }

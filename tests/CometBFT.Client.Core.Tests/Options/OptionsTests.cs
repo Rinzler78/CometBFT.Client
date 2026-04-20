@@ -156,33 +156,6 @@ public sealed class OptionsTests
         Assert.Throws<InvalidOperationException>(opts.Validate);
     }
 
-    // ── CometBftSdkGrpcOptions.Validate() ───────────────────────────────────
-
-    [Fact]
-    public void CometBftSdkGrpcOptions_Validate_ValidDefaults_DoesNotThrow()
-    {
-        var opts = new CometBftSdkGrpcOptions();
-        var ex = Record.Exception(opts.Validate);
-        Assert.Null(ex);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("not-a-uri")]
-    public void CometBftSdkGrpcOptions_Validate_InvalidBaseUrl_Throws(string baseUrl)
-    {
-        var opts = new CometBftSdkGrpcOptions { BaseUrl = baseUrl };
-        Assert.Throws<InvalidOperationException>(opts.Validate);
-    }
-
-    [Fact]
-    public void CometBftSdkGrpcOptions_Validate_ZeroTimeout_Throws()
-    {
-        var opts = new CometBftSdkGrpcOptions { Timeout = TimeSpan.Zero };
-        Assert.Throws<InvalidOperationException>(opts.Validate);
-    }
-
     // ── CometBftClientOptions (aggregated options, no Validate) ─────────────
 
     [Fact]

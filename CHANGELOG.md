@@ -7,9 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+> **Breaking-change notice**
+> This change removes public API members (`ICometBftSdkGrpcClient`,
+> `CometBftSdkGrpcClient`, `CometBftSdkGrpcOptions`, and `AddCometBftSdkGrpc`).
+> Per the repository SemVer rules, the next release containing this change MUST
+> be a **major** release.
+
+### Breaking
+- Removed the Cosmos SDK gRPC layer from `Rinzler78.CometBFT.Client`.
+- Consumers must migrate `cosmos.base.tendermint.v1beta1` usage to
+  `Rinzler78.Cosmos.Client`.
+- Consumers using `AddCometBftClient()` now receive CometBFT-native transports only:
+  REST, WebSocket, and the native gRPC BroadcastAPI.
+
+### Removed
+- `ICometBftSdkGrpcClient`, `CometBftSdkGrpcClient`, `CometBftSdkGrpcOptions` —
+  `cosmos.base.tendermint.v1beta1.Service` is a Cosmos SDK addition and does not
+  belong in the CometBFT layer. These types move to `Rinzler78.Cosmos.Client`.
+- `AddCometBftSdkGrpc()` DI extension method — removed with the types above.
+- `cosmos/base/tendermint/v1beta1/query.proto` and its generated C# stubs —
+  removed from `CometBFT.Client.Grpc`.
+- `--grpc-url` CLI flag and `COMETBFT_GRPC_URL` env var from the demo dashboard —
+  the dashboard now uses REST only (WebSocket + REST are sufficient).
+
+### Changed
+- `AddCometBftClient()` now registers REST + gRPC BroadcastAPI + WebSocket only
+  (previously also registered SDK gRPC).
+- `DashboardBackgroundService` replaces the three `ICometBftSdkGrpcClient` calls
+  with their `ICometBftRestClient` equivalents:
+  `GetLatestBlockAsync()` → `GetBlockAsync()`,
+  `GetStatusAsync()` → `GetStatusAsync()`,
+  `GetLatestValidatorsAsync()` → `GetValidatorsAsync()`.
+- `CometBftClientOptions` doc comment updated to reflect REST + gRPC BroadcastAPI + WebSocket scope.
+- `DemoDefaults.GrpcUrl` comment updated: no longer mentions `ICometBftSdkGrpcClient`.
+
 ### Added
 - Unified real-time Avalonia 12 dashboard (`samples/CometBFT.Client.Demo.Dashboard/`)
-  combining WebSocket events, REST polling, and Cosmos SDK gRPC data in a single window
+  combining WebSocket events and REST polling in a single window
   with a Mintscan-inspired dark design system (deep-navy palette, KPI stats row,
   validators with voting-power `ProgressBar`, blocks and transactions side by side,
   event log with category-typed entries)

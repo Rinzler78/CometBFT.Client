@@ -13,7 +13,7 @@ Subsequent improvements delivered on `develop` after the initial completion:
 
 - **WebSocketMessageParser extraction** (`8826ee4`): parsing logic decoupled from `CometBftWebSocketClient` into a dedicated `WebSocketMessageParser` with unit tests.
 - **SOLID/clean-code remediation phases 1–9** (`319d110`): single-responsibility split, dependency inversion via internal interfaces, dead-code removal, and naming consistency across all source projects.
-- **Cosmos SDK gRPC client** (`344c572`): added `ICometBftSdkGrpcClient` / `CometBftSdkGrpcClient` targeting the Cosmos SDK `cosmos.tx.v1beta1` gRPC surface; demo-grpc extended with full block-polling and Cosmos TX panels; `AddCometBftSdkGrpc` DI extension added.
+- **Cosmos SDK gRPC experiment (later removed)** (`344c572`): `ICometBftSdkGrpcClient` / `CometBftSdkGrpcClient` were temporarily added to target a Cosmos SDK proto namespace. This was later identified as a layer violation and removed from `CometBFT.Client`; the functionality moves to `Rinzler78.Cosmos.Client` where it belongs.
 - **Coverage at 97 %** (`0769c8e`): URL scheme fix, clean shutdown, and test suite expansion raised global line coverage from 90 % to 97 %.
 
 ## Reality Gaps Closed During Reconciliation
@@ -35,8 +35,8 @@ Subsequent improvements delivered on `develop` after the initial completion:
 - **Domain Core** (`CometBFT.Client.Core`): Immutable `record` types — `Block`, `BlockHeader`, `TxResult`, `Event`, `Attribute`, `NodeInfo`, `SyncInfo`, `Validator`; segregated interfaces per service
 - **REST client** (`CometBFT.Client.Rest`): All public CometBFT RPC HTTP endpoints; `HttpClient` + Polly retry + circuit breaker; `CometBftRestOptions`; `CometBftRestException`
 - **WebSocket client** (`CometBFT.Client.WebSocket`): All event types (NewBlock, NewBlockHeader, Tx, Vote, ValidatorSetUpdates); `ICometBftWebSocketClient`; `CometBftWebSocketOptions`; `CometBftWebSocketException`
-- **gRPC client** (`CometBFT.Client.Grpc`): Proto from CometBFT `v0.38.9`; `ICometBftGrpcClient` (`PingAsync`, `BroadcastTxAsync`); `ICometBftSdkGrpcClient` targeting Cosmos SDK `cosmos.tx.v1beta1`; `CometBftGrpcOptions`; `CometBftGrpcException`
-- **DI Extensions** (`CometBFT.Client.Extensions`): `AddCometBftRest()`, `AddCometBftWebSocket()`, `AddCometBftGrpc()`, `AddCometBftSdkGrpc()` on `IServiceCollection`
+- **gRPC client** (`CometBFT.Client.Grpc`): Proto from CometBFT `v0.38.9`; `ICometBftGrpcClient` exposing the native CometBFT BroadcastAPI only (`PingAsync`, `BroadcastTxAsync`); `CometBftGrpcOptions`; `CometBftGrpcException`
+- **DI Extensions** (`CometBFT.Client.Extensions`): `AddCometBftRest()`, `AddCometBftWebSocket()`, `AddCometBftGrpc()`, and `AddCometBftClient()` on `IServiceCollection`
 - **Tests ≥ 90 %**: Unit tests with WireMock.Net (REST), NSubstitute (gRPC/WebSocket); integration tests and E2E tests against real public CometBFT endpoints, with CI pinned to a validated Cosmos Hub endpoint set; effective coverage 97 %
 - **Documentation**: XML doc on all public members (`TreatWarningsAsErrors`), README with badges + quickstart, CHANGELOG tracking protocol version, DocFX API reference, samples per transport
 - **CI/CD**: `ci.yml` (build + lint + unit/integration/E2E + coverage gate), `publish.yml` (pack + push on release tag)
@@ -55,7 +55,7 @@ preserved for backward-compatibility.
 | Options | `CometBftRest/WebSocket/GrpcOptions` (applied) | — |
 | Exceptions | `CometBftClientException` + sub-types | `CometBftClientException` + sub-types |
 | JSON context | `CometBftJsonContext` | `CometBftJsonContext` |
-| DI extensions | `AddCometBftRest/WebSocket/Grpc` | `AddCometBftRest/WebSocket/Grpc/SdkGrpc` |
+| DI extensions | `AddCometBftRest/WebSocket/Grpc` | `AddCometBftRest/WebSocket/Grpc` + `AddCometBftClient` |
 
 Unchanged (protocol wire): `GrpcProtocol.TendermintLegacy`, namespace `CometBFT.Client.Grpc.LegacyProto`, proto package `tendermint.rpc.grpc`.
 
