@@ -198,7 +198,11 @@ public static class ServiceCollectionExtensions
             o.RetryDelay = opts.RetryDelay;
         });
 
-        services.AddCometBftGrpc(o => o.BaseUrl = opts.GrpcBaseUrl);
+        services.AddCometBftGrpc(o =>
+        {
+            o.BaseUrl = opts.GrpcBaseUrl;
+            o.Timeout = opts.Timeout;
+        });
 
         services.AddCometBftWebSocket(o => o.BaseUrl = opts.WebSocketBaseUrl);
 

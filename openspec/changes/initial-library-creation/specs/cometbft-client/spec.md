@@ -189,8 +189,8 @@ The gRPC client SHALL be compiled from the proto files of the latest stable Come
 (`/proto/cometbft/`) and expose the native CometBFT gRPC surface only. All methods SHALL be
 async with `CancellationToken` support.
 
-**CometBFT native gRPC scope** : The proto `tendermint.rpc.grpc.v1beta1.BroadcastAPI` (and
-its legacy alias `tendermint.rpc.grpc`) exposes exactly two RPCs: `Ping` and `BroadcastTx`.
+**CometBFT native gRPC scope** : The proto `cometbft.rpc.grpc.BroadcastAPI` (and its
+legacy alias `tendermint.rpc.grpc.BroadcastAPI`) exposes exactly two RPCs: `Ping` and `BroadcastTx`.
 This is the complete CometBFT-native gRPC surface. All other node data (status, blocks,
 validators, syncing) is available via the REST client (`ICometBftRestClient`).
 

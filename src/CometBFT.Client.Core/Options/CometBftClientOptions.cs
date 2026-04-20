@@ -14,7 +14,8 @@ public sealed class CometBftClientOptions
     public string RestBaseUrl { get; set; } = "https://cosmoshub.tendermintrpc.lava.build:443";
 
     /// <summary>
-    /// Gets or sets the gRPC endpoint for the CometBFT BroadcastAPI (<c>tendermint.rpc.grpc.v1beta1</c>).
+    /// Gets or sets the gRPC endpoint for the CometBFT BroadcastAPI
+    /// (<c>cometbft.rpc.grpc</c>, legacy <c>tendermint.rpc.grpc</c>).
     /// Defaults to the Lava Network public Cosmos Hub relay.
     /// </summary>
     public string GrpcBaseUrl { get; set; } = "https://cosmoshub.grpc.lava.build:443";

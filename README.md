@@ -138,9 +138,9 @@ services.AddCometBftWebSocket<MyTx>(options => { ... }, new MyTxCodec());
 
 Two gRPC clients are available depending on which proto the target node exposes.
 
-**`ICometBftGrpcClient`** — original CometBFT BroadcastAPI proto
-(`tendermint.rpc.grpc.v1beta1`). Use this when the node only exposes the
-raw CometBFT gRPC surface:
+**`ICometBftGrpcClient`** — CometBFT native BroadcastAPI proto
+(`cometbft.rpc.grpc`, legacy `tendermint.rpc.grpc`). Use this when the node
+only exposes the raw CometBFT gRPC surface:
 
 ```csharp
 services.AddCometBftGrpc(options =>

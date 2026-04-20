@@ -155,6 +155,17 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public void AddCometBftClient_PropagatesTimeoutToRestAndGrpc()
+    {
+        var services = new ServiceCollection();
+        services.AddCometBftClient(options => options.Timeout = TimeSpan.FromSeconds(12));
+        var provider = services.BuildServiceProvider();
+
+        Assert.Equal(TimeSpan.FromSeconds(12), provider.GetRequiredService<IOptions<CometBftRestOptions>>().Value.Timeout);
+        Assert.Equal(TimeSpan.FromSeconds(12), provider.GetRequiredService<IOptions<CometBftGrpcOptions>>().Value.Timeout);
+    }
+
+    [Fact]
     public void AddCometBftClient_NullServices_ThrowsArgumentNullException()
     {
         IServiceCollection services = null!;

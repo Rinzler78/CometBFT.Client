@@ -7,7 +7,8 @@ namespace CometBFT.Client.Demo.Shared;
 /// IMPORTANT — endpoint type distinction:
 ///   RpcUrl / WsUrl → CometBFT JSON-RPC (consensus layer, tendermintrpc)
 ///   GrpcUrl        → CometBFT BroadcastAPI gRPC relay —
-///                    exposes <c>tendermint.rpc.grpc.v1beta1.BroadcastAPI</c>
+///                    exposes <c>cometbft.rpc.grpc.BroadcastAPI</c>
+///                    (legacy alias: <c>tendermint.rpc.grpc.BroadcastAPI</c>)
 ///                    (used by <c>ICometBftGrpcClient</c>)
 /// </summary>
 public static class DemoDefaults
@@ -17,7 +18,9 @@ public static class DemoDefaults
 
     /// <summary>
     /// gRPC endpoint — Lava Network relay, Cosmos Hub mainnet.
-    /// Exposes <c>tendermint.rpc.grpc.v1beta1.BroadcastAPI</c> (for <c>ICometBftGrpcClient</c>).
+    /// Exposes <c>cometbft.rpc.grpc.BroadcastAPI</c>
+    /// (legacy alias: <c>tendermint.rpc.grpc.BroadcastAPI</c>)
+    /// for <c>ICometBftGrpcClient</c>.
     /// </summary>
     public const string GrpcUrl = "https://cosmoshub.grpc.lava.build:443";
 
