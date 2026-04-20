@@ -118,7 +118,11 @@ services.AddCometBftWebSocket<MyTx>(options => { ... }, new MyTxCodec());
 
 ### gRPC Transport
 
-**CometBFT BroadcastAPI** (legacy Tendermint proto):
+Two gRPC clients are available depending on which proto the target node exposes.
+
+**`ICometBftGrpcClient`** — original CometBFT BroadcastAPI proto
+(`tendermint.rpc.grpc.v1beta1`). Use this when the node only exposes the
+raw CometBFT gRPC surface:
 
 ```csharp
 services.AddCometBftGrpc(options =>
@@ -130,10 +134,14 @@ services.AddCometBftGrpc(options =>
 var grpc = provider.GetRequiredService<ICometBftGrpcClient>();
 
 bool alive = await grpc.PingAsync();
-Console.WriteLine($"gRPC ping: {alive}");
 ```
 
-**Cosmos SDK gRPC** (`cosmos.base.tendermint.v1beta1` — available on most Cosmos nodes):
+**`ICometBftSdkGrpcClient`** — `cosmos.base.tendermint.v1beta1.Service`
+proto. This is the **CometBFT consensus service** that the Cosmos SDK
+standardised in its proto namespace: it exposes node status, blocks, and
+validator sets — still strictly consensus-layer data, not Cosmos application
+modules (bank, staking, governance, etc.). Most nodes running a Cosmos SDK
+application expose this service alongside the standard CometBFT REST API:
 
 ```csharp
 services.AddCometBftSdkGrpc(options =>
@@ -146,14 +154,23 @@ var sdk = provider.GetRequiredService<ICometBftSdkGrpcClient>();
 var (nodeInfo, syncInfo) = await sdk.GetStatusAsync();
 bool syncing             = await sdk.GetSyncingAsync();
 var latestBlock          = await sdk.GetLatestBlockAsync();
-var blockAtHeight        = await sdk.GetBlockByHeightAsync(height: 1234567);
+var blockAtHeight        = await sdk.GetBlockByHeightAsync(height: 1_234_567);
 var latestValidators     = await sdk.GetLatestValidatorsAsync();
-var validatorsAtHeight   = await sdk.GetValidatorSetByHeightAsync(height: 1234567);
-var abciResult           = await sdk.ABCIQueryAsync(path: "/cosmos.bank.v1beta1.Query/Balance",
-                                                     data: Array.Empty<byte>(),
-                                                     height: 0,
-                                                     prove: false);
+var validatorsAtHeight   = await sdk.GetValidatorSetByHeightAsync(height: 1_234_567);
+
+// ABCIQueryAsync tunnels a raw ABCI query through the consensus layer.
+// Use it to reach application-layer modules only when no higher-level
+// client (e.g. Rinzler78.Cosmos.Client) is available.
+var abciResult = await sdk.ABCIQueryAsync(
+    path: "/store/bank/key",
+    data: Array.Empty<byte>(),
+    height: 0,
+    prove: false);
 ```
+
+> **Scope boundary** — `ICometBftSdkGrpcClient` is limited to CometBFT
+> consensus data. For Cosmos SDK application modules (bank balances, staking
+> validators, governance proposals, etc.) use `Rinzler78.Cosmos.Client`.
 
 ## Architecture
 
