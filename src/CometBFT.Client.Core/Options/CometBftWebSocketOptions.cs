@@ -22,6 +22,12 @@ public sealed class CometBftWebSocketOptions
     public TimeSpan ErrorReconnectTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
+    /// Gets or sets the maximum time to wait for a subscribe acknowledgment from the server.
+    /// Defaults to 30 seconds.
+    /// </summary>
+    public TimeSpan SubscribeAckTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// Validates the current options and throws <see cref="InvalidOperationException"/> if any value is invalid.
     /// Called automatically during DI registration.
     /// </summary>
@@ -40,6 +46,9 @@ public sealed class CometBftWebSocketOptions
 
         if (ErrorReconnectTimeout <= TimeSpan.Zero)
             errors.Add($"{nameof(ErrorReconnectTimeout)} must be positive.");
+
+        if (SubscribeAckTimeout <= TimeSpan.Zero)
+            errors.Add($"{nameof(SubscribeAckTimeout)} must be positive.");
 
         if (errors.Count > 0)
             throw new InvalidOperationException(

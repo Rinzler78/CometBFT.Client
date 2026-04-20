@@ -164,4 +164,34 @@ public sealed class ServiceCollectionExtensionsTests
         Assert.Throws<ArgumentNullException>(
             () => services.AddCometBftWebSocket<string>(_ => { }, null!));
     }
+
+    // ── AddCometBftClient ────────────────────────────────────────────────────
+
+    [Fact]
+    public void AddCometBftClient_RegistersFullStack()
+    {
+        var services = new ServiceCollection();
+        services.AddCometBftClient();
+        var provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetRequiredService<ICometBftRestClient>());
+        Assert.NotNull(provider.GetRequiredService<ICometBftGrpcClient>());
+        Assert.NotNull(provider.GetRequiredService<ICometBftSdkGrpcClient>());
+        Assert.NotNull(provider.GetRequiredService<ICometBftWebSocketClient>());
+    }
+
+    [Fact]
+    public void AddCometBftClient_NullServices_ThrowsArgumentNullException()
+    {
+        IServiceCollection services = null!;
+        Assert.Throws<ArgumentNullException>(() => services.AddCometBftClient());
+    }
+
+    [Fact]
+    public void AddCometBftClient_WithNullConfigure_UsesDefaults()
+    {
+        var services = new ServiceCollection();
+        var ex = Record.Exception(() => services.AddCometBftClient(null));
+        Assert.Null(ex);
+    }
 }

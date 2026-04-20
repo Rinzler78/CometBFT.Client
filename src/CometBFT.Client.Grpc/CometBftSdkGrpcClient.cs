@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 using Grpc.Core;
 using Grpc.Net.Client;
 using CometBFT.Client.Core.Domain;
@@ -22,12 +21,9 @@ namespace CometBFT.Client.Grpc;
 /// This service is available on all Cosmos-ecosystem nodes that expose port 9090 and is
 /// the recommended way to query chain state from public infrastructure.
 /// </summary>
-// Covered by integration tests (CometBFT.Client.Integration.Tests, Category=Integration).
-// Live gRPC connectivity is required, so unit-test mocking adds no safety signal here.
-[ExcludeFromCodeCoverage]
 public sealed class CometBftSdkGrpcClient : ICometBftSdkGrpcClient
 {
-    private readonly GrpcChannel _channel;
+    private readonly GrpcChannel? _channel;
     private readonly Service.ServiceClient _client;
     private readonly CometBftSdkGrpcOptions _options;
     private bool _disposed;
@@ -54,6 +50,19 @@ public sealed class CometBftSdkGrpcClient : ICometBftSdkGrpcClient
         _channel = channel ?? throw new ArgumentNullException(nameof(channel));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _client = new Service.ServiceClient(channel);
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="CometBftSdkGrpcClient"/> with an injected client.
+    /// Allows injecting a <see cref="Service.ServiceClient"/> backed by a fake call invoker for unit tests.
+    /// </summary>
+    internal CometBftSdkGrpcClient(Service.ServiceClient client, CometBftSdkGrpcOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(options);
+        _channel = null!;
+        _client = client;
+        _options = options;
     }
 
     /// <inheritdoc />
@@ -362,8 +371,11 @@ public sealed class CometBftSdkGrpcClient : ICometBftSdkGrpcClient
             return;
 
         _disposed = true;
-        await _channel.ShutdownAsync().ConfigureAwait(false);
-        _channel.Dispose();
+        if (_channel is not null)
+        {
+            await _channel.ShutdownAsync().ConfigureAwait(false);
+            _channel.Dispose();
+        }
     }
 
     private static DomainBlock MapBlock(ProtoBlock? block)

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Description>CometBFT/Tendermint WebSocket subscription client. Protocol version v0.38.9.</Description>
     <PackageTags>tendermint;cometbft;blockchain;websocket;realtime</PackageTags>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
