@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Description>CometBFT/Tendermint gRPC client implementation. Protocol version v0.38.9.</Description>
     <PackageTags>tendermint;cometbft;blockchain;grpc;protobuf</PackageTags>
-    <Version>0.1.0</Version>
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,8 +34,6 @@
     <Protobuf Include="Proto\cometbft\rpc\grpc\grpc.proto" GrpcServices="Client" />
     <!-- Legacy Tendermint Core gRPC broadcast service proto (backward compat) -->
     <Protobuf Include="Proto\tendermint\rpc\grpc\grpc.proto" GrpcServices="Client" />
-    <!-- Cosmos SDK gRPC: cosmos.base.tendermint.v1beta1.Service (widely available on port 9090) -->
-    <Protobuf Include="Proto\cosmos\base\tendermint\v1beta1\query.proto" GrpcServices="Client" />
   </ItemGroup>
 
 </Project>

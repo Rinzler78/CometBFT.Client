@@ -183,11 +183,24 @@ The WebSocket client SHALL subscribe to all CometBFT event types defined in the 
 
 ---
 
-### Requirement: Complete gRPC Client Coverage (CometBFT + Cosmos SDK Tx)
+### Requirement: Complete gRPC Client Coverage (CometBFT native BroadcastAPI)
 
-The gRPC client SHALL be compiled from the proto files of the latest stable CometBFT release (`/proto/cometbft/`) and expose all available gRPC services. An additional `ICometBftSdkGrpcClient` SHALL target `cosmos.tx.v1beta1` from the Cosmos SDK. All methods SHALL be async with `CancellationToken` support.
+The gRPC client SHALL be compiled from the proto files of the latest stable CometBFT release
+(`/proto/cometbft/`) and expose the native CometBFT gRPC surface only. All methods SHALL be
+async with `CancellationToken` support.
 
-**Wire protocol note** : The proto package `tendermint.rpc.grpc` and the enum value `GrpcProtocol.TendermintLegacy` are intentionally preserved for backward-compatibility with legacy CometBFT nodes — these are not renamed.
+**CometBFT native gRPC scope** : The proto `cometbft.rpc.grpc.BroadcastAPI` (and its
+legacy alias `tendermint.rpc.grpc.BroadcastAPI`) exposes exactly two RPCs: `Ping` and `BroadcastTx`.
+This is the complete CometBFT-native gRPC surface. All other node data (status, blocks,
+validators, syncing) is available via the REST client (`ICometBftRestClient`).
+
+**Note** : `cosmos.base.tendermint.v1beta1.Service` is a Cosmos SDK proto that provides a
+gRPC interface for CometBFT consensus data. It does NOT belong in this library — it is
+part of `Rinzler78.Cosmos.Client` which depends on this package.
+
+**Wire protocol note** : The proto package `tendermint.rpc.grpc` and the enum value
+`GrpcProtocol.TendermintLegacy` are intentionally preserved for backward-compatibility with
+legacy CometBFT nodes — these are not renamed.
 
 #### Scenario: PingAsync returns without error
 - **WHEN** `PingAsync(CancellationToken)` is called via gRPC
@@ -196,10 +209,6 @@ The gRPC client SHALL be compiled from the proto files of the latest stable Come
 #### Scenario: BroadcastTxAsync returns typed response
 - **WHEN** `BroadcastTxAsync(txBytes, CancellationToken)` is called via gRPC
 - **THEN** a `ResponseBroadcastTx` record is returned
-
-#### Scenario: Cosmos SDK gRPC GetTxAsync returns typed TxResponse
-- **WHEN** `GetTxAsync(txHash, CancellationToken)` is called via `ICometBftSdkGrpcClient`
-- **THEN** a typed `TxResponse` record is returned
 
 #### Scenario: gRPC client throws CometBftGrpcException on unavailable
 - **WHEN** the gRPC server is unreachable after Polly retries
@@ -222,10 +231,6 @@ The library SHALL provide `IServiceCollection` extension methods for registering
 #### Scenario: AddCometBftGrpc registers ICometBftGrpcClient
 - **WHEN** `services.AddCometBftGrpc(opts => opts.BaseUrl = "http://localhost:9090")` is called
 - **THEN** `services.GetRequiredService<ICometBftGrpcClient>()` resolves without error
-
-#### Scenario: AddCometBftSdkGrpc registers ICometBftSdkGrpcClient
-- **WHEN** `services.AddCometBftSdkGrpc(opts => opts.BaseUrl = "http://localhost:9090")` is called
-- **THEN** `services.GetRequiredService<ICometBftSdkGrpcClient>()` resolves without error
 
 ---
 
@@ -627,12 +632,15 @@ Rinzler78.Osmosis.Client    (depends on Cosmos.Client, transitively on this pack
 
 **Interface inheritance chain:**
 ```
-ICometBftSdkGrpcClient  ← defined here
-    ↑ extends
-ICosmosGrpcClient       (defined in Cosmos.Client)
-    ↑ extends
-IOsmosisGrpcClient      (defined in Osmosis.Client)
+ICometBftGrpcClient     (CometBFT native BroadcastAPI, defined here)
+    ↑ consumed by
+ICosmosGrpcClient       (cosmos.base.tendermint.v1beta1 + SDK modules, defined in Cosmos.Client)
+    ↑ consumed by
+IOsmosisGrpcClient      (Osmosis modules, defined in Osmosis.Client)
 ```
+
+> `ICometBftSdkGrpcClient` (`cosmos.base.tendermint.v1beta1.Service`) is NOT defined here.
+> It belongs in `Rinzler78.Cosmos.Client` which depends on this package.
 
 #### Scenario: No upstream Rinzler78 package reference
 - **WHEN** `CometBFT.Client.Extensions.csproj` is inspected
@@ -641,7 +649,7 @@ IOsmosisGrpcClient      (defined in Osmosis.Client)
 
 #### Scenario: Public interfaces and models are consumable by downstream libraries
 - **WHEN** `Rinzler78.Cosmos.Client` is compiled with a reference to `Rinzler78.CometBFT.Client`
-- **THEN** `ICometBftRestClient`, `ICometBftWebSocketClient`, `ICometBftGrpcClient`, `ICometBftSdkGrpcClient`, and all domain records (`Block`, `TxResult`, `Event`, `Attribute`…) resolve without error
+- **THEN** `ICometBftRestClient`, `ICometBftWebSocketClient`, `ICometBftGrpcClient`, and all domain records (`Block`, `TxResult`, `Event`, `Attribute`…) resolve without error
 - **AND** downstream libraries extend interfaces and compose domain types without redefining them
 
 ---
@@ -661,55 +669,191 @@ The repository SHALL produce exactly **one** NuGet package: `Rinzler78.CometBFT.
 
 ---
 
-### Requirement: Demo REST (`samples/CometBFT.Client.Demo.Rest/`)
+### Requirement: Demo Console Sample (`samples/CometBFT.Client.Sample/`)
 
-The repository SHALL provide a REST demo that connects to a real CometBFT RPC endpoint, calls all public REST endpoints grouped by category, and displays results in a live Spectre.Console dashboard refreshed every 10 seconds.
+The repository SHALL provide a minimal console application that exercises all three transports
+sequentially to serve as a quick integration reference.
 
-**Config** : `COMETBFT_RPC_URL` env var or `--rpc-url` CLI arg. Exit with usage message if absent.
+**Config** : `COMETBFT_RPC_URL`, `COMETBFT_WS_URL`, `COMETBFT_GRPC_URL` env vars
+or `--rpc-url`, `--ws-url`, `--grpc-url` CLI args. Falls back to Cosmos Hub mainnet defaults.
 
-#### Scenario: REST demo starts and renders full dashboard
-- **WHEN** the REST demo is run with a valid `COMETBFT_RPC_URL`
-- **THEN** a Spectre.Console dashboard renders with panels for all endpoint groups and populates on startup
-- **AND** all panels refresh every 10 seconds
+> The console sample exercises all three CometBFT-native transports. The unified dashboard below
+> uses only WebSocket + REST.
 
-#### Scenario: REST demo covers all endpoint groups
-- **WHEN** the refresh cycle runs
-- **THEN** the following are called and displayed:
-  - **Info** : `GetStatusAsync()`, `GetNetInfoAsync()`, `GetHealthAsync()`, `GetBlockAsync(latest)`, `GetBlockResultsAsync(latest)`, `GetValidatorsAsync(latest)`, `GetConsensusStateAsync()`
-  - **ABCI** : `GetAbciInfoAsync()`
-  - **Mempool** : `GetNumUnconfirmedTxsAsync()`
-- **AND** each panel shows call timestamp and latency in ms
+#### Scenario: Console sample exercises REST, WebSocket and gRPC in sequence
+- **WHEN** the sample is run with valid endpoint env vars
+- **THEN** it calls at least one REST endpoint, subscribes to one WebSocket event stream
+  for a bounded duration, calls at least one gRPC method, and exits 0 without error
 
 ---
 
-### Requirement: Demo WebSocket (`samples/CometBFT.Client.Demo.WebSocket/`)
-
-The repository SHALL provide a WebSocket demo that subscribes to all CometBFT event types and displays incoming events in a live Spectre.Console feed.
-
-**Config** : `COMETBFT_WS_URL` env var or `--ws-url` CLI arg.
-
-#### Scenario: WebSocket demo subscribes to all event types
-- **WHEN** the WebSocket demo starts with a valid `COMETBFT_WS_URL`
-- **THEN** it subscribes to `NewBlock`, `NewBlockHeader`, `Tx`, `Vote`, and `ValidatorSetUpdates`
-- **AND** each received event is displayed with event type, height, and timestamp
-
-#### Scenario: WebSocket demo reconnects on disconnect
-- **WHEN** the WebSocket connection drops
-- **THEN** the demo logs a WARN and attempts reconnection before resuming the event feed
+> **Note — transport-specific Spectre.Console demos removed (v0.2.0)**
+>
+> `samples/CometBFT.Client.Demo.Rest/`, `samples/CometBFT.Client.Demo.WebSocket/`, and
+> `samples/CometBFT.Client.Demo.Grpc/` were consolidated into the unified Avalonia dashboard
+> below. The scripts `demo-rest.sh`, `demo-ws.sh`, and `demo-grpc.sh` no longer exist;
+> use `./scripts/demo.sh` instead.
 
 ---
 
-### Requirement: Demo gRPC (`samples/CometBFT.Client.Demo.Grpc/`)
+### Requirement: Demo Unified Dashboard (`samples/CometBFT.Client.Demo.Dashboard/`)
 
-The repository SHALL provide a gRPC demo that connects to a real CometBFT gRPC endpoint, calls all available gRPC services, and displays results in a live Spectre.Console dashboard.
+The repository SHALL provide a unified, real-time Avalonia 12 desktop dashboard that aggregates WebSocket events and REST polling into a single persistent window. The dashboard connects to WebSocket and REST simultaneously and updates live as new blocks, transactions, and events arrive.
 
-**Config** : `COMETBFT_GRPC_URL` env var or `--grpc-url` CLI arg.
+**Transports used** : WebSocket (live events) + REST (block enrichment, node status, validators, mempool, net info). The gRPC BroadcastAPI transport (`ICometBftGrpcClient`) is not used by this dashboard.
 
-#### Scenario: gRPC demo starts and renders dashboard
-- **WHEN** the gRPC demo starts with a valid `COMETBFT_GRPC_URL`
-- **THEN** a Spectre.Console dashboard renders with gRPC service panels and populates on startup
+**Stack** : Avalonia 12.0, `Microsoft.Extensions.Hosting`, `CommunityToolkit.Mvvm`, `Avalonia.Controls.DataGrid`, `Avalonia.Themes.Fluent`
+**Config** : `COMETBFT_RPC_URL`, `COMETBFT_WS_URL` env vars or `--rpc-url`, `--ws-url` CLI args. Falls back to validated Cosmos Hub public endpoints.
 
-#### Scenario: gRPC demo covers all services
-- **WHEN** the refresh cycle runs
-- **THEN** the following are called: `PingAsync()`, `BroadcastTxAsync()` (dry-run only), and Cosmos SDK `GetTxAsync()` via `ICometBftSdkGrpcClient`
-- **AND** each panel shows call timestamp and latency in ms
+#### Design System (Mintscan-inspired)
+
+| Token | Value | Usage |
+|---|---|---|
+| Background | `#060b18` | Window background |
+| Card surface | `#0c1426` | All card backgrounds |
+| Card border | `#162039` | All card borders |
+| Cyan accent | `#29b6f6` | Primary accent, validator bars |
+| Mint green | `#69f0ae` | Block heights, LIVE indicator |
+| Warm orange | `#ffb74d` | Transaction accent, pending badge |
+| Lavender | `#b39ddb` | Event log accent |
+| Hash / address | `#40c4ff` | Monospace hash and address fields |
+| Text primary | `#e3eaf5` | Values and labels |
+| Text muted | `#455a64` | Column headers, secondary text |
+
+Window minimum: 1600×960. All cards: `CornerRadius="12"`, `BorderThickness="1"`, `BorderBrush="#162039"`, card header band `Background="#0a1220"`.
+
+#### Layout
+
+```
+┌───────────────────────────────────────────────────────────────────────┐
+│ HEADER (gradient): ⬡  CometBFT  | NODE pill | VERSION pill | SYNCED  │
+│                                                              ● Connected│
+├───────────────────────────────────────────────────────────────────────┤
+│ KPI ROW:  #LATEST BLOCK  |  BLOCK TXS  |  MEMPOOL  |  PEERS          │
+├───────────────┬──────────────────────────────────┬────────────────────┤
+│ Node Info     │  Recent Blocks  │  Recent Txs     │  Event Log        │
+│ (status card) │  (left half)    │  (right half)   │  (typed entries)  │
+│               │                 │                 │                   │
+│ Validators    │                 │                 │                   │
+│ (rank + bar)  │                 │                 │                   │
+└───────────────┴─────────────────┴─────────────────┴────────────────────┘
+```
+
+The center area is a `Grid` with `ColumnDefinitions="*,10,*"` — Recent Blocks and Recent Transactions occupy equal width side by side (not stacked).
+
+#### Header bar
+
+- Gradient background `#060d1e` → `#0a1830`, height 58 px, bottom border `#0e1a30`
+- Left: hex icon `⬡` in `#0d2040` rounded badge, "CometBFT" title (15 px bold), ChainId sub-label
+- Center: NODE pill (Moniker), VERSION pill (NodeVersion), SYNCED pill (`SyncStatusText` + green dot)
+- Right: connection pill (`ConnectionStatus` + green dot), `Background="#0a1e10"`, `BorderBrush="#1a3a20"`
+
+#### KPI stats row
+
+Four headline metrics separated by 1 px dividers. Each metric: label (9 px, `#37474f`), large colored number (26 px bold), sub-label (9 px, `#455a64`).
+
+| Metric | Binding | Color |
+|---|---|---|
+| LATEST BLOCK | `LatestHeight` `StringFormat='#{0:N0}'` Consolas monospace | `#69f0ae` |
+| BLOCK TXS | `LatestBlockTxCount` | `#ffb74d` |
+| MEMPOOL | `PendingTxCount` | `#29b6f6` |
+| PEERS | `PeerCount` | `#b39ddb` |
+
+Sub-label for LATEST BLOCK: `LatestBlockTime`.
+
+#### Node Info card (left column, top)
+
+- Header band: ChainId pill (`#0d2040` / `#1a3a6b` border) + Synced badge (`#0a1e10` / `#1a3a20` border, green dot + `SyncStatusText`)
+- Body: Moniker (15 px bold `#e3eaf5`) as large title, horizontal separator, then key-value rows for Node ID (10 px monospace cyan `#40c4ff`, truncated), Version, Peers (colored number `#b39ddb` + "nodes" label)
+- `SyncStatusText` computed property: `IsSyncing ? "Syncing…" : "Synced"`, decorated with `[NotifyPropertyChangedFor(nameof(SyncStatusText))]`
+
+#### Validators card (left column, fills remaining height)
+
+- Header band: "Validators" title (cyan left-accent strip 3 px) + count badge
+- Manual column headers row: `#` | ADDRESS | POWER %
+- Custom `ListBox` with `x:DataType="vm:ValidatorRow"` (compiled bindings):
+  - Rank badge: `#0d1e38` background, `#546e7a` text, 22 px width
+  - Address: 11 px monospace `#90a4ae`, truncated
+  - Power bar: `ProgressBar` 3 px height, `Foreground="#29b6f6"`, `Background="#0e1a30"`, bound to `VotingPowerPct` (0–100), `Maximum="100"`
+  - Percentage label: 11 px `#29b6f6`, right-aligned
+- `ValidatorRow(int Rank, string Address, long VotingPower, long ProposerPriority, double VotingPowerPct)`
+- `DashboardBackgroundService.RefreshValidatorsAsync` computes: `totalPower = Sum(VotingPower)`, `VotingPowerPct = Round(v.VotingPower / totalPower * 100, 1)`, rank = sort index + 1
+
+#### Recent Blocks card (center-left column)
+
+- Header band: "Recent Blocks" (green left-accent strip) + LIVE badge (green dot + "LIVE")
+- Manual column headers: HEIGHT | TIME | TXS | PROPOSER
+- `ListBox` with `x:DataType="vm:BlockRow"`:
+  - Row: `Border` with `BorderThickness="3,0,0,0"`, `BorderBrush="#1a3a24"`, hover state via `Border.Styles` `Border:pointerover` selector changing `BorderBrush` to `#69f0ae` and `Background` to `#0a1220`
+  - Height: 12 px bold monospace `#69f0ae`
+  - Time: 11 px `#546e7a`
+  - Tx count badge: `#0e1e10` / `#1e3e1e` border, `#81c784` text
+  - Proposer: 10 px cyan monospace, truncated
+- Collection: `ObservableCollection<BlockRow>`, max 50 entries (insert at 0, trim tail)
+
+#### Recent Transactions card (center-right column)
+
+- Header band: "Transactions" (orange left-accent strip) + `PendingTxCount` pending badge
+- Manual column headers: HASH | HEIGHT | STATUS
+- `ListBox` with `x:DataType="vm:TxRow"`:
+  - Row: two-line `StackPanel` inside `Border` with left-accent border (`#2a1e08`, hover `#ffb74d`)
+  - Line 1: Hash (11 px cyan monospace, truncated) + Height (11 px `#546e7a` monospace) + Status badge
+  - Line 2: Log (10 px `#37474f`, truncated, `TextTrimming="CharacterEllipsis"`)
+  - Status badge: `#0b1f0f` / `#1a4228` border, `#4caf50` text bound to `StatusText`
+- `TxRow` computed properties: `StatusText => Code == 0 ? "OK" : "ERR"`, `IsSuccess => Code == 0`
+- Collection: max 50 entries
+
+#### Event Log card (right column)
+
+- Header band: "Event Log" (lavender left-accent strip) + entry count badge
+- `ListBox` with `x:DataType="vm:EventLogRow"`:
+  - Row: `Grid ColumnDefinitions="10,*"` — category dot (`Ellipse` 6 px, `#455a64`) + stacked content (timestamp 9 px monospace `#37474f` / description 10 px `#78909c`, wrapping)
+- `EventLogRow(string Timestamp, string Category, string Description)` — `Category` values: `"block"`, `"tx"`, `"vote"`, `"validator"`, `"header"`, `"error"`
+- `AppendEventLog(string category, string message)` — inserts at index 0, caps at 100 entries
+
+#### Background service
+
+`DashboardBackgroundService` implements `BackgroundService` and:
+- Subscribes to WS events: `NewBlock`, `NewBlockHeader`, `Tx`, `Vote`, `ValidatorSetUpdates`
+- On `NewBlock`: calls `ICometBftRestClient.GetBlockAsync()` to enrich the block row, then `ICometBftRestClient.GetNumUnconfirmedTxsAsync()` for mempool count
+- On startup: calls `ICometBftRestClient.GetStatusAsync()` (chain meta), `ICometBftRestClient.GetValidatorsAsync()` (validators), `ICometBftRestClient.GetNetInfoAsync()` (peers)
+- Periodic timer every 30 s: refreshes node info and peer count
+- All UI mutations via `Dispatcher.UIThread.InvokeAsync()`; all async library calls use `ConfigureAwait(false)`
+
+#### Scenario: Dashboard starts and connects to all three transports
+- **WHEN** the dashboard starts with valid endpoint env vars
+- **THEN** `ConnectionStatus` transitions from "Connecting…" to "Connected" within 5 seconds
+- **AND** all KPI metrics populate from the initial load calls before the first block event arrives
+
+#### Scenario: KPI row updates on every new block
+- **WHEN** a `NewBlock` WebSocket event is received
+- **THEN** `LatestHeight`, `LatestBlockTime`, and `LatestBlockTxCount` update within one UI frame
+- **AND** `PendingTxCount` refreshes via REST `GetNumUnconfirmedTxsAsync()`
+
+#### Scenario: Validators display with rank and power bars
+- **WHEN** `GetLatestValidatorsAsync()` returns N validators
+- **THEN** each `ValidatorRow` has `Rank` 1…N (sorted descending by `VotingPower`) and `VotingPowerPct = VotingPower / totalPower × 100` rounded to one decimal
+- **AND** the `ProgressBar` in each row accurately reflects the validator's share
+
+#### Scenario: Blocks list caps at 50 entries
+- **WHEN** more than 50 `NewBlock` events have been received
+- **THEN** `Blocks` contains exactly 50 entries — the 50 most recent — with the latest at index 0
+
+#### Scenario: Transactions list caps at 50 entries
+- **WHEN** more than 50 `TxExecuted` events have been received
+- **THEN** `Transactions` contains exactly 50 entries — the 50 most recent
+
+#### Scenario: SyncStatusText reflects node sync state
+- **WHEN** `GetStatusAsync()` returns `IsSyncing = false`
+- **THEN** the Synced pill in the header shows "Synced" with a green dot
+- **WHEN** `GetStatusAsync()` returns `IsSyncing = true`
+- **THEN** the pill shows "Syncing…"
+
+#### Scenario: Event log preserves category metadata
+- **WHEN** `AppendEventLog("block", "Block #30750376 — 3 txs")` is called
+- **THEN** the inserted `EventLogRow` has `Category = "block"` and a UTC timestamp
+- **AND** it appears at index 0 in `EventLog`
+
+#### Scenario: Dashboard shuts down cleanly on window close
+- **WHEN** the Avalonia window is closed
+- **THEN** `host.StopAsync()` is awaited, all WebSocket event handlers are unsubscribed, and the process exits with code 0

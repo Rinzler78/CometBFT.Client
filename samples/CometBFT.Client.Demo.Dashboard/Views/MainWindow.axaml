@@ -1,0 +1,703 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:CometBFT.Client.Demo.Dashboard.ViewModels"
+        x:Class="CometBFT.Client.Demo.Dashboard.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="CometBFT Dashboard"
+        Width="1600"
+        Height="960"
+        MinWidth="1100"
+        MinHeight="700"
+        Background="#060b18">
+
+    <Window.Styles>
+
+        <!-- ── Scrollbar invisible ── -->
+        <Style Selector="ScrollBar">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
+
+        <!-- ── ListBoxItem : transparent, no Fluent blue highlight ── -->
+        <Style Selector="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#0e1a30"/>
+        </Style>
+
+        <!-- ── DataGrid: remove blue selection background on rows ── -->
+        <Style Selector="DataGridRow">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="DataGridRow:selected">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="#0e1a30"/>
+        </Style>
+
+    </Window.Styles>
+
+    <DockPanel>
+
+        <!-- ════════════════════════════════════════════
+             HEADER — gradient nav bar
+        ════════════════════════════════════════════ -->
+        <Border DockPanel.Dock="Top" Height="58" Padding="20,0"
+                BorderThickness="0,0,0,1" BorderBrush="#0e1a30">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                    <GradientStop Color="#060d1e" Offset="0"/>
+                    <GradientStop Color="#0a1830" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
+
+            <DockPanel VerticalAlignment="Center">
+
+                <!-- Brand -->
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal"
+                            Spacing="12" VerticalAlignment="Center">
+                    <Border Background="#0d2040" CornerRadius="8" Width="36" Height="36"
+                            BorderThickness="1" BorderBrush="#1a3a6b">
+                        <TextBlock Text="⬡" FontSize="18" Foreground="#29b6f6"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Text="CometBFT" FontSize="15" FontWeight="Bold"
+                                   Foreground="#e3eaf5"/>
+                        <TextBlock Text="{Binding ChainId}" FontSize="10"
+                                   Foreground="#455a64"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Connection pill -->
+                <Border DockPanel.Dock="Right"
+                        Background="#0a1e10" CornerRadius="20" Padding="12,5"
+                        BorderThickness="1" BorderBrush="#1a3a20"
+                        VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <Ellipse Width="7" Height="7" Fill="#4caf50" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ConnectionStatus}" FontSize="11"
+                                   Foreground="#81c784" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Node meta pills — center -->
+                <StackPanel Orientation="Horizontal" Spacing="6"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+
+                    <Border Background="#0c1828" CornerRadius="6" Padding="12,6"
+                            BorderThickness="1" BorderBrush="#162039">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="NODE" FontSize="9" Foreground="#37474f"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding Moniker}" FontSize="12"
+                                       FontWeight="SemiBold" Foreground="#90caf9"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="#0c1828" CornerRadius="6" Padding="12,6"
+                            BorderThickness="1" BorderBrush="#162039">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="v" FontSize="10" Foreground="#37474f"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding NodeVersion}" FontSize="12"
+                                       Foreground="#90caf9" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border CornerRadius="6" Padding="12,6"
+                            BorderThickness="1" BorderBrush="#162039">
+                        <Border.Background>#0c1828</Border.Background>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="6" Height="6" Fill="#4caf50"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding SyncStatusText}" FontSize="12"
+                                       Foreground="#81c784" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ════════════════════════════════════════════
+             KPI ROW — 4 headline metrics
+        ════════════════════════════════════════════ -->
+        <Border DockPanel.Dock="Top" Background="#080d1c" Padding="0,14"
+                BorderThickness="0,0,0,1" BorderBrush="#0c1828">
+            <Grid ColumnDefinitions="*,1,*,1,*,1,*">
+
+                <StackPanel Grid.Column="0" HorizontalAlignment="Center" Spacing="3">
+                    <TextBlock Text="LATEST BLOCK" FontSize="9" Foreground="#37474f"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding LatestHeight, StringFormat='#{0:N0}'}"
+                               FontSize="26" FontWeight="Bold" Foreground="#69f0ae"
+                               FontFamily="Consolas,Monospace"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding LatestBlockTime}" FontSize="9"
+                               Foreground="#455a64" HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <Border Grid.Column="1" Width="1" Background="#0c1828" Margin="0,8"/>
+
+                <StackPanel Grid.Column="2" HorizontalAlignment="Center" Spacing="3">
+                    <TextBlock Text="BLOCK TXS" FontSize="9" Foreground="#37474f"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding LatestBlockTxCount}"
+                               FontSize="26" FontWeight="Bold" Foreground="#ffb74d"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="in latest block" FontSize="9"
+                               Foreground="#455a64" HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <Border Grid.Column="3" Width="1" Background="#0c1828" Margin="0,8"/>
+
+                <StackPanel Grid.Column="4" HorizontalAlignment="Center" Spacing="3">
+                    <TextBlock Text="MEMPOOL" FontSize="9" Foreground="#37474f"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding PendingTxCount}"
+                               FontSize="26" FontWeight="Bold" Foreground="#29b6f6"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="pending txs" FontSize="9"
+                               Foreground="#455a64" HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <Border Grid.Column="5" Width="1" Background="#0c1828" Margin="0,8"/>
+
+                <StackPanel Grid.Column="6" HorizontalAlignment="Center" Spacing="3">
+                    <TextBlock Text="PEERS" FontSize="9" Foreground="#37474f"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding PeerCount}"
+                               FontSize="26" FontWeight="Bold" Foreground="#b39ddb"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="connected nodes" FontSize="9"
+                               Foreground="#455a64" HorizontalAlignment="Center"/>
+                </StackPanel>
+
+            </Grid>
+        </Border>
+
+        <!-- ════════════════════════════════════════════
+             FOOTER — status bar
+        ════════════════════════════════════════════ -->
+        <Border DockPanel.Dock="Bottom" Background="#04080f" Padding="16,5"
+                BorderThickness="0,1,0,0" BorderBrush="#0c1828">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Right"
+                           Text="{Binding NodeId, StringFormat='Node: {0}'}"
+                           Foreground="#2a3a50" FontSize="10"
+                           FontFamily="Consolas,Monospace" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Ellipse Width="6" Height="6" Fill="#4caf50" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding ConnectionStatus}" Foreground="#37474f"
+                               FontSize="10" VerticalAlignment="Center"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ════════════════════════════════════════════
+             MAIN GRID — 3 columns
+             Left: Node + Validators
+             Center: Blocks (left) | Txs (right)
+             Right: Event Log
+        ════════════════════════════════════════════ -->
+        <Grid Margin="12,10" ColumnDefinitions="290,*,280">
+
+            <!-- ───────────────────────────────────
+                 LEFT — Node Info + Validators
+            ─────────────────────────────────── -->
+            <DockPanel Grid.Column="0" Margin="0,0,10,0">
+
+                <!-- ▸ Node Info card -->
+                <Border DockPanel.Dock="Top"
+                        Background="#0c1426" CornerRadius="12" Padding="0"
+                        Margin="0,0,0,10"
+                        BorderThickness="1" BorderBrush="#162039"
+                        ClipToBounds="True">
+                    <StackPanel>
+
+                        <!-- Card header band -->
+                        <Border Background="#0a1220" Padding="14,10">
+                            <DockPanel>
+                                <!-- Chain pill -->
+                                <Border DockPanel.Dock="Left"
+                                        Background="#0d2040" CornerRadius="6"
+                                        Padding="10,4"
+                                        BorderThickness="1" BorderBrush="#1a3a6b">
+                                    <TextBlock Text="{Binding ChainId}"
+                                               FontSize="13" FontWeight="Bold"
+                                               Foreground="#90caf9"/>
+                                </Border>
+                                <!-- Sync status badge -->
+                                <Border DockPanel.Dock="Right"
+                                        Background="#0a1e10" CornerRadius="6"
+                                        Padding="10,4"
+                                        BorderThickness="1" BorderBrush="#1a3a20"
+                                        VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <Ellipse Width="6" Height="6" Fill="#4caf50"
+                                                 VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding SyncStatusText}"
+                                                   FontSize="11" Foreground="#81c784"
+                                                   FontWeight="Medium"/>
+                                    </StackPanel>
+                                </Border>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Divider -->
+                        <Border Height="1" Background="#111d35"/>
+
+                        <!-- Fields -->
+                        <StackPanel Spacing="0" Margin="14,10,14,10">
+
+                            <!-- Moniker — prominent -->
+                            <TextBlock Text="{Binding Moniker}"
+                                       FontSize="15" FontWeight="Bold"
+                                       Foreground="#e3eaf5" Margin="0,0,0,10"/>
+
+                            <Border Height="1" Background="#0e1a2e" Margin="0,0,0,10"/>
+
+                            <Grid ColumnDefinitions="72,*" Margin="0,0,0,7">
+                                <TextBlock Text="Node ID" Grid.Column="0"
+                                           Foreground="#455a64" FontSize="11"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding NodeId}" Grid.Column="1"
+                                           Foreground="#40c4ff" FontSize="10"
+                                           FontFamily="Consolas,Monospace"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+
+                            <Grid ColumnDefinitions="72,*" Margin="0,0,0,7">
+                                <TextBlock Text="Version" Grid.Column="0"
+                                           Foreground="#455a64" FontSize="11"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding NodeVersion}" Grid.Column="1"
+                                           Foreground="#e3eaf5" FontSize="11"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+
+                            <Grid ColumnDefinitions="72,*">
+                                <TextBlock Text="Peers" Grid.Column="0"
+                                           Foreground="#455a64" FontSize="11"
+                                           VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding PeerCount}"
+                                               Foreground="#b39ddb" FontSize="13"
+                                               FontWeight="Bold" VerticalAlignment="Center"/>
+                                    <TextBlock Text="nodes" Foreground="#455a64"
+                                               FontSize="11" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ▸ Validators card -->
+                <Border Background="#0c1426" CornerRadius="12" Padding="0"
+                        BorderThickness="1" BorderBrush="#162039"
+                        ClipToBounds="True">
+                    <DockPanel>
+
+                        <!-- Card header band -->
+                        <Border DockPanel.Dock="Top" Background="#0a1220" Padding="14,10">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal"
+                                            Spacing="10">
+                                    <Border Width="3" Height="16" Background="#29b6f6"
+                                            CornerRadius="2" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Validators" FontWeight="Bold"
+                                               Foreground="#90caf9" FontSize="13"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <Border DockPanel.Dock="Right"
+                                        Background="#0d1e38" CornerRadius="10"
+                                        Padding="8,3"
+                                        BorderThickness="1" BorderBrush="#1a3060"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Validators.Count}"
+                                               FontSize="10" Foreground="#29b6f6"/>
+                                </Border>
+                            </DockPanel>
+                        </Border>
+
+                        <Border DockPanel.Dock="Top" Height="1" Background="#111d35"/>
+
+                        <!-- Column headers -->
+                        <Grid DockPanel.Dock="Top" ColumnDefinitions="28,*,52"
+                              Margin="12,7,12,4">
+                            <TextBlock Text="#" Grid.Column="0" FontSize="9"
+                                       Foreground="#37474f" FontWeight="Bold"/>
+                            <TextBlock Text="ADDRESS" Grid.Column="1" FontSize="9"
+                                       Foreground="#37474f" FontWeight="Bold"/>
+                            <TextBlock Text="POWER %" Grid.Column="2" FontSize="9"
+                                       Foreground="#37474f" FontWeight="Bold"
+                                       HorizontalAlignment="Right"/>
+                        </Grid>
+
+                        <Border DockPanel.Dock="Top" Height="1" Background="#0c1828"/>
+
+                        <!-- Validator list — compiled bindings via x:DataType -->
+                        <ListBox ItemsSource="{Binding Validators}" Background="Transparent" Padding="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ValidatorRow">
+                                    <Border Padding="12,7" BorderThickness="0,0,0,1"
+                                            BorderBrush="#0c1828">
+                                        <Grid ColumnDefinitions="28,*,52">
+
+                                            <!-- Rank badge -->
+                                            <Border Grid.Column="0"
+                                                    Background="#0d1e38" CornerRadius="4"
+                                                    Padding="0,2" Width="22"
+                                                    HorizontalAlignment="Left"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Rank}"
+                                                           FontSize="9"
+                                                           Foreground="#546e7a"
+                                                           HorizontalAlignment="Center"/>
+                                            </Border>
+
+                                            <!-- Address + power bar -->
+                                            <StackPanel Grid.Column="1" Spacing="3"
+                                                        Margin="6,0,8,0"
+                                                        VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Address}"
+                                                           FontSize="11"
+                                                           FontFamily="Consolas,Monospace"
+                                                           Foreground="#90a4ae"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <ProgressBar Value="{Binding VotingPowerPct}"
+                                                             Maximum="100"
+                                                             Height="3"
+                                                             CornerRadius="2"
+                                                             Foreground="#29b6f6"
+                                                             Background="#0e1a30"
+                                                             Minimum="0"/>
+                                            </StackPanel>
+
+                                            <!-- Percentage -->
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding VotingPowerPct, StringFormat='{}{0:F1}%'}"
+                                                       FontSize="11" FontWeight="Medium"
+                                                       Foreground="#29b6f6"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                    </DockPanel>
+                </Border>
+
+            </DockPanel>
+
+            <!-- ───────────────────────────────────
+                 CENTER — 2 side-by-side columns: Blocks | Txs
+                 (major structural change)
+            ─────────────────────────────────── -->
+            <Grid Grid.Column="1" Margin="0,0,10,0" ColumnDefinitions="*,10,*">
+
+                <!-- ▸ Recent Blocks -->
+                <Border Grid.Column="0"
+                        Background="#0c1426" CornerRadius="12" Padding="0"
+                        BorderThickness="1" BorderBrush="#162039"
+                        ClipToBounds="True">
+                    <DockPanel>
+
+                        <!-- Header band -->
+                        <Border DockPanel.Dock="Top" Background="#0a1220" Padding="14,10">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal"
+                                            Spacing="10">
+                                    <Border Width="3" Height="16" Background="#69f0ae"
+                                            CornerRadius="2" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Recent Blocks" FontWeight="Bold"
+                                               Foreground="#90caf9" FontSize="13"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <Border DockPanel.Dock="Right"
+                                        Background="#0b1f0f" CornerRadius="6"
+                                        Padding="10,4"
+                                        BorderThickness="1" BorderBrush="#1a4228"
+                                        VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <Ellipse Width="5" Height="5" Fill="#4caf50"
+                                                 VerticalAlignment="Center"/>
+                                        <TextBlock Text="LIVE" FontSize="9"
+                                                   Foreground="#4caf50" FontWeight="Bold"/>
+                                    </StackPanel>
+                                </Border>
+                            </DockPanel>
+                        </Border>
+
+                        <Border DockPanel.Dock="Top" Height="1" Background="#111d35"/>
+
+                        <!-- Column headers -->
+                        <Grid DockPanel.Dock="Top" ColumnDefinitions="85,90,46,*"
+                              Margin="16,8,16,4">
+                            <TextBlock Text="HEIGHT" Grid.Column="0" FontSize="9"
+                                       Foreground="#37474f" FontWeight="Bold"/>
+                            <TextBlock Text="TIME" Grid.Column="1" FontSize="9"
+                                       Foreground="#37474f" FontWeight="Bold"/>
+                            <TextBlock Text="TXS" Grid.Column="2" FontSize="9"
+                                       Foreground="#37474f" FontWeight="Bold"/>
+                            <TextBlock Text="PROPOSER" Grid.Column="3" FontSize="9"
+                                       Foreground="#37474f" FontWeight="Bold"/>
+                        </Grid>
+
+                        <Border DockPanel.Dock="Top" Height="1" Background="#0c1828"/>
+
+                        <!-- Block rows — each row is a mini timeline entry -->
+                        <ListBox ItemsSource="{Binding Blocks}" Background="Transparent" Padding="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:BlockRow">
+                                    <!-- Mini-card row with left accent line -->
+                                    <Border BorderThickness="3,0,0,0"
+                                            BorderBrush="#1a3a24"
+                                            Padding="13,8,16,8"
+                                            Background="Transparent">
+                                        <Border.Styles>
+                                            <Style Selector="Border:pointerover">
+                                                <Setter Property="Background" Value="#0a1220"/>
+                                                <Setter Property="BorderBrush" Value="#69f0ae"/>
+                                            </Style>
+                                        </Border.Styles>
+                                        <Grid ColumnDefinitions="85,90,46,*">
+
+                                            <!-- Height — big green number -->
+                                            <TextBlock Text="{Binding Height, StringFormat='#{0}'}"
+                                                       Foreground="#69f0ae" Grid.Column="0"
+                                                       FontWeight="Bold" FontSize="12"
+                                                       FontFamily="Consolas,Monospace"
+                                                       VerticalAlignment="Center"/>
+
+                                            <!-- Time -->
+                                            <TextBlock Text="{Binding Time}"
+                                                       Foreground="#546e7a" Grid.Column="1"
+                                                       FontSize="11" VerticalAlignment="Center"/>
+
+                                            <!-- Tx count badge -->
+                                            <Border Grid.Column="2"
+                                                    Background="#0e1e10" CornerRadius="4"
+                                                    Padding="6,2"
+                                                    BorderThickness="1" BorderBrush="#1e3e1e"
+                                                    VerticalAlignment="Center"
+                                                    HorizontalAlignment="Left">
+                                                <TextBlock Text="{Binding TxCount}"
+                                                           Foreground="#81c784" FontSize="10"
+                                                           FontWeight="Bold"/>
+                                            </Border>
+
+                                            <!-- Proposer hash -->
+                                            <TextBlock Text="{Binding Proposer}"
+                                                       Foreground="#40c4ff" Grid.Column="3"
+                                                       FontFamily="Consolas,Monospace"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       FontSize="10" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                    </DockPanel>
+                </Border>
+
+                <!-- Gutter -->
+                <Border Grid.Column="1"/>
+
+                <!-- ▸ Recent Transactions -->
+                <Border Grid.Column="2"
+                        Background="#0c1426" CornerRadius="12" Padding="0"
+                        BorderThickness="1" BorderBrush="#162039"
+                        ClipToBounds="True">
+                    <DockPanel>
+
+                        <!-- Header band -->
+                        <Border DockPanel.Dock="Top" Background="#0a1220" Padding="14,10">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal"
+                                            Spacing="10">
+                                    <Border Width="3" Height="16" Background="#ffb74d"
+                                            CornerRadius="2" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Transactions" FontWeight="Bold"
+                                               Foreground="#90caf9" FontSize="13"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <!-- Mempool badge -->
+                                <Border DockPanel.Dock="Right"
+                                        Background="#1a1408" CornerRadius="6"
+                                        Padding="10,4"
+                                        BorderThickness="1" BorderBrush="#3a2a00"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding PendingTxCount, StringFormat='{}{0} pending'}"
+                                               FontSize="9" Foreground="#ffb74d"
+                                               FontWeight="Bold"/>
+                                </Border>
+                            </DockPanel>
+                        </Border>
+
+                        <Border DockPanel.Dock="Top" Height="1" Background="#111d35"/>
+
+                        <!-- Column headers -->
+                        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,75,46"
+                              Margin="16,8,16,4">
+                            <TextBlock Text="HASH" Grid.Column="0" FontSize="9"
+                                       Foreground="#37474f" FontWeight="Bold"/>
+                            <TextBlock Text="HEIGHT" Grid.Column="1" FontSize="9"
+                                       Foreground="#37474f" FontWeight="Bold"/>
+                            <TextBlock Text="STATUS" Grid.Column="2" FontSize="9"
+                                       Foreground="#37474f" FontWeight="Bold"/>
+                        </Grid>
+
+                        <Border DockPanel.Dock="Top" Height="1" Background="#0c1828"/>
+
+                        <!-- Tx rows -->
+                        <ListBox ItemsSource="{Binding Transactions}" Background="Transparent" Padding="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TxRow">
+                                    <Border BorderThickness="3,0,0,0"
+                                            BorderBrush="#2a1e08"
+                                            Padding="13,10,16,10"
+                                            Background="Transparent">
+                                        <Border.Styles>
+                                            <Style Selector="Border:pointerover">
+                                                <Setter Property="Background" Value="#0a1220"/>
+                                                <Setter Property="BorderBrush" Value="#ffb74d"/>
+                                            </Style>
+                                        </Border.Styles>
+                                        <StackPanel Spacing="5">
+
+                                            <!-- Hash + status on one line -->
+                                            <Grid ColumnDefinitions="*,75,46">
+
+                                                <!-- Hash -->
+                                                <TextBlock Text="{Binding Hash}"
+                                                           Foreground="#40c4ff" Grid.Column="0"
+                                                           FontFamily="Consolas,Monospace"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           FontSize="11" FontWeight="Medium"
+                                                           VerticalAlignment="Center"/>
+
+                                                <!-- Height -->
+                                                <TextBlock Text="{Binding Height, StringFormat='#{0}'}"
+                                                           Foreground="#546e7a" Grid.Column="1"
+                                                           FontFamily="Consolas,Monospace"
+                                                           FontSize="11" VerticalAlignment="Center"/>
+
+                                                <!-- Status badge -->
+                                                <Border Grid.Column="2"
+                                                        Background="#0b1f0f" CornerRadius="4"
+                                                        Padding="6,2"
+                                                        BorderThickness="1" BorderBrush="#1a4228"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalAlignment="Left">
+                                                    <TextBlock Text="{Binding StatusText}"
+                                                               Foreground="#4caf50"
+                                                               FontSize="9" FontWeight="Bold"/>
+                                                </Border>
+                                            </Grid>
+
+                                            <!-- Log on second line — subtler -->
+                                            <TextBlock Text="{Binding Log}"
+                                                       Foreground="#37474f"
+                                                       FontSize="10"
+                                                       TextTrimming="CharacterEllipsis"/>
+
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                    </DockPanel>
+                </Border>
+
+            </Grid>
+
+            <!-- ───────────────────────────────────
+                 RIGHT — Event Log
+                 Type-coded entries with category dot
+            ─────────────────────────────────── -->
+            <Border Grid.Column="2"
+                    Background="#0c1426" CornerRadius="12" Padding="0"
+                    BorderThickness="1" BorderBrush="#162039"
+                    ClipToBounds="True">
+                <DockPanel>
+
+                    <!-- Header band -->
+                    <Border DockPanel.Dock="Top" Background="#0a1220" Padding="14,10">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal"
+                                        Spacing="10">
+                                <Border Width="3" Height="16" Background="#b39ddb"
+                                        CornerRadius="2" VerticalAlignment="Center"/>
+                                <TextBlock Text="Event Log" FontWeight="Bold"
+                                           Foreground="#90caf9" FontSize="13"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Border DockPanel.Dock="Right"
+                                    Background="#110e1e" CornerRadius="10"
+                                    Padding="8,3"
+                                    BorderThickness="1" BorderBrush="#2a1e4a"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="{Binding EventLog.Count}"
+                                           FontSize="10" Foreground="#b39ddb"/>
+                            </Border>
+                        </DockPanel>
+                    </Border>
+
+                    <Border DockPanel.Dock="Top" Height="1" Background="#111d35"/>
+
+                    <!-- Event entries — category dot + description -->
+                    <ListBox ItemsSource="{Binding EventLog}" Background="Transparent" Padding="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:EventLogRow">
+                                <Border Padding="12,8" BorderThickness="0,0,0,1"
+                                        BorderBrush="#0a1422" Background="Transparent">
+                                    <Grid ColumnDefinitions="10,*">
+
+                                        <!-- Category dot -->
+                                        <Ellipse Grid.Column="0" Width="6" Height="6"
+                                                 VerticalAlignment="Top" Margin="0,3,0,0">
+                                            <Ellipse.Styles>
+                                                <!-- block → green -->
+                                                <Style Selector="Ellipse">
+                                                    <Setter Property="Fill" Value="#455a64"/>
+                                                </Style>
+                                            </Ellipse.Styles>
+                                        </Ellipse>
+
+                                        <!-- Content -->
+                                        <StackPanel Grid.Column="1" Margin="7,0,0,0" Spacing="2">
+                                            <TextBlock Text="{Binding Timestamp}"
+                                                       Foreground="#37474f" FontSize="9"
+                                                       FontFamily="Consolas,Monospace"/>
+                                            <TextBlock Text="{Binding Description}"
+                                                       Foreground="#78909c" FontSize="10"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                </DockPanel>
+            </Border>
+
+        </Grid>
+    </DockPanel>
+</Window>

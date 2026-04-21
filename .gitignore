@@ -28,6 +28,10 @@ packages/
 ## macOS
 .DS_Store
 
+## Local environment secrets (never commit)
+.env
+.env.local
+
 ## Secrets baseline
 # .secrets.baseline intentionally tracked — remove this line to ignore it
 

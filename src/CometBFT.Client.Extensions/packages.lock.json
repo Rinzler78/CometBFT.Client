@@ -225,7 +225,7 @@
       "cometbft.client.grpc": {
         "type": "Project",
         "dependencies": {
-          "CometBFT.Client.Core": "[0.1.0, )",
+          "CometBFT.Client.Core": "[1.0.0, )",
           "Google.Protobuf": "[3.34.1, )",
           "Grpc.Net.Client": "[2.76.0, )",
           "Microsoft.Extensions.Options": "[10.0.6, )"
@@ -234,7 +234,7 @@
       "cometbft.client.rest": {
         "type": "Project",
         "dependencies": {
-          "CometBFT.Client.Core": "[0.1.0, )",
+          "CometBFT.Client.Core": "[1.0.0, )",
           "Microsoft.Extensions.Http": "[10.0.6, )",
           "Microsoft.Extensions.Http.Polly": "[10.0.6, )",
           "Microsoft.Extensions.Options": "[10.0.6, )"
@@ -243,7 +243,7 @@
       "cometbft.client.websocket": {
         "type": "Project",
         "dependencies": {
-          "CometBFT.Client.Core": "[0.1.0, )",
+          "CometBFT.Client.Core": "[1.0.0, )",
           "Microsoft.Extensions.Options": "[10.0.6, )",
           "Websocket.Client": "[5.3.0, )"
         }

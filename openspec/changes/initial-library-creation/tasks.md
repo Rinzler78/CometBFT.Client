@@ -687,7 +687,7 @@ scripts/
 - [x] 10.1.7 `CometBftRest/WebSocket/GrpcOptions` — per-transport options classes
 - [x] 10.1.8 `CometBftClientException` — base exception (+ per-transport subtypes)
 - [x] 10.1.9 `CometBftJsonContext` — AOT JSON serialization context
-- [x] 10.1.10 `AddCometBftRest/WebSocket/Grpc` — DI extensions (+ `AddCometBftSdkGrpc`)
+- [x] 10.1.10 `AddCometBftRest/WebSocket/Grpc` — DI extensions (+ `AddCometBftClient`; `AddCometBftSdkGrpc` removed later as a layer violation)
 - [x] 10.1.11 `dotnet build CometBFT.Client.sln --warnaserror` → 0 errors
 
 ### 10.2 Scripts, CI/CD, documentation

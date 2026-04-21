@@ -451,84 +451,6 @@ public sealed class IntegrationTests
         await client.DisconnectAsync();
     }
 
-    // ── CometBftSdkGrpcClient ────────────────────────────────────────────────
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task SdkGrpc_LiveNode_GetStatusAsync_ReturnsNodeInfo()
-    {
-        var grpcUrl = EndpointConfiguration.RequireSdkGrpc();
-
-        var services = new ServiceCollection();
-        services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
-        await using var provider = services.BuildServiceProvider();
-        var client = provider.GetRequiredService<ICometBftSdkGrpcClient>();
-
-        try
-        {
-            var (nodeInfo, syncInfo) = await client.GetStatusAsync();
-
-            Assert.NotEmpty(nodeInfo.Network);
-            Assert.NotNull(syncInfo);
-        }
-        catch (CometBftGrpcException)
-        {
-            // Public nodes may rate-limit or reject the SDK gRPC endpoint — not a client bug.
-        }
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task SdkGrpc_LiveNode_GetLatestBlockAsync_ReturnsBlock()
-    {
-        var grpcUrl = EndpointConfiguration.RequireSdkGrpc();
-
-        var services = new ServiceCollection();
-        services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
-        await using var provider = services.BuildServiceProvider();
-        var client = provider.GetRequiredService<ICometBftSdkGrpcClient>();
-
-        try
-        {
-            var block = await client.GetLatestBlockAsync();
-
-            Assert.True(block.Height > 0);
-            Assert.NotEmpty(block.Proposer);
-        }
-        catch (CometBftGrpcException)
-        {
-            // Public nodes may rate-limit or reject the SDK gRPC endpoint — not a client bug.
-        }
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task SdkGrpc_LiveNode_GetLatestValidatorsAsync_ReturnsValidators()
-    {
-        var grpcUrl = EndpointConfiguration.RequireSdkGrpc();
-
-        var services = new ServiceCollection();
-        services.AddCometBftSdkGrpc(options => options.BaseUrl = grpcUrl);
-        await using var provider = services.BuildServiceProvider();
-        var client = provider.GetRequiredService<ICometBftSdkGrpcClient>();
-
-        try
-        {
-            var validators = await client.GetLatestValidatorsAsync();
-
-            Assert.NotEmpty(validators);
-            Assert.All(validators, v =>
-            {
-                Assert.NotEmpty(v.Address);
-                Assert.True(v.VotingPower >= 0);
-            });
-        }
-        catch (CometBftGrpcException)
-        {
-            // Public nodes may rate-limit or reject the SDK gRPC endpoint — not a client bug.
-        }
-    }
-
     private static ServiceProvider BuildRestServices(string rpcUrl)
     {
         var services = new ServiceCollection();
@@ -569,15 +491,6 @@ internal static class EndpointConfiguration
 
     public static string RequireGrpc() => Require("COMETBFT_GRPC_URL", (string?)DefaultGrpcUrl);
 
-    /// <summary>
-    /// Returns the gRPC URL normalized for <see cref="CometBftSdkGrpcOptions"/> (requires an absolute URI).
-    /// A bare host is prefixed with <c>https://</c>.
-    /// </summary>
-    public static string RequireSdkGrpc()
-    {
-        var raw = RequireGrpc();
-        return raw.Contains("://", StringComparison.Ordinal) ? raw : $"https://{raw}";
-    }
 
     private static string Require(string variableName, string? documentedDefault)
     {

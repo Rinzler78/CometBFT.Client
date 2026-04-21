@@ -46,7 +46,6 @@
     <Threshold>90</Threshold>
     <ThresholdType>line,branch,method</ThresholdType>
     <ThresholdStat>Minimum</ThresholdStat>
-    <ExcludeByFile>$(ExcludeByFile);**/src/CometBFT.Client.Core/Domain/*.cs;**/src/CometBFT.Client.Core/Events/*.cs;**/src/CometBFT.Client.Core/Exceptions/*.cs;**/src/CometBFT.Client.Core/Options/*.cs;**/src/CometBFT.Client.Rest/Json/RpcModels.cs;**/src/CometBFT.Client.Grpc/Internal/GrpcChannelBroadcastApiClient.cs;**/src/CometBFT.Client.Grpc/Internal/LegacyBroadcastApiClient.cs;**/src/CometBFT.Client.Grpc/Internal/BroadcastApiClientFactory.cs;**/src/CometBFT.Client.WebSocket/Internal/CometBftEventType.cs</ExcludeByFile>
     <!-- NU1903 = high-severity NuGet vuln warning; suppressed in test projects only because
          the affected package (System.Linq.Dynamic.Core via WireMock.Net) is not deployed
          to production and the vulnerable code path is never exercised by test-only queries. -->
