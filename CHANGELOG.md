@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-04-20
+
 > **Breaking-change notice**
-> This change removes public API members (`ICometBftSdkGrpcClient`,
+> This release removes public API members (`ICometBftSdkGrpcClient`,
 > `CometBftSdkGrpcClient`, `CometBftSdkGrpcOptions`, and `AddCometBftSdkGrpc`).
-> Per the repository SemVer rules, the next release containing this change MUST
-> be a **major** release.
+> This is the first major release because the package now enforces the CometBFT-native
+> transport boundary strictly.
 
 ### Breaking
 - Removed the Cosmos SDK gRPC layer from `Rinzler78.CometBFT.Client`.

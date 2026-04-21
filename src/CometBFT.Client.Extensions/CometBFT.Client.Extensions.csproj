@@ -3,7 +3,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Rinzler78.CometBFT.Client</PackageId>
-    <Version>0.1.1</Version>
+    <Version>1.0.0</Version>
     <Description>Async .NET 10 client library for CometBFT — REST, WebSocket and gRPC transports with full source-generated JSON serialization and DI extensions.</Description>
     <PackageTags>cometbft;blockchain;cosmos;grpc;rest;websocket;dotnet</PackageTags>
     <PackageProjectUrl>https://github.com/Rinzler78/CometBFT.Client</PackageProjectUrl>
