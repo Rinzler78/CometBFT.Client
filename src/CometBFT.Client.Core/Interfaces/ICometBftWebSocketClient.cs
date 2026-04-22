@@ -18,7 +18,7 @@ namespace CometBFT.Client.Core.Interfaces;
 /// </typeparam>
 /// <typeparam name="TValidator">The validator type. Must inherit <see cref="Validator"/>.</typeparam>
 /// <remarks>
-/// Use <see cref="ICometBftWebSocketClient{TTx}"/> (2-param shim) or
+/// Use <see cref="ICometBftWebSocketClient{TTx}"/> (1-parameter generic shim) or
 /// <see cref="ICometBftWebSocketClient"/> (non-generic) for the common cases.
 /// </remarks>
 public interface ICometBftWebSocketClient<TTx, TBlock, TTxResult, TValidator> : IAsyncDisposable
