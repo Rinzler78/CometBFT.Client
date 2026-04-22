@@ -14,8 +14,8 @@ namespace CometBFT.Client.E2E.Tests;
 public sealed class E2eTests
 {
     // CometBFT produces a block roughly every 6 s on Cosmos Hub.
-    // Block/header/vote timeouts use a 5× margin.
-    private const int BlockEventTimeoutSeconds = 30;
+    // Block/header/vote timeouts use a 2× margin.
+    private const int BlockEventTimeoutSeconds = 12;
 
     // Minimal invalid transaction bytes used to exercise gRPC broadcast paths.
     private static readonly byte[] MinimalInvalidTx = [0x0a, 0x01, 0x00];
@@ -92,8 +92,7 @@ public sealed class E2eTests
         }
         catch (OperationCanceledException)
         {
-            // Public testnet latency or congestion is not a client bug — skip rather than fail.
-            return;
+            Assert.Skip("Public testnet did not deliver an event within the timeout — network issue, not a client bug.");
         }
 
         await client.DisconnectAsync();
@@ -150,8 +149,7 @@ public sealed class E2eTests
         }
         catch (OperationCanceledException)
         {
-            // Public testnet latency or congestion is not a client bug — skip rather than fail.
-            return;
+            Assert.Skip("Public testnet did not deliver an event within the timeout — network issue, not a client bug.");
         }
 
         // UnsubscribeAll should succeed after receiving events.
@@ -190,8 +188,7 @@ public sealed class E2eTests
         }
         catch (OperationCanceledException)
         {
-            // Public testnet latency or congestion is not a client bug — skip rather than fail.
-            return;
+            Assert.Skip("Public testnet did not deliver an event within the timeout — network issue, not a client bug.");
         }
 
         await client.DisconnectAsync();
