@@ -69,6 +69,54 @@ public sealed class CometBftWebSocketClientConnectedTests : IAsyncLifetime
         Assert.Null(ex);
     }
 
+    // ── SubscribeNewBlockEventsAsync ─────────────────────────────────────────
+
+    [Fact]
+    public async Task SubscribeNewBlockEventsAsync_WhenConnected_ReceivesAck()
+    {
+        await using var client = new CometBftWebSocketClient(ServerOptions());
+        await client.ConnectAsync();
+
+        var ex = await Record.ExceptionAsync(() => client.SubscribeNewBlockEventsAsync());
+        Assert.Null(ex);
+    }
+
+    // ── SubscribeCompleteProposalAsync ───────────────────────────────────────
+
+    [Fact]
+    public async Task SubscribeCompleteProposalAsync_WhenConnected_ReceivesAck()
+    {
+        await using var client = new CometBftWebSocketClient(ServerOptions());
+        await client.ConnectAsync();
+
+        var ex = await Record.ExceptionAsync(() => client.SubscribeCompleteProposalAsync());
+        Assert.Null(ex);
+    }
+
+    // ── SubscribeNewEvidenceAsync ────────────────────────────────────────────
+
+    [Fact]
+    public async Task SubscribeNewEvidenceAsync_WhenConnected_ReceivesAck()
+    {
+        await using var client = new CometBftWebSocketClient(ServerOptions());
+        await client.ConnectAsync();
+
+        var ex = await Record.ExceptionAsync(() => client.SubscribeNewEvidenceAsync());
+        Assert.Null(ex);
+    }
+
+    // ── SubscribeConsensusInternalAsync ──────────────────────────────────────
+
+    [Fact]
+    public async Task SubscribeConsensusInternalAsync_WhenConnected_ReceivesAllNineAcks()
+    {
+        await using var client = new CometBftWebSocketClient(ServerOptions());
+        await client.ConnectAsync();
+
+        var ex = await Record.ExceptionAsync(() => client.SubscribeConsensusInternalAsync());
+        Assert.Null(ex);
+    }
+
     // ── UnsubscribeAllAsync ──────────────────────────────────────────────────
 
     [Fact]

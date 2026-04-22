@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-04-22
+
+### Added
+- **WebSocket Events Completeness** — protocol target bumped from v0.38.9 to v0.39.1.
+- 4 new domain types (sealed records): `NewBlockEventsData`, `CompleteProposalData`,
+  `ValidatorSetUpdatesData`, `NewEvidenceData`.
+- 5 new `IObservable<T>` streams on `ICometBftWebSocketClient`:
+  - `NewBlockEventsStream` (🔴 critical — committed block + all ABCI events for DeFi indexing)
+  - `CompleteProposalStream` (consensus complete-proposal step)
+  - `ValidatorSetUpdatesStream` (validator set changed)
+  - `NewEvidenceStream` (new evidence submitted)
+  - `ConsensusInternalStream` (merged stream: TimeoutPropose, TimeoutWait, Lock, Unlock, Relock,
+    PolkaAny, PolkaNil, PolkaAgain, MissingProposalBlock)
+- 4 new `Subscribe*Async` methods: `SubscribeNewBlockEventsAsync`, `SubscribeCompleteProposalAsync`,
+  `SubscribeNewEvidenceAsync`, `SubscribeConsensusInternalAsync`.
+- All existing subscriptions, events, and interfaces are preserved — fully backward compatible.
+
 ## [2.0.0] - 2026-04-22
 
 ### Breaking Changes

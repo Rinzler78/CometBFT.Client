@@ -16,7 +16,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Authors>Rinzler78</Authors>
     <RepositoryUrl>https://github.com/Rinzler78/CometBFT.Client</RepositoryUrl>
-    <ProtocolVersion>v0.38.9</ProtocolVersion>
+    <ProtocolVersion>v0.39.1</ProtocolVersion>
     <!-- Only CometBFT.Client.Extensions is packable; all other projects are internal dependencies -->
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);NU5104</NoWarn>

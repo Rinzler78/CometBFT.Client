@@ -87,6 +87,18 @@ internal sealed class WsResult
 [JsonDerivedType(typeof(WsTxData), "tendermint/event/Tx")]
 [JsonDerivedType(typeof(WsVoteData), "tendermint/event/Vote")]
 [JsonDerivedType(typeof(WsValidatorSetUpdatesData), "tendermint/event/ValidatorSetUpdates")]
+[JsonDerivedType(typeof(WsNewBlockEventsData), "tendermint/event/NewBlockEvents")]
+[JsonDerivedType(typeof(WsCompleteProposalData), "tendermint/event/CompleteProposal")]
+[JsonDerivedType(typeof(WsNewEvidenceData), "tendermint/event/NewEvidence")]
+[JsonDerivedType(typeof(WsTimeoutProposeData), "tendermint/event/TimeoutPropose")]
+[JsonDerivedType(typeof(WsTimeoutWaitData), "tendermint/event/TimeoutWait")]
+[JsonDerivedType(typeof(WsLockData), "tendermint/event/Lock")]
+[JsonDerivedType(typeof(WsUnlockData), "tendermint/event/Unlock")]
+[JsonDerivedType(typeof(WsRelockData), "tendermint/event/Relock")]
+[JsonDerivedType(typeof(WsPolkaAnyData), "tendermint/event/PolkaAny")]
+[JsonDerivedType(typeof(WsPolkaNilData), "tendermint/event/PolkaNil")]
+[JsonDerivedType(typeof(WsPolkaAgainData), "tendermint/event/PolkaAgain")]
+[JsonDerivedType(typeof(WsMissingProposalBlockData), "tendermint/event/MissingProposalBlock")]
 internal abstract class WsEventData { }
 
 // ── NewBlock ─────────────────────────────────────────────────────────────────
@@ -331,4 +343,116 @@ internal sealed class WsPubKey
 {
     [JsonPropertyName("data")]
     public string Data { get; init; } = string.Empty;
+}
+
+// ── NewBlockEvents ───────────────────────────────────────────────────────────
+
+internal sealed class WsNewBlockEventsData : WsEventData
+{
+    [JsonPropertyName("value")]
+    public WsNewBlockEventsValue? Value { get; init; }
+}
+
+internal sealed class WsNewBlockEventsValue
+{
+    [JsonPropertyName("header")]
+    public WsFullBlockHeader? Header { get; init; }
+
+    [JsonPropertyName("height")]
+    public string Height { get; init; } = "0";
+
+    [JsonPropertyName("events")]
+    public List<WsAbciEvent>? Events { get; init; }
+}
+
+// ── CompleteProposal ─────────────────────────────────────────────────────────
+
+internal sealed class WsCompleteProposalData : WsEventData
+{
+    [JsonPropertyName("value")]
+    public WsCompleteProposalValue? Value { get; init; }
+}
+
+internal sealed class WsCompleteProposalValue
+{
+    [JsonPropertyName("height")]
+    public string Height { get; init; } = "0";
+
+    [JsonPropertyName("round")]
+    public int Round { get; init; }
+
+    [JsonPropertyName("block_id")]
+    public string BlockId { get; init; } = string.Empty;
+}
+
+// ── NewEvidence ──────────────────────────────────────────────────────────────
+
+internal sealed class WsNewEvidenceData : WsEventData
+{
+    [JsonPropertyName("value")]
+    public WsNewEvidenceValue? Value { get; init; }
+}
+
+internal sealed class WsNewEvidenceValue
+{
+    [JsonPropertyName("height")]
+    public string Height { get; init; } = "0";
+
+    [JsonPropertyName("evidence_type")]
+    public string EvidenceType { get; init; } = string.Empty;
+
+    [JsonPropertyName("validator")]
+    public string Validator { get; init; } = string.Empty;
+}
+
+// ── Consensus-internal events (low-priority, merged into ConsensusInternalStream) ──
+
+internal abstract class WsConsensusInternalData : WsEventData
+{
+    internal abstract string EventTopic { get; }
+}
+
+internal sealed class WsTimeoutProposeData : WsConsensusInternalData
+{
+    internal override string EventTopic => "TimeoutPropose";
+}
+
+internal sealed class WsTimeoutWaitData : WsConsensusInternalData
+{
+    internal override string EventTopic => "TimeoutWait";
+}
+
+internal sealed class WsLockData : WsConsensusInternalData
+{
+    internal override string EventTopic => "Lock";
+}
+
+internal sealed class WsUnlockData : WsConsensusInternalData
+{
+    internal override string EventTopic => "Unlock";
+}
+
+internal sealed class WsRelockData : WsConsensusInternalData
+{
+    internal override string EventTopic => "Relock";
+}
+
+internal sealed class WsPolkaAnyData : WsConsensusInternalData
+{
+    internal override string EventTopic => "PolkaAny";
+}
+
+internal sealed class WsPolkaNilData : WsConsensusInternalData
+{
+    internal override string EventTopic => "PolkaNil";
+}
+
+internal sealed class WsPolkaAgainData : WsConsensusInternalData
+{
+    internal override string EventTopic => "PolkaAgain";
+}
+
+internal sealed class WsMissingProposalBlockData : WsConsensusInternalData
+{
+    internal override string EventTopic => "MissingProposalBlock";
 }
