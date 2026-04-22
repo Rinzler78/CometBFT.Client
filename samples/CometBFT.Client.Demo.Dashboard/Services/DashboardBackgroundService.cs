@@ -42,21 +42,24 @@ internal sealed class DashboardBackgroundService : BackgroundService
             _vm.ConnectionStatus = "Connected";
             _vm.IsConnected = true;
 
+            // Core subscriptions — awaited: delivery is required before data flows
             await _ws.SubscribeNewBlockAsync(stoppingToken);
             await _ws.SubscribeNewBlockHeaderAsync(stoppingToken);
             await _ws.SubscribeTxAsync(stoppingToken);
             await _ws.SubscribeVoteAsync(stoppingToken);
             await _ws.SubscribeValidatorSetUpdatesAsync(stoppingToken);
-            await _ws.SubscribeNewBlockEventsAsync(stoppingToken);
 
-            using var newBlockEventsSub = _ws.NewBlockEventsStream
-                .Subscribe(d => AppendEventLog("events",
-                    $"Block #{d.Height}: {d.Events.Count} ABCI events"));
-
-            // Initial load
+            // Initial load — do not block on optional stream subscriptions
             await RefreshNodeInfoAsync(stoppingToken);
             await RefreshValidatorsAsync(stoppingToken);
             await RefreshNetInfoAsync(stoppingToken);
+
+            // Optional stream — fire-and-forget: ACK timeout (if node unsupported) fires
+            // ErrorOccurred but must not delay the initial data load above.
+            _ = _ws.SubscribeNewBlockEventsAsync(stoppingToken);
+            using var newBlockEventsSub = _ws.NewBlockEventsStream
+                .Subscribe(d => AppendEventLog("events",
+                    $"Block #{d.Height}: {d.Events.Count} ABCI events"));
 
             // Periodic refresh every 30s for network info and node status
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
