@@ -1,14 +1,18 @@
 #!/bin/bash
-# Pre-push hook: block direct pushes to master and develop branches.
+# Pre-push hook: branch protection + API consistency review.
 # Install to .git/hooks/pre-push (copy or symlink this file) and chmod +x.
 #
 # To install:
 #   cp .hooks/pre-push .git/hooks/pre-push
 #   chmod +x .git/hooks/pre-push
 
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 PROTECTED_BRANCHES=("master" "develop")
 
-while read local_ref local_sha remote_ref remote_sha; do
+# ── 1. Branch guard ───────────────────────────────────────────────────────────
+while read -r local_ref local_sha remote_ref remote_sha; do
     branch=$(echo "$remote_ref" | sed 's|refs/heads/||')
     for protected in "${PROTECTED_BRANCHES[@]}"; do
         if [ "$branch" = "$protected" ]; then
@@ -18,5 +22,10 @@ while read local_ref local_sha remote_ref remote_sha; do
         fi
     done
 done
+
+# ── 2. API consistency review ─────────────────────────────────────────────────
+if [ -f "$REPO_ROOT/.hooks/api-review.sh" ]; then
+    bash "$REPO_ROOT/.hooks/api-review.sh"
+fi
 
 exit 0

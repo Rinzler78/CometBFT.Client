@@ -151,13 +151,17 @@ logger.LogInformation("Sample complete.");
 //    interface ICosmosRestClient
 //        : ICometBftRestClient<CosmosBlock<string>, TxResult, Validator> { }
 //
-// 3. Register the custom client — same Polly pipeline, no boilerplate:
+// 3. Register with the 5-param overload — same Polly pipeline, no boilerplate:
 //
-//    services.AddCometBftRest<ICosmosRestClient, CosmosRestClient>(o => { ... });
+//    services.AddCometBftRest<CosmosBlock<string>, TxResult, Validator,
+//        ICosmosRestClient, CosmosRestClient>(o => { ... });
 //
 // 4. Extend the WebSocket client interface:
 //
 //    interface ICosmosWebSocketClient
 //        : ICometBftWebSocketClient<CosmosTx, CosmosBlock<CosmosTx>, CosmosTxResult, CosmosValidator> { }
 //
-//    services.AddCometBftWebSocket<CosmosTx, ICosmosWebSocketClient, CosmosWebSocketClient>(o => { ... }, codec);
+// 5. Register with the 6-param overload:
+//
+//    services.AddCometBftWebSocket<CosmosTx, CosmosBlock<CosmosTx>, CosmosTxResult, CosmosValidator,
+//        ICosmosWebSocketClient, CosmosWebSocketClient>(o => { ... }, codec);
