@@ -41,14 +41,17 @@ record CosmosBlock<TTx>(
 interface ICosmosRestClient
     : ICometBftRestClient<CosmosBlock<string>, TxResult, Validator> { }
 
-// 3. Register with the same Polly pipeline
-services.AddCometBftRest<ICosmosRestClient, CosmosRestClient>(o => { ... });
+// 3. Register with the same Polly pipeline — use the 5-param overload for custom domain types
+services.AddCometBftRest<CosmosBlock<string>, TxResult, Validator,
+    ICosmosRestClient, CosmosRestClient>(o => { ... });
 
 // 4. Extend the WebSocket client interface
 interface ICosmosWebSocketClient
     : ICometBftWebSocketClient<CosmosTx, CosmosBlock<CosmosTx>, CosmosTxResult, CosmosValidator> { }
 
-services.AddCometBftWebSocket<CosmosTx, ICosmosWebSocketClient, CosmosWebSocketClient>(o => { ... }, codec);
+// 5. Register with the 6-param overload for custom domain types
+services.AddCometBftWebSocket<CosmosTx, CosmosBlock<CosmosTx>, CosmosTxResult, CosmosValidator,
+    ICosmosWebSocketClient, CosmosWebSocketClient>(o => { ... }, codec);
 ```
 
 ## Related packages

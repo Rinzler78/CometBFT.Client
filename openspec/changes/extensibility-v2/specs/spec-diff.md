@@ -104,12 +104,23 @@ record CosmosBlock<TTx>(
 interface ICosmosRestClient
     : ICometBftRestClient<CosmosBlock<string>, TxResult, Validator> { }
 
-// 3. Register with the existing Polly pipeline
-services.AddCometBftRest<ICosmosRestClient, CosmosRestClient>(o => { ... });
+// 3. Register with the 5-param overload (required when domain types are customized)
+services.AddCometBftRest<CosmosBlock<string>, TxResult, Validator,
+    ICosmosRestClient, CosmosRestClient>(o => { ... });
 
 // 4. Extend the WebSocket interface
 interface ICosmosWebSocketClient
     : ICometBftWebSocketClient<CosmosTx, CosmosBlock<CosmosTx>, CosmosTxResult, CosmosValidator> { }
 
-services.AddCometBftWebSocket<CosmosTx, ICosmosWebSocketClient, CosmosWebSocketClient>(o => { ... }, codec);
+// 5. Register with the 6-param overload (required when domain types are customized)
+services.AddCometBftWebSocket<CosmosTx, CosmosBlock<CosmosTx>, CosmosTxResult, CosmosValidator,
+    ICosmosWebSocketClient, CosmosWebSocketClient>(o => { ... }, codec);
 ```
+
+**Note on DI overload selection:**
+
+| Consumer case | REST overload | WebSocket overload |
+|---|---|---|
+| Custom domain types (`CosmosBlock`, `CosmosTxResult`, …) | `AddCometBftRest<TBlock,TTxResult,TValidator,TInterface,TClient>` (5 params) | `AddCometBftWebSocket<TTx,TBlock,TTxResult,TValidator,TInterface,TClient>` (6 params) |
+| Default domain types, custom interface | `AddCometBftRest<TInterface,TClient>` (2 params) | `AddCometBftWebSocket<TTx,TInterface,TClient>` (3 params) |
+| Default domain types, default client | `AddCometBftRest(configure)` | `AddCometBftWebSocket<TTx>(configure, codec)` |
