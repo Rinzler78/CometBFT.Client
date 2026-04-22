@@ -29,9 +29,24 @@ These endpoints are used as defaults in demos and real integration tests (via en
 
 ## ADDED Requirements
 
-### Requirement: Immutable Domain Types
+### Requirement: Immutable Domain Types with Consumer Extensibility
 
-The library SHALL provide immutable `record` types for all CometBFT domain concepts with Nullable reference types enabled.
+The library SHALL provide immutable `record` types for all CometBFT domain concepts with Nullable reference types enabled. Starting from v2.0.0, domain types are split into two categories.
+
+**Applicative types (non-sealed)** — types that application layers (Cosmos, Osmosis, …) may need to enrich with additional properties. These are NOT `sealed` and may be inherited by consumers:
+
+`Block`, `Block<TTx>`, `TxResult`, `TxResult<TTx>`, `BlockHeader`, `Validator`, `BroadcastTxResult`, `NodeInfo`, `SyncInfo`, `ConsensusParamsInfo`, `UnconfirmedTxsInfo`, `BlockchainInfo`
+
+**Abstract bases** — shared bases for generic/non-generic record pairs, enabling inheritance without property redefinition:
+
+| Abstract base | Properties | Concrete types |
+|---|---|---|
+| `BlockBase` | `Height`, `Hash`, `Time`, `Proposer` | `Block`, `Block<TTx>` |
+| `TxResultBase` | `Hash`, `Height`, `Index`, `Code`, `Data`, `Log`, `Info`, `GasWanted`, `GasUsed`, `Events`, `Codespace` | `TxResult`, `TxResult<TTx>` |
+
+**Protocol-pure types (sealed)** — types that represent the CometBFT wire protocol exactly and must not be enriched by consumers:
+
+`Vote`, `CometBftEvent`, `AbciEventEntry`, `AbciQueryResponse`, `AbciProofOps`, `AbciProofOp`, `GenesisChunk`, `ProtocolVersion`, `NetworkInfo`, `NetworkPeer`, `RawTxCodec`
 
 #### Scenario: Block record construction
 - **WHEN** a `Block` record is constructed with Header, Data, and LastCommit
@@ -44,6 +59,15 @@ The library SHALL provide immutable `record` types for all CometBFT domain conce
 #### Scenario: NodeInfo record round-trip
 - **WHEN** a `NodeInfo` record is constructed from an RPC response
 - **THEN** the record supports `with` expressions and all protocol/network fields are accessible
+
+#### Scenario: Consumer extends Block without property redefinition
+- **WHEN** a consumer defines `record CosmosBlock<TTx>(..., string AppHash) : Block<TTx>(...)`
+- **THEN** it compiles without redefining `Height`, `Hash`, `Time`, `Proposer`, or `Txs`
+- **AND** a `CosmosBlock<string>` instance is assignable to `BlockBase` and to `Block<string>`
+
+#### Scenario: Protocol-pure types cannot be extended
+- **WHEN** a consumer attempts to inherit from `Vote`, `ProtocolVersion`, or `RawTxCodec`
+- **THEN** the compiler rejects the inheritance because these types are `sealed`
 
 ---
 
@@ -218,7 +242,9 @@ legacy CometBFT nodes — these are not renamed.
 
 ### Requirement: Dependency Injection Registration
 
-The library SHALL provide `IServiceCollection` extension methods for registering REST, WebSocket, and gRPC clients with options.
+The library SHALL provide `IServiceCollection` extension methods for registering REST, WebSocket, and gRPC clients with options. Starting from v2.0.0, generic overloads allow consumers to register derived client types without reimplementing the Polly pipeline.
+
+#### Non-generic overloads (backward-compatible, unchanged behavior)
 
 #### Scenario: AddCometBftRest registers ICometBftRestClient
 - **WHEN** `services.AddCometBftRest(opts => opts.BaseUrl = "http://localhost:26657")` is called
@@ -231,6 +257,20 @@ The library SHALL provide `IServiceCollection` extension methods for registering
 #### Scenario: AddCometBftGrpc registers ICometBftGrpcClient
 - **WHEN** `services.AddCometBftGrpc(opts => opts.BaseUrl = "http://localhost:9090")` is called
 - **THEN** `services.GetRequiredService<ICometBftGrpcClient>()` resolves without error
+
+#### Generic overloads (v2.0.0 — consumer extension)
+
+#### Scenario: AddCometBftRest generic overload registers custom interface
+- **WHEN** `services.AddCometBftRest<ICosmosRestClient, CosmosRestClient>(opts => ...)` is called
+  where `ICosmosRestClient : ICometBftRestClient` and `CosmosRestClient : ICosmosRestClient`
+- **THEN** `services.GetRequiredService<ICosmosRestClient>()` resolves without error
+- **AND** the same Polly resilience pipeline is applied to `CosmosRestClient` as to `CometBftRestClient`
+
+#### Scenario: AddCometBftWebSocket generic overload registers custom interface
+- **WHEN** `services.AddCometBftWebSocket<CosmosTx, ICosmosWebSocketClient, CosmosWebSocketClient>(opts => ..., codec)` is called
+  where `ICosmosWebSocketClient : ICometBftWebSocketClient<CosmosTx>`
+- **THEN** `services.GetRequiredService<ICosmosWebSocketClient>()` resolves without error
+- **AND** `ITxCodec<CosmosTx>` is registered as a singleton with the supplied codec instance
 
 ---
 

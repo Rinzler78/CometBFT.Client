@@ -7,7 +7,7 @@ namespace CometBFT.Client.Core.Domain;
 /// <param name="PubKey">The base64-encoded public key of the validator.</param>
 /// <param name="VotingPower">The current voting power of the validator.</param>
 /// <param name="ProposerPriority">The proposer priority used in round-robin proposer selection.</param>
-public sealed record Validator(
+public record Validator(
     string Address,
     string PubKey,
     long VotingPower,

@@ -3,17 +3,22 @@ using CometBFT.Client.Core.Domain;
 namespace CometBFT.Client.Core.Interfaces;
 
 /// <summary>
-/// Provides block retrieval operations for a CometBFT chain.
+/// Provides block retrieval operations for a CometBFT chain,
+/// returning blocks as <typeparamref name="TBlock"/>.
 /// </summary>
-public interface IBlockService
+/// <typeparam name="TBlock">
+/// The block type. Must inherit <see cref="BlockBase"/>.
+/// Use <see cref="IBlockService"/> (non-generic) to work with plain <see cref="Block"/> instances.
+/// </typeparam>
+public interface IBlockService<TBlock> where TBlock : BlockBase
 {
     /// <summary>
     /// Retrieves a block by its height. Returns the latest block when <paramref name="height"/> is <c>null</c>.
     /// </summary>
     /// <param name="height">The block height, or <c>null</c> for the latest block.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>The <see cref="Block"/> at the specified height.</returns>
-    Task<Block> GetBlockAsync(long? height = null, CancellationToken cancellationToken = default);
+    /// <returns>The <typeparamref name="TBlock"/> at the specified height.</returns>
+    Task<TBlock> GetBlockAsync(long? height = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves a block by its hex-encoded hash.
@@ -24,8 +29,8 @@ public interface IBlockService
     /// internally before forwarding to CometBFT.
     /// </param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>The <see cref="Block"/> with the specified hash.</returns>
-    Task<Block> GetBlockByHashAsync(string hash, CancellationToken cancellationToken = default);
+    /// <returns>The <typeparamref name="TBlock"/> with the specified hash.</returns>
+    Task<TBlock> GetBlockByHashAsync(string hash, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves the execution results for a block at the specified height.
@@ -77,11 +82,16 @@ public interface IBlockService
     /// <param name="perPage">The number of results per page.</param>
     /// <param name="orderBy">The sort order, typically <c>asc</c> or <c>desc</c>.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>A list of matching <see cref="Block"/> values.</returns>
-    Task<IReadOnlyList<Block>> SearchBlocksAsync(
+    /// <returns>A list of matching <typeparamref name="TBlock"/> values.</returns>
+    Task<IReadOnlyList<TBlock>> SearchBlocksAsync(
         string query,
         int? page = null,
         int? perPage = null,
         string? orderBy = null,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Provides block retrieval operations for a CometBFT chain, returning plain <see cref="Block"/> instances.
+/// </summary>
+public interface IBlockService : IBlockService<Block> { }

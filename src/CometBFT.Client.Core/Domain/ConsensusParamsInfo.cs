@@ -9,7 +9,7 @@ namespace CometBFT.Client.Core.Domain;
 /// <param name="EvidenceMaxAgeDuration">Maximum evidence age duration.</param>
 /// <param name="ValidatorPubKeyTypes">Allowed validator public key types.</param>
 /// <param name="VersionApp">The application protocol version.</param>
-public sealed record ConsensusParamsInfo(
+public record ConsensusParamsInfo(
     long BlockMaxBytes,
     long BlockMaxGas,
     long EvidenceMaxAgeNumBlocks,

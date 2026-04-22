@@ -5,19 +5,33 @@ namespace CometBFT.Client.Core.Interfaces;
 
 /// <summary>
 /// Provides real-time event subscription over WebSocket to a CometBFT node,
-/// with transactions decoded into the application-specific type <typeparamref name="TTx"/>.
+/// parameterized over the transaction, block, transaction result, and validator types.
 /// </summary>
-/// <typeparam name="TTx">
-/// The application-specific transaction type.
-/// Use <see cref="ICometBftWebSocketClient"/> (non-generic) to receive raw base64 strings.
+/// <typeparam name="TTx">The application-specific transaction type.</typeparam>
+/// <typeparam name="TBlock">
+/// The block type. Must inherit <see cref="Block{TTx}"/> so that <c>Txs</c> is typed as
+/// <see cref="IReadOnlyList{T}"/> of <typeparamref name="TTx"/>.
 /// </typeparam>
-public interface ICometBftWebSocketClient<TTx> : IAsyncDisposable where TTx : notnull
+/// <typeparam name="TTxResult">
+/// The transaction result type. Must inherit <see cref="TxResult{TTx}"/> so that
+/// <c>Transaction</c> is typed as <typeparamref name="TTx"/>.
+/// </typeparam>
+/// <typeparam name="TValidator">The validator type. Must inherit <see cref="Validator"/>.</typeparam>
+/// <remarks>
+/// Use <see cref="ICometBftWebSocketClient{TTx}"/> (2-param shim) or
+/// <see cref="ICometBftWebSocketClient"/> (non-generic) for the common cases.
+/// </remarks>
+public interface ICometBftWebSocketClient<TTx, TBlock, TTxResult, TValidator> : IAsyncDisposable
+    where TTx : notnull
+    where TBlock : Block<TTx>
+    where TTxResult : TxResult<TTx>
+    where TValidator : Validator
 {
     /// <summary>
     /// Raised when a new block is committed to the chain.
     /// Transactions are decoded into <typeparamref name="TTx"/> via the configured codec.
     /// </summary>
-    event EventHandler<CometBftEventArgs<Block<TTx>>>? NewBlockReceived;
+    event EventHandler<CometBftEventArgs<TBlock>>? NewBlockReceived;
 
     /// <summary>
     /// Raised when a new block header is received (tm.event='NewBlockHeader').
@@ -29,7 +43,7 @@ public interface ICometBftWebSocketClient<TTx> : IAsyncDisposable where TTx : no
     /// Raised when a transaction has been executed in a block.
     /// The transaction bytes are decoded into <typeparamref name="TTx"/> via the configured codec.
     /// </summary>
-    event EventHandler<CometBftEventArgs<TxResult<TTx>>>? TxExecuted;
+    event EventHandler<CometBftEventArgs<TTxResult>>? TxExecuted;
 
     /// <summary>
     /// Raised when a vote is received during consensus.
@@ -39,7 +53,7 @@ public interface ICometBftWebSocketClient<TTx> : IAsyncDisposable where TTx : no
     /// <summary>
     /// Raised when the validator set is updated.
     /// </summary>
-    event EventHandler<CometBftEventArgs<IReadOnlyList<Validator>>>? ValidatorSetUpdated;
+    event EventHandler<CometBftEventArgs<IReadOnlyList<TValidator>>>? ValidatorSetUpdated;
 
     /// <summary>
     /// Raised when an error occurs while processing a received WebSocket message.
@@ -87,6 +101,20 @@ public interface ICometBftWebSocketClient<TTx> : IAsyncDisposable where TTx : no
     /// </summary>
     Task UnsubscribeAllAsync(CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Provides real-time event subscription over WebSocket to a CometBFT node,
+/// with transactions decoded into the application-specific type <typeparamref name="TTx"/>.
+/// Uses the default <see cref="Block{TTx}"/>, <see cref="TxResult{TTx}"/>, and <see cref="Validator"/> types.
+/// </summary>
+/// <typeparam name="TTx">
+/// The application-specific transaction type.
+/// Use <see cref="ICometBftWebSocketClient"/> (non-generic) to receive raw base64 strings.
+/// </typeparam>
+public interface ICometBftWebSocketClient<TTx>
+    : ICometBftWebSocketClient<TTx, Block<TTx>, TxResult<TTx>, Validator>
+    where TTx : notnull
+{ }
 
 /// <summary>
 /// Provides real-time event subscription over WebSocket to a CometBFT node.

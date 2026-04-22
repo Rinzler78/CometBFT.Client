@@ -39,4 +39,13 @@ public sealed class TxResultTests
         Assert.NotEqual(0u, tx.Code);
         Assert.Equal("sdk", tx.Codespace);
     }
+
+    // ── Inheritance (Phase 2 — extensibility-v2) ─────────────────────────────
+
+    [Fact]
+    public void TxResult_IsAssignableFrom_TxResultBase()
+    {
+        var tx = new TxResult("H", 1L, 0, "B", 0u, null, null, null, 0, 0, new List<CometBftEvent>().AsReadOnly(), null);
+        Assert.IsAssignableFrom<TxResultBase>(tx);
+    }
 }

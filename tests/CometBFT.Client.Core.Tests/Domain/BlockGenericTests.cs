@@ -147,4 +147,21 @@ public sealed class BlockGenericTests
         Block raw = null!;
         Assert.Throws<ArgumentNullException>(() => raw.DecodeRaw());
     }
+
+    // ── Inheritance (Phase 2 — extensibility-v2) ─────────────────────────────
+
+    [Fact]
+    public void BlockGeneric_IsAssignableFrom_BlockBase()
+    {
+        var block = new Block<int>(1L, "H", DateTimeOffset.UtcNow, "P", new List<int>().AsReadOnly());
+        Assert.IsAssignableFrom<BlockBase>(block);
+    }
+
+    [Fact]
+    public void BlockGeneric_WithExpression_RetainsConcreteType()
+    {
+        var block = new Block<int>(1L, "H", DateTimeOffset.UtcNow, "P", new List<int>().AsReadOnly());
+        var modified = block with { Height = 2L };
+        Assert.IsType<Block<int>>(modified);
+    }
 }
