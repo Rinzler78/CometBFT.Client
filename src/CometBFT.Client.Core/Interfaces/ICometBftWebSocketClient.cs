@@ -62,6 +62,37 @@ public interface ICometBftWebSocketClient<TTx, TBlock, TTxResult, TValidator> : 
     event EventHandler<CometBftEventArgs<Exception>>? ErrorOccurred;
 
     /// <summary>
+    /// Emits on every committed block with the full ABCI event list
+    /// (tm.event='NewBlockEvents'). Primary source for on-chain activity indexing
+    /// without per-block REST polling.
+    /// </summary>
+    IObservable<NewBlockEventsData> NewBlockEventsStream { get; }
+
+    /// <summary>
+    /// Emits when a consensus complete-proposal step occurs
+    /// (tm.event='CompleteProposal').
+    /// </summary>
+    IObservable<CompleteProposalData> CompleteProposalStream { get; }
+
+    /// <summary>
+    /// Emits when the validator set changes (tm.event='ValidatorSetUpdates').
+    /// </summary>
+    IObservable<ValidatorSetUpdatesData> ValidatorSetUpdatesStream { get; }
+
+    /// <summary>
+    /// Emits when new evidence is submitted (tm.event='NewEvidence').
+    /// </summary>
+    IObservable<NewEvidenceData> NewEvidenceStream { get; }
+
+    /// <summary>
+    /// Merged stream for the nine low-priority consensus-internal events:
+    /// TimeoutPropose, TimeoutWait, Lock, Unlock, Relock,
+    /// PolkaAny, PolkaNil, PolkaAgain, MissingProposalBlock.
+    /// Each item carries the topic name as <see cref="CometBftEvent.Type"/>.
+    /// </summary>
+    IObservable<CometBftEvent> ConsensusInternalStream { get; }
+
+    /// <summary>
     /// Connects to the WebSocket endpoint and begins receiving messages.
     /// </summary>
     Task ConnectAsync(CancellationToken cancellationToken = default);
@@ -95,6 +126,31 @@ public interface ICometBftWebSocketClient<TTx, TBlock, TTxResult, TValidator> : 
     /// Subscribes to validator set update events (tm.event='ValidatorSetUpdates').
     /// </summary>
     Task SubscribeValidatorSetUpdatesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Subscribes to new block events including all ABCI events
+    /// (tm.event='NewBlockEvents').
+    /// </summary>
+    Task SubscribeNewBlockEventsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Subscribes to consensus complete-proposal events
+    /// (tm.event='CompleteProposal').
+    /// </summary>
+    Task SubscribeCompleteProposalAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Subscribes to new evidence events (tm.event='NewEvidence').
+    /// </summary>
+    Task SubscribeNewEvidenceAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Subscribes to all nine low-priority consensus-internal events
+    /// (TimeoutPropose, TimeoutWait, Lock, Unlock, Relock,
+    /// PolkaAny, PolkaNil, PolkaAgain, MissingProposalBlock).
+    /// All items are routed to <see cref="ConsensusInternalStream"/>.
+    /// </summary>
+    Task SubscribeConsensusInternalAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Unsubscribes from all active event subscriptions.

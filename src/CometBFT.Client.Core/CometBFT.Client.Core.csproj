@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>CometBFT/Tendermint core domain types, interfaces, and exceptions. Protocol version v0.38.9.</Description>
+    <Description>CometBFT/Tendermint core domain types, interfaces, and exceptions. Protocol version v0.39.1.</Description>
     <PackageTags>tendermint;cometbft;blockchain;rpc;core</PackageTags>
     <Version>1.0.0</Version>
   </PropertyGroup>

@@ -1,15 +1,15 @@
 # CometBFT.Client.Core
 
 Core domain types, interfaces, and exceptions for the CometBFT.Client library suite.
-Targets [CometBFT](https://github.com/cometbft/cometbft) protocol version **v0.38.9**.
+Targets [CometBFT](https://github.com/cometbft/cometbft) protocol version **v0.39.1**.
 
 ## Contents
 
 - **Abstract bases** — `BlockBase`, `TxResultBase` — shared bases enabling consumer inheritance without property redefinition
 - **Domain types** — immutable `record` types shared across all transports:
   - *Applicative (non-sealed)* — `Block`, `Block<TTx>`, `TxResult`, `TxResult<TTx>`, `BlockHeader`, `Validator`, `BroadcastTxResult`, `NodeInfo`, `SyncInfo`, `ConsensusParamsInfo`, `UnconfirmedTxsInfo`, `BlockchainInfo`
-  - *Protocol-pure (sealed)* — `Vote`, `CometBftEvent`, `AbciEventEntry`, `AbciQueryResponse`, `AbciProofOps`, `AbciProofOp`, `GenesisChunk`, `ProtocolVersion`, `NetworkInfo`, `NetworkPeer`, `RawTxCodec`
-- **Transport interfaces** — `ICometBftRestClient<TBlock,TTxResult,TValidator>`, `ICometBftWebSocketClient<TTx,TBlock,TTxResult,TValidator>`, `ICometBftGrpcClient`, `IUnsafeService`; non-generic shims preserve existing usage
+  - *Protocol-pure (sealed)* — `Vote`, `CometBftEvent`, `AbciEventEntry`, `AbciQueryResponse`, `AbciProofOps`, `AbciProofOp`, `GenesisChunk`, `ProtocolVersion`, `NetworkInfo`, `NetworkPeer`, `RawTxCodec`, `NewBlockEventsData`, `CompleteProposalData`, `ValidatorSetUpdatesData`, `NewEvidenceData`
+- **Transport interfaces** — `ICometBftRestClient<TBlock,TTxResult,TValidator>`, `ICometBftWebSocketClient<TTx,TBlock,TTxResult,TValidator>` (with 5 new `IObservable<T>` streams: `NewBlockEventsStream`, `CompleteProposalStream`, `ValidatorSetUpdatesStream`, `NewEvidenceStream`, `ConsensusInternalStream`), `ICometBftGrpcClient`, `IUnsafeService`; non-generic shims preserve existing usage
 - **Service interfaces** — `IBlockService<TBlock>`, `ITxService<TTxResult>`, `IValidatorService<TValidator>`, `IHealthService`, `IStatusService`, `IAbciService`; non-generic shims preserve existing usage
 - **Options** — `CometBftRestOptions`, `CometBftWebSocketOptions`, `CometBftGrpcOptions`
 - **Exceptions** — `CometBftClientException`, `CometBftRestException`, `CometBftWebSocketException`, `CometBftGrpcException`

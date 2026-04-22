@@ -2,10 +2,10 @@
 
 [![CI](https://github.com/Rinzler78/CometBFT.Client/actions/workflows/ci.yml/badge.svg)](https://github.com/Rinzler78/CometBFT.Client/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/v/Rinzler78.CometBFT.Client.svg)](https://www.nuget.org/packages/Rinzler78.CometBFT.Client)
-[![Protocol](https://img.shields.io/badge/CometBFT-v0.38.9-blue)](https://github.com/cometbft/cometbft/releases/tag/v0.38.9)
+[![Protocol](https://img.shields.io/badge/CometBFT-v0.39.1-blue)](https://github.com/cometbft/cometbft/releases/tag/v0.39.1)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Production-ready .NET 10 client library for [CometBFT](https://github.com/cometbft/cometbft) (formerly Tendermint), targeting protocol version **v0.38.9**.
+Production-ready .NET 10 client library for [CometBFT](https://github.com/cometbft/cometbft) (formerly Tendermint), targeting protocol version **v0.39.1**.
 
 Provides REST/JSON-RPC, WebSocket subscription, and gRPC transports with full dependency injection support.
 
@@ -235,7 +235,7 @@ NUGET_API_KEY=<key> ./scripts/docker/publish.sh
 
 ## CometBFT Reference
 
-- [CometBFT v0.38.9 Release](https://github.com/cometbft/cometbft/releases/tag/v0.38.9)
+- [CometBFT v0.39.1 Release](https://github.com/cometbft/cometbft/releases/tag/v0.39.1)
 - [CometBFT RPC Documentation](https://docs.cometbft.com/v0.38/rpc/)
 
 ## Validated Public Endpoints

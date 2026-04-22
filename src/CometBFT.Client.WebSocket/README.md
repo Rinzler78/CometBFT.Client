@@ -1,7 +1,7 @@
 # CometBFT.Client.WebSocket
 
 WebSocket subscription client for [CometBFT](https://github.com/cometbft/cometbft) nodes.
-Targets protocol version **v0.38.9** — all 5 public subscriptions covered.
+Targets protocol version **v0.39.1** — 18 subscribable events covered.
 
 ## Installation
 
@@ -32,18 +32,43 @@ client.TxExecuted += (_, args) =>
     Console.WriteLine($"Tx {args.Value.Hash}: code={args.Value.Code}");
 ```
 
-## Subscriptions
+## Event subscriptions (legacy event handlers)
 
-| Event | Handler |
-|-------|---------|
-| `NewBlock` | `NewBlockReceived` |
-| `NewBlockHeader` | `NewBlockHeaderReceived` |
-| `Tx` | `TxExecuted` |
-| `Vote` | `VoteReceived` |
-| `ValidatorSetUpdates` | `ValidatorSetUpdated` |
+| `tm.event` | Subscribe method | Event handler |
+|-----------|------------------|---------------|
+| `NewBlock` | `SubscribeNewBlockAsync` | `NewBlockReceived` |
+| `NewBlockHeader` | `SubscribeNewBlockHeaderAsync` | `NewBlockHeaderReceived` |
+| `Tx` | `SubscribeTxAsync` | `TxExecuted` |
+| `Vote` | `SubscribeVoteAsync` | `VoteReceived` |
+| `ValidatorSetUpdates` | `SubscribeValidatorSetUpdatesAsync` | `ValidatorSetUpdated` |
+
+## Observable streams (v2.1.0+)
+
+| `tm.event` | Subscribe method | Stream property | Payload type |
+|-----------|------------------|-----------------|--------------|
+| `NewBlockEvents` 🔴 | `SubscribeNewBlockEventsAsync` | `NewBlockEventsStream` | `NewBlockEventsData` |
+| `CompleteProposal` | `SubscribeCompleteProposalAsync` | `CompleteProposalStream` | `CompleteProposalData` |
+| `ValidatorSetUpdates` | `SubscribeValidatorSetUpdatesAsync` | `ValidatorSetUpdatesStream` | `ValidatorSetUpdatesData` |
+| `NewEvidence` | `SubscribeNewEvidenceAsync` | `NewEvidenceStream` | `NewEvidenceData` |
+| 9 consensus-internal topics | `SubscribeConsensusInternalAsync` | `ConsensusInternalStream` | `CometBftEvent` |
+
+`ConsensusInternalStream` merges: TimeoutPropose, TimeoutWait, Lock, Unlock, Relock, PolkaAny, PolkaNil, PolkaAgain, MissingProposalBlock.
+
+### DeFi indexing example
+
+```csharp
+await client.ConnectAsync();
+await client.SubscribeNewBlockEventsAsync();
+
+client.NewBlockEventsStream
+    .SelectMany(d => d.Events)
+    .Where(e => e.Type == "ibc_transfer")
+    .Subscribe(e => Console.WriteLine($"IBC transfer: {e.Attributes[0].Value}"));
+```
 
 ## Features
 
 - Automatic reconnection with configurable backoff
 - Typed event handlers — no raw JSON
+- `IObservable<T>` streams for reactive composition
 - Thread-safe subscribe/unsubscribe
