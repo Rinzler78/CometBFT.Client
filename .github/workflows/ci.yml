@@ -80,6 +80,9 @@ jobs:
             --filter "Category!=Integration&Category!=E2E"
           dotnet run --project tools/CometBFT.Client.CoverageGate/CometBFT.Client.CoverageGate.csproj -- TestResults
 
+      - name: Validate single-package NuGet restore
+        run: ./scripts/validate-package-restore.sh
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always() && !env.ACT

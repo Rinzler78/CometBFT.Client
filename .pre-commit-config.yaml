@@ -53,6 +53,12 @@ repos:
         entry: dotnet run --project tools/CometBFT.Client.CoverageGate/CometBFT.Client.CoverageGate.csproj -- TestResults
         pass_filenames: false
 
+      - id: validate-package-restore
+        name: Validate single-package NuGet restore
+        language: system
+        entry: ./scripts/validate-package-restore.sh
+        pass_filenames: false
+
       - id: detect-secrets
         name: detect secrets
         language: python

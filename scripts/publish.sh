@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-dotnet pack CometBFT.Client.sln --configuration Release --output ./artifacts --no-build
+dotnet pack CometBFT.Client.sln --configuration Release --output ./artifacts
 
 if [ "$DRY_RUN" = false ] && [ -n "$API_KEY" ]; then
   dotnet nuget push "./artifacts/*.nupkg" --api-key "$API_KEY" --source "$SOURCE" --skip-duplicate
