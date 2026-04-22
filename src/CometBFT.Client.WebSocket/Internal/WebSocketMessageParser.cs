@@ -4,6 +4,7 @@ using CometBFT.Client.WebSocket.Json;
 
 namespace CometBFT.Client.WebSocket.Internal;
 
+
 /// <summary>
 /// Maps CometBFT WebSocket wire types to typed domain objects.
 /// Extracted for testability; used exclusively by <see cref="CometBftWebSocketClient"/>.
@@ -118,5 +119,76 @@ internal static class WebSocketMessageParser
                 0))
             .ToList()
             .AsReadOnly();
+    }
+
+    internal static ValidatorSetUpdatesData? ParseValidatorSetUpdatesData(WsValidatorSetUpdatesData data)
+    {
+        var validators = ParseValidatorSetUpdates(data);
+        return validators is null ? null : new ValidatorSetUpdatesData(validators);
+    }
+
+    internal static NewBlockEventsData? ParseNewBlockEvents(WsNewBlockEventsData data)
+    {
+        var value = data.Value;
+        if (value is null)
+        {
+            return null;
+        }
+
+        var header = value.Header;
+        var height = long.TryParse(value.Height, out var h) ? h : 0;
+        var time = DateTimeOffset.TryParse(header?.Time, out var t) ? t : DateTimeOffset.MinValue;
+
+        var blockHeader = new BlockHeader(
+            Version: header?.Version?.Block ?? string.Empty,
+            ChainId: header?.ChainId ?? string.Empty,
+            Height: height,
+            Time: time,
+            LastBlockId: header?.LastBlockId?.Hash ?? string.Empty,
+            LastCommitHash: header?.LastCommitHash ?? string.Empty,
+            DataHash: header?.DataHash ?? string.Empty,
+            ValidatorsHash: header?.ValidatorsHash ?? string.Empty,
+            NextValidatorsHash: header?.NextValidatorsHash ?? string.Empty,
+            ConsensusHash: header?.ConsensusHash ?? string.Empty,
+            AppHash: header?.AppHash ?? string.Empty,
+            LastResultsHash: header?.LastResultsHash ?? string.Empty,
+            EvidenceHash: header?.EvidenceHash ?? string.Empty,
+            ProposerAddress: header?.ProposerAddress ?? string.Empty);
+
+        var events = (value.Events ?? [])
+            .Select(e => new CometBftEvent(
+                e.Type,
+                (e.Attributes ?? [])
+                    .Select(a => new AbciEventEntry(a.Key, a.Value, a.Index))
+                    .ToList()
+                    .AsReadOnly()))
+            .ToList()
+            .AsReadOnly();
+
+        return new NewBlockEventsData(blockHeader, height, events);
+    }
+
+    internal static CompleteProposalData? ParseCompleteProposal(WsCompleteProposalData data)
+    {
+        var value = data.Value;
+        if (value is null)
+        {
+            return null;
+        }
+
+        var height = long.TryParse(value.Height, out var h) ? h : 0;
+        return new CompleteProposalData(height, value.Round, value.BlockId);
+    }
+
+    internal static NewEvidenceData? ParseNewEvidence(WsNewEvidenceData data)
+    {
+        var value = data.Value;
+        if (value is null)
+        {
+            return null;
+        }
+
+        var height = long.TryParse(value.Height, out var h) ? h : 0;
+        return new NewEvidenceData(height, value.EvidenceType, value.Validator);
     }
 }

@@ -14,15 +14,15 @@ namespace CometBFT.Client.E2E.Tests;
 public sealed class E2eTests
 {
     // CometBFT produces a block roughly every 6 s on Cosmos Hub.
-    // Block/header/vote timeouts use a 5× margin.
-    private const int BlockEventTimeoutSeconds = 30;
+    // Block/header/vote timeouts use a 2× margin.
+    private const int BlockEventTimeoutSeconds = 12;
 
     // Minimal invalid transaction bytes used to exercise gRPC broadcast paths.
     private static readonly byte[] MinimalInvalidTx = [0x0a, 0x01, 0x00];
 
     [Fact]
     [Trait("Category", "E2E")]
-    public async Task Rest_Flow_FromDi_ToDomainObjects_Works()
+    public async Task Rest_Flow_CoreAndExtendedEndpoints_Work()
     {
         var rpcUrl = EndpointConfiguration.Require("COMETBFT_RPC_URL");
 
@@ -31,46 +31,32 @@ public sealed class E2eTests
         await using var provider = services.BuildServiceProvider();
         var client = provider.GetRequiredService<ICometBftRestClient>();
 
+        // Core endpoints
         Assert.True(await client.GetHealthAsync());
 
         var (nodeInfo, syncInfo) = await client.GetStatusAsync();
-        var block = await client.GetBlockAsync();
-        var validators = await client.GetValidatorsAsync();
-
         Assert.NotEmpty(nodeInfo.Network);
         Assert.True(syncInfo.LatestBlockHeight > 0);
+
+        var block = await client.GetBlockAsync();
         Assert.True(block.Height > 0);
+
+        var validators = await client.GetValidatorsAsync();
         Assert.NotEmpty(validators);
-    }
 
-    [Fact]
-    [Trait("Category", "E2E")]
-    public async Task Rest_Flow_Extended_Endpoints_Work()
-    {
-        var rpcUrl = EndpointConfiguration.Require("COMETBFT_RPC_URL");
-
-        var services = new ServiceCollection();
-        services.AddCometBftRest(options => options.BaseUrl = rpcUrl);
-        await using var provider = services.BuildServiceProvider();
-        var client = provider.GetRequiredService<ICometBftRestClient>();
-
-        // Block results
+        // Extended endpoints
         var results = await client.GetBlockResultsAsync();
         Assert.NotNull(results);
 
-        // Header
         var header = await client.GetHeaderAsync();
         Assert.True(header.Height > 0);
 
-        // Blockchain range
         var chain = await client.GetBlockchainAsync();
         Assert.True(chain.LastHeight > 0);
 
-        // Unconfirmed txs
         var mempool = await client.GetUnconfirmedTxsAsync();
         Assert.True(mempool.Total >= 0);
 
-        // ABCI info
         var abci = await client.GetAbciInfoAsync();
         Assert.NotNull(abci);
     }
@@ -106,8 +92,7 @@ public sealed class E2eTests
         }
         catch (OperationCanceledException)
         {
-            // Public testnet latency or congestion is not a client bug — skip rather than fail.
-            return;
+            Assert.Skip("Public testnet did not deliver an event within the timeout — network issue, not a client bug.");
         }
 
         await client.DisconnectAsync();
@@ -164,30 +149,12 @@ public sealed class E2eTests
         }
         catch (OperationCanceledException)
         {
-            // Public testnet latency or congestion is not a client bug — skip rather than fail.
-            return;
+            Assert.Skip("Public testnet did not deliver an event within the timeout — network issue, not a client bug.");
         }
 
         // UnsubscribeAll should succeed after receiving events.
         await client.UnsubscribeAllAsync();
         await client.DisconnectAsync();
-    }
-
-    [Fact]
-    [Trait("Category", "E2E")]
-    public async Task Grpc_Flow_Resolves_Client_And_Handles_Expected_Broadcast_Path()
-    {
-        var grpcUrl = EndpointConfiguration.Require("COMETBFT_GRPC_URL");
-
-        var services = new ServiceCollection();
-        services.AddCometBftGrpc(options => options.BaseUrl = grpcUrl);
-        await using var provider = services.BuildServiceProvider();
-        var client = provider.GetRequiredService<ICometBftGrpcClient>();
-
-        _ = await client.PingAsync();
-
-        var ex = await Record.ExceptionAsync(() => client.BroadcastTxAsync([]));
-        Assert.NotNull(ex);
     }
 
     [Fact]
@@ -221,8 +188,7 @@ public sealed class E2eTests
         }
         catch (OperationCanceledException)
         {
-            // Public testnet latency or congestion is not a client bug — skip rather than fail.
-            return;
+            Assert.Skip("Public testnet did not deliver an event within the timeout — network issue, not a client bug.");
         }
 
         await client.DisconnectAsync();
@@ -248,7 +214,7 @@ public sealed class E2eTests
 
     [Fact]
     [Trait("Category", "E2E")]
-    public async Task Grpc_Flow_BroadcastTx_CheckTxFields_Populated()
+    public async Task Grpc_Flow_PingAndBroadcast_CoverExpectedPaths()
     {
         var grpcUrl = EndpointConfiguration.Require("COMETBFT_GRPC_URL");
 
@@ -257,17 +223,20 @@ public sealed class E2eTests
         await using var provider = services.BuildServiceProvider();
         var client = provider.GetRequiredService<ICometBftGrpcClient>();
 
+        // Ping: empty-tx broadcast must be rejected at transport or ABCI level.
+        _ = await client.PingAsync();
+        var emptyEx = await Record.ExceptionAsync(() => client.BroadcastTxAsync([]));
+        Assert.NotNull(emptyEx);
+
         // Verify the CometBFT native gRPC broadcast API is reachable.
         // Public Cosmos nodes commonly expose only the Cosmos SDK gRPC service (port 9090)
         // and do not expose the CometBFT-native BroadcastAPI endpoint.
-        // If PingAsync returns false the endpoint is unavailable — skip rather than fail.
+        // If PingAsync returned false the endpoint is unavailable — skip the shape check.
         var alive = await client.PingAsync();
         if (!alive)
             return;
 
-        // Send a minimal invalid tx. The node should either:
-        //   (a) Return a BroadcastTxResult with Code != 0 and populated check_tx fields, or
-        //   (b) Throw a CometBftGrpcException at transport level.
+        // Minimal invalid tx — either returns a check_tx result or throws at transport level.
         BroadcastTxResult? result = null;
         Exception? broadcastEx = null;
         try
@@ -281,14 +250,12 @@ public sealed class E2eTests
 
         if (result is not null)
         {
-            // check_tx shape must be complete regardless of ABCI code.
             Assert.NotEmpty(result.Hash);
             Assert.True(result.GasWanted >= 0, "GasWanted must be non-negative");
             Assert.True(result.GasUsed >= 0, "GasUsed must be non-negative");
         }
         else
         {
-            // Transport-level failure is acceptable on a public testnet.
             Assert.IsType<CometBFT.Client.Core.Exceptions.CometBftGrpcException>(broadcastEx);
         }
     }

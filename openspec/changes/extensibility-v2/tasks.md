@@ -51,6 +51,6 @@
 - [x] `openspec/changes/initial-library-creation/specs/cometbft-client/spec.md` — Domain types + DI registration sections updated to v2
 
 ## Phase 9 — Release
-- [ ] PR `release/v2.0.0` → `develop`
-- [ ] Merge `develop` → `master`
-- [ ] Tag `v2.0.0`
+- [x] PR `release/v2.0.0` → `develop`
+- [x] Merge `develop` → `master`
+- [x] Tag `v2.0.0` — NuGet published, GitHub Release created

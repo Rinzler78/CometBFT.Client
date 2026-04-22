@@ -114,6 +114,11 @@ try
     await ws.ConnectAsync();
     await ws.SubscribeNewBlockAsync();
     await ws.SubscribeTxAsync();
+    await ws.SubscribeNewBlockEventsAsync();
+
+    using var newBlockEventsSub = ws.NewBlockEventsStream
+        .Subscribe(d => logger.LogInformation(
+            "WS: NewBlockEvents #{Height} — {Count} ABCI events", d.Height, d.Events.Count));
 
     logger.LogInformation("Subscribed — listening for 5 seconds...");
     await Task.Delay(TimeSpan.FromSeconds(5));
@@ -132,6 +137,19 @@ finally
 
 logger.LogInformation("Sample complete.");
 
+// ── NewBlockEvents — DeFi indexing pattern (v2.1.0) ─────────────────────────
+//
+// NewBlockEventsStream fires on every committed block with ALL ABCI events.
+// Use SelectMany + Where to filter on specific event types without REST polling.
+//
+//    await ws.ConnectAsync();
+//    await ws.SubscribeNewBlockEventsAsync();
+//
+//    ws.NewBlockEventsStream
+//        .SelectMany(d => d.Events)
+//        .Where(e => e.Type == "ibc_transfer")
+//        .Subscribe(e => OnIbcTransfer(e));
+//
 // ── Extension guide (v2.0.0) ─────────────────────────────────────────────────
 //
 // CometBFT.Client v2 is designed for extension without redefinition.

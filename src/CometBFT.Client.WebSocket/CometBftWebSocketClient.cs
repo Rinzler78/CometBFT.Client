@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Text.Json;
 using CometBFT.Client.Core.Codecs;
 using CometBFT.Client.Core.Domain;
@@ -35,6 +37,12 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
     /// </summary>
     internal readonly ConcurrentDictionary<int, TaskCompletionSource<bool>> _pendingAcks = new();
 
+    private readonly Subject<NewBlockEventsData> _newBlockEventsSubject = new();
+    private readonly Subject<CompleteProposalData> _completeProposalSubject = new();
+    private readonly Subject<ValidatorSetUpdatesData> _validatorSetUpdatesSubject = new();
+    private readonly Subject<NewEvidenceData> _newEvidenceSubject = new();
+    private readonly Subject<CometBftEvent> _consensusInternalSubject = new();
+
     private WebsocketClient? _client;
     private IDisposable? _messageSubscription;
     private IDisposable? _reconnectionSubscription;
@@ -58,6 +66,21 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
 
     /// <inheritdoc />
     public event EventHandler<CometBftEventArgs<Exception>>? ErrorOccurred;
+
+    /// <inheritdoc />
+    public IObservable<NewBlockEventsData> NewBlockEventsStream => _newBlockEventsSubject.AsObservable();
+
+    /// <inheritdoc />
+    public IObservable<CompleteProposalData> CompleteProposalStream => _completeProposalSubject.AsObservable();
+
+    /// <inheritdoc />
+    public IObservable<ValidatorSetUpdatesData> ValidatorSetUpdatesStream => _validatorSetUpdatesSubject.AsObservable();
+
+    /// <inheritdoc />
+    public IObservable<NewEvidenceData> NewEvidenceStream => _newEvidenceSubject.AsObservable();
+
+    /// <inheritdoc />
+    public IObservable<CometBftEvent> ConsensusInternalStream => _consensusInternalSubject.AsObservable();
 
     /// <summary>
     /// Initializes a new instance of <see cref="CometBftWebSocketClient{TTx}"/>.
@@ -197,6 +220,31 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
         SendSubscribeAsync("tm.event='ValidatorSetUpdates'", cancellationToken);
 
     /// <inheritdoc />
+    public Task SubscribeNewBlockEventsAsync(CancellationToken cancellationToken = default) =>
+        SendSubscribeAsync("tm.event='NewBlockEvents'", cancellationToken);
+
+    /// <inheritdoc />
+    public Task SubscribeCompleteProposalAsync(CancellationToken cancellationToken = default) =>
+        SendSubscribeAsync("tm.event='CompleteProposal'", cancellationToken);
+
+    /// <inheritdoc />
+    public Task SubscribeNewEvidenceAsync(CancellationToken cancellationToken = default) =>
+        SendSubscribeAsync("tm.event='NewEvidence'", cancellationToken);
+
+    /// <inheritdoc />
+    public Task SubscribeConsensusInternalAsync(CancellationToken cancellationToken = default) =>
+        Task.WhenAll(
+            SendSubscribeAsync("tm.event='TimeoutPropose'", cancellationToken),
+            SendSubscribeAsync("tm.event='TimeoutWait'", cancellationToken),
+            SendSubscribeAsync("tm.event='Lock'", cancellationToken),
+            SendSubscribeAsync("tm.event='Unlock'", cancellationToken),
+            SendSubscribeAsync("tm.event='Relock'", cancellationToken),
+            SendSubscribeAsync("tm.event='PolkaAny'", cancellationToken),
+            SendSubscribeAsync("tm.event='PolkaNil'", cancellationToken),
+            SendSubscribeAsync("tm.event='PolkaAgain'", cancellationToken),
+            SendSubscribeAsync("tm.event='MissingProposalBlock'", cancellationToken));
+
+    /// <inheritdoc />
     public Task UnsubscribeAllAsync(CancellationToken cancellationToken = default)
     {
         EnsureConnected();
@@ -226,6 +274,17 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
         _pendingAcks.Clear();
         _reconnectionSubscription?.Dispose();
         _messageSubscription?.Dispose();
+
+        _newBlockEventsSubject.OnCompleted();
+        _newBlockEventsSubject.Dispose();
+        _completeProposalSubject.OnCompleted();
+        _completeProposalSubject.Dispose();
+        _validatorSetUpdatesSubject.OnCompleted();
+        _validatorSetUpdatesSubject.Dispose();
+        _newEvidenceSubject.OnCompleted();
+        _newEvidenceSubject.Dispose();
+        _consensusInternalSubject.OnCompleted();
+        _consensusInternalSubject.Dispose();
 
         if (_client is not null)
         {
@@ -399,6 +458,43 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
                             new CometBftEventArgs<IReadOnlyList<Validator>>(validators));
                     }
 
+                    var vsUpdateData = WebSocketMessageParser.ParseValidatorSetUpdatesData(vsData);
+                    if (vsUpdateData is not null)
+                    {
+                        _validatorSetUpdatesSubject.OnNext(vsUpdateData);
+                    }
+
+                    break;
+
+                case WsNewBlockEventsData nbeData:
+                    var nbe = WebSocketMessageParser.ParseNewBlockEvents(nbeData);
+                    if (nbe is not null)
+                    {
+                        _newBlockEventsSubject.OnNext(nbe);
+                    }
+
+                    break;
+
+                case WsCompleteProposalData cpData:
+                    var cp = WebSocketMessageParser.ParseCompleteProposal(cpData);
+                    if (cp is not null)
+                    {
+                        _completeProposalSubject.OnNext(cp);
+                    }
+
+                    break;
+
+                case WsNewEvidenceData neData:
+                    var ne = WebSocketMessageParser.ParseNewEvidence(neData);
+                    if (ne is not null)
+                    {
+                        _newEvidenceSubject.OnNext(ne);
+                    }
+
+                    break;
+
+                case WsConsensusInternalData ciData:
+                    _consensusInternalSubject.OnNext(new CometBftEvent(ciData.EventTopic, []));
                     break;
             }
         }

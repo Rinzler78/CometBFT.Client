@@ -47,6 +47,11 @@ internal sealed class DashboardBackgroundService : BackgroundService
             await _ws.SubscribeTxAsync(stoppingToken);
             await _ws.SubscribeVoteAsync(stoppingToken);
             await _ws.SubscribeValidatorSetUpdatesAsync(stoppingToken);
+            await _ws.SubscribeNewBlockEventsAsync(stoppingToken);
+
+            using var newBlockEventsSub = _ws.NewBlockEventsStream
+                .Subscribe(d => AppendEventLog("events",
+                    $"Block #{d.Height}: {d.Events.Count} ABCI events"));
 
             // Initial load
             await RefreshNodeInfoAsync(stoppingToken);
