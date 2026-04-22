@@ -33,7 +33,7 @@
 - [x] `WebSocket/Json/WsWireTypes.cs` — added 13 new `[JsonDerivedType]` entries + wire classes
 - [x] `WebSocket/Internal/WebSocketMessageParser.cs` — added 4 parser methods
 - [x] `WebSocket/CometBftWebSocketClient.cs` — 5 Subject<T> backing fields, 5 IObservable properties, 4 Subscribe methods + SubscribeConsensusInternalAsync, new switch cases, DisposeAsync cleanup
-- [x] `CometBFT.Client.WebSocket.csproj` — added `System.Reactive 6.0.1`
+- [x] `CometBFT.Client.WebSocket.csproj` — added `System.Reactive 6.1.0`
 
 ## Phase 5 — Build Verification
 - [x] `dotnet build CometBFT.Client.sln` — 0 errors, 0 warnings

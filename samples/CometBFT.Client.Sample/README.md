@@ -25,7 +25,9 @@ await ws.ConnectAsync();
 await ws.SubscribeNewBlockEventsAsync();
 
 ws.NewBlockEventsStream
-    .SelectMany(d => d.Events)
-    .Where(e => e.Type == "ibc_transfer")
-    .Subscribe(e => Console.WriteLine($"IBC transfer at block #{d.Height}"));
+    .Subscribe(d =>
+    {
+        foreach (var e in d.Events.Where(e => e.Type == "ibc_transfer"))
+            Console.WriteLine($"IBC transfer at block #{d.Height}");
+    });
 ```

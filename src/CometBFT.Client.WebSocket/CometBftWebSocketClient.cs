@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text.Json;
 using CometBFT.Client.Core.Codecs;
@@ -67,19 +68,19 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
     public event EventHandler<CometBftEventArgs<Exception>>? ErrorOccurred;
 
     /// <inheritdoc />
-    public IObservable<NewBlockEventsData> NewBlockEventsStream => _newBlockEventsSubject;
+    public IObservable<NewBlockEventsData> NewBlockEventsStream => _newBlockEventsSubject.AsObservable();
 
     /// <inheritdoc />
-    public IObservable<CompleteProposalData> CompleteProposalStream => _completeProposalSubject;
+    public IObservable<CompleteProposalData> CompleteProposalStream => _completeProposalSubject.AsObservable();
 
     /// <inheritdoc />
-    public IObservable<ValidatorSetUpdatesData> ValidatorSetUpdatesStream => _validatorSetUpdatesSubject;
+    public IObservable<ValidatorSetUpdatesData> ValidatorSetUpdatesStream => _validatorSetUpdatesSubject.AsObservable();
 
     /// <inheritdoc />
-    public IObservable<NewEvidenceData> NewEvidenceStream => _newEvidenceSubject;
+    public IObservable<NewEvidenceData> NewEvidenceStream => _newEvidenceSubject.AsObservable();
 
     /// <inheritdoc />
-    public IObservable<CometBftEvent> ConsensusInternalStream => _consensusInternalSubject;
+    public IObservable<CometBftEvent> ConsensusInternalStream => _consensusInternalSubject.AsObservable();
 
     /// <summary>
     /// Initializes a new instance of <see cref="CometBftWebSocketClient{TTx}"/>.
@@ -231,18 +232,17 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
         SendSubscribeAsync("tm.event='NewEvidence'", cancellationToken);
 
     /// <inheritdoc />
-    public async Task SubscribeConsensusInternalAsync(CancellationToken cancellationToken = default)
-    {
-        await SendSubscribeAsync("tm.event='TimeoutPropose'", cancellationToken).ConfigureAwait(false);
-        await SendSubscribeAsync("tm.event='TimeoutWait'", cancellationToken).ConfigureAwait(false);
-        await SendSubscribeAsync("tm.event='Lock'", cancellationToken).ConfigureAwait(false);
-        await SendSubscribeAsync("tm.event='Unlock'", cancellationToken).ConfigureAwait(false);
-        await SendSubscribeAsync("tm.event='Relock'", cancellationToken).ConfigureAwait(false);
-        await SendSubscribeAsync("tm.event='PolkaAny'", cancellationToken).ConfigureAwait(false);
-        await SendSubscribeAsync("tm.event='PolkaNil'", cancellationToken).ConfigureAwait(false);
-        await SendSubscribeAsync("tm.event='PolkaAgain'", cancellationToken).ConfigureAwait(false);
-        await SendSubscribeAsync("tm.event='MissingProposalBlock'", cancellationToken).ConfigureAwait(false);
-    }
+    public Task SubscribeConsensusInternalAsync(CancellationToken cancellationToken = default) =>
+        Task.WhenAll(
+            SendSubscribeAsync("tm.event='TimeoutPropose'", cancellationToken),
+            SendSubscribeAsync("tm.event='TimeoutWait'", cancellationToken),
+            SendSubscribeAsync("tm.event='Lock'", cancellationToken),
+            SendSubscribeAsync("tm.event='Unlock'", cancellationToken),
+            SendSubscribeAsync("tm.event='Relock'", cancellationToken),
+            SendSubscribeAsync("tm.event='PolkaAny'", cancellationToken),
+            SendSubscribeAsync("tm.event='PolkaNil'", cancellationToken),
+            SendSubscribeAsync("tm.event='PolkaAgain'", cancellationToken),
+            SendSubscribeAsync("tm.event='MissingProposalBlock'", cancellationToken));
 
     /// <inheritdoc />
     public Task UnsubscribeAllAsync(CancellationToken cancellationToken = default)
