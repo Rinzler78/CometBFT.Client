@@ -42,21 +42,24 @@ internal sealed class DashboardBackgroundService : BackgroundService
             _vm.ConnectionStatus = "Connected";
             _vm.IsConnected = true;
 
+            // Core subscriptions — awaited: delivery is required before data flows
             await _ws.SubscribeNewBlockAsync(stoppingToken);
             await _ws.SubscribeNewBlockHeaderAsync(stoppingToken);
             await _ws.SubscribeTxAsync(stoppingToken);
             await _ws.SubscribeVoteAsync(stoppingToken);
             await _ws.SubscribeValidatorSetUpdatesAsync(stoppingToken);
-            await _ws.SubscribeNewBlockEventsAsync(stoppingToken);
 
-            using var newBlockEventsSub = _ws.NewBlockEventsStream
-                .Subscribe(d => AppendEventLog("events",
-                    $"Block #{d.Height}: {d.Events.Count} ABCI events"));
-
-            // Initial load
+            // Initial load — do not block on optional stream subscriptions
             await RefreshNodeInfoAsync(stoppingToken);
             await RefreshValidatorsAsync(stoppingToken);
             await RefreshNetInfoAsync(stoppingToken);
+
+            // Optional stream — fire-and-forget: ACK timeout (if node unsupported) fires
+            // ErrorOccurred but must not delay the initial data load above.
+            _ = _ws.SubscribeNewBlockEventsAsync(stoppingToken);
+            using var newBlockEventsSub = _ws.NewBlockEventsStream
+                .Subscribe(d => AppendEventLog("events",
+                    $"Block #{d.Height}: {d.Events.Count} ABCI events"));
 
             // Periodic refresh every 30s for network info and node status
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
@@ -111,6 +114,12 @@ internal sealed class DashboardBackgroundService : BackgroundService
 
     private async Task HandleNewBlockAsync(Block<string> wsBlock)
     {
+        var fallbackRow = new BlockRow(
+            wsBlock.Height,
+            wsBlock.Time.ToString("HH:mm:ss"),
+            wsBlock.Txs.Count,
+            wsBlock.Proposer[..Math.Min(12, wsBlock.Proposer.Length)] + "…");
+
         try
         {
             var block = await _rest.GetBlockAsync().ConfigureAwait(false);
@@ -134,6 +143,14 @@ internal sealed class DashboardBackgroundService : BackgroundService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                _vm.LatestHeight = wsBlock.Height;
+                _vm.LatestBlockTxCount = wsBlock.Txs.Count;
+                _vm.Blocks.Insert(0, fallbackRow);
+                while (_vm.Blocks.Count > MaxBlocks)
+                    _vm.Blocks.RemoveAt(_vm.Blocks.Count - 1);
+            });
             AppendEventLog("error", $"GetLatestBlock: {ex.Message}");
         }
     }

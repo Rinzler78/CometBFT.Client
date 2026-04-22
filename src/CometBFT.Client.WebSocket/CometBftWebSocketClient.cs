@@ -292,11 +292,13 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
             {
                 await _client.Stop(
                     System.Net.WebSockets.WebSocketCloseStatus.NormalClosure,
-                    "Disposing").ConfigureAwait(false);
+                    "Disposing")
+                    .WaitAsync(TimeSpan.FromSeconds(5))
+                    .ConfigureAwait(false);
             }
             catch
             {
-                // Best-effort close
+                // Best-effort close — timeout or transport error, continue disposal
             }
 
             _client.Dispose();
