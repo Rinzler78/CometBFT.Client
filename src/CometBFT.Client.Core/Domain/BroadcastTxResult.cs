@@ -10,7 +10,7 @@ namespace CometBFT.Client.Core.Domain;
 /// <param name="Hash">The hex-encoded transaction hash.</param>
 /// <param name="GasWanted">The amount of gas requested by the transaction. Populated from gRPC <c>check_tx</c>; <c>0</c> when not available.</param>
 /// <param name="GasUsed">The amount of gas actually consumed. Populated from gRPC <c>check_tx</c>; <c>0</c> when not available.</param>
-public sealed record BroadcastTxResult(
+public record BroadcastTxResult(
     uint Code,
     string? Data,
     string? Log,

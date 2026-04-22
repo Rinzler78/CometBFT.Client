@@ -17,15 +17,32 @@ namespace CometBFT.Client.Extensions;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the CometBFT REST/JSON-RPC 2.0 client and its dependencies.
+    /// Registers the CometBFT REST/JSON-RPC 2.0 client and its dependencies,
+    /// using a custom interface and implementation type.
     /// </summary>
+    /// <typeparam name="TInterface">
+    /// The service interface to register. Must implement <see cref="ICometBftRestClient"/>.
+    /// </typeparam>
+    /// <typeparam name="TClient">
+    /// The concrete implementation. Must implement <typeparamref name="TInterface"/>.
+    /// </typeparam>
     /// <param name="services">The service collection to add services to.</param>
     /// <param name="configure">An action to configure <see cref="CometBftRestOptions"/>.</param>
     /// <returns>The <paramref name="services"/> for fluent chaining.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="services"/> or <paramref name="configure"/> is <c>null</c>.</exception>
-    public static IServiceCollection AddCometBftRest(
+    /// <remarks>
+    /// Use this overload when a downstream layer defines a richer interface that extends
+    /// <see cref="ICometBftRestClient"/>:
+    /// <code>
+    /// services.AddCometBftRest&lt;ICosmosRestClient, CosmosRestClient&gt;(o =&gt; o.BaseUrl = "…");
+    /// </code>
+    /// The same Polly retry/circuit-breaker pipeline is applied regardless of the type arguments.
+    /// </remarks>
+    public static IServiceCollection AddCometBftRest<TInterface, TClient>(
         this IServiceCollection services,
         Action<CometBftRestOptions> configure)
+        where TInterface : class, ICometBftRestClient
+        where TClient : class, TInterface
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
@@ -38,7 +55,7 @@ public static class ServiceCollectionExtensions
         services.Configure<CometBftRestOptions>(configure);
 
         services
-            .AddHttpClient<ICometBftRestClient, CometBftRestClient>((sp, client) =>
+            .AddHttpClient<TInterface, TClient>((sp, client) =>
             {
                 var opts = sp.GetRequiredService<IOptions<CometBftRestOptions>>().Value;
                 client.BaseAddress = new Uri(opts.BaseUrl);
@@ -72,6 +89,18 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers the CometBFT REST/JSON-RPC 2.0 client and its dependencies.
+    /// </summary>
+    /// <param name="services">The service collection to add services to.</param>
+    /// <param name="configure">An action to configure <see cref="CometBftRestOptions"/>.</param>
+    /// <returns>The <paramref name="services"/> for fluent chaining.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="services"/> or <paramref name="configure"/> is <c>null</c>.</exception>
+    public static IServiceCollection AddCometBftRest(
+        this IServiceCollection services,
+        Action<CometBftRestOptions> configure)
+        => services.AddCometBftRest<ICometBftRestClient, CometBftRestClient>(configure);
+
+    /// <summary>
     /// Registers the CometBFT WebSocket subscription client and its dependencies.
     /// </summary>
     /// <param name="services">The service collection to add services to.</param>
@@ -92,6 +121,58 @@ public static class ServiceCollectionExtensions
 
         services.Configure<CometBftWebSocketOptions>(configure);
         services.AddSingleton<ICometBftWebSocketClient, CometBftWebSocketClient>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a typed CometBFT WebSocket subscription client using a custom interface
+    /// and implementation type.
+    /// </summary>
+    /// <typeparam name="TTx">The application-specific transaction type.</typeparam>
+    /// <typeparam name="TInterface">
+    /// The service interface to register. Must implement <see cref="ICometBftWebSocketClient{TTx}"/>.
+    /// </typeparam>
+    /// <typeparam name="TClient">
+    /// The concrete implementation. Must implement <typeparamref name="TInterface"/>.
+    /// </typeparam>
+    /// <param name="services">The service collection to add services to.</param>
+    /// <param name="configure">An action to configure <see cref="CometBftWebSocketOptions"/>.</param>
+    /// <param name="codec">The codec used to decode transaction bytes into <typeparamref name="TTx"/>.</param>
+    /// <returns>The <paramref name="services"/> for fluent chaining.</returns>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="services"/>, <paramref name="configure"/>,
+    /// or <paramref name="codec"/> is <c>null</c>.
+    /// </exception>
+    /// <remarks>
+    /// Use this overload when a downstream layer defines a richer interface that extends
+    /// <see cref="ICometBftWebSocketClient{TTx}"/>:
+    /// <code>
+    /// services.AddCometBftWebSocket&lt;CosmosTx, ICosmosWebSocketClient, CosmosWebSocketClient&gt;(o =&gt; …, codec);
+    /// </code>
+    /// <typeparamref name="TClient"/> is resolved from DI; its constructor parameters
+    /// (<see cref="IOptions{TOptions}"/> of <see cref="CometBftWebSocketOptions"/> and
+    /// <see cref="ITxCodec{TTx}"/>) are registered by this method.
+    /// </remarks>
+    public static IServiceCollection AddCometBftWebSocket<TTx, TInterface, TClient>(
+        this IServiceCollection services,
+        Action<CometBftWebSocketOptions> configure,
+        ITxCodec<TTx> codec)
+        where TTx : notnull
+        where TInterface : class, ICometBftWebSocketClient<TTx>
+        where TClient : class, TInterface
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configure);
+        ArgumentNullException.ThrowIfNull(codec);
+
+        var tempOptions = new CometBftWebSocketOptions();
+        configure(tempOptions);
+        tempOptions.Validate();
+
+        services.Configure<CometBftWebSocketOptions>(configure);
+        services.AddSingleton<ITxCodec<TTx>>(codec);
+        services.AddSingleton<TInterface, TClient>();
 
         return services;
     }
@@ -124,25 +205,7 @@ public static class ServiceCollectionExtensions
         Action<CometBftWebSocketOptions> configure,
         ITxCodec<TTx> codec)
         where TTx : notnull
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(configure);
-        ArgumentNullException.ThrowIfNull(codec);
-
-        var tempOptions = new CometBftWebSocketOptions();
-        configure(tempOptions);
-        tempOptions.Validate();
-
-        services.Configure<CometBftWebSocketOptions>(configure);
-        // Register codec under the interface so it can be resolved via ITxCodec<TTx>.
-        services.AddSingleton<ITxCodec<TTx>>(codec);
-        services.AddSingleton<ICometBftWebSocketClient<TTx>>(sp =>
-            new CometBftWebSocketClient<TTx>(
-                Options.Create(tempOptions),
-                sp.GetRequiredService<ITxCodec<TTx>>()));
-
-        return services;
-    }
+        => services.AddCometBftWebSocket<TTx, ICometBftWebSocketClient<TTx>, CometBftWebSocketClient<TTx>>(configure, codec);
 
     /// <summary>
     /// Registers the CometBFT gRPC client and its dependencies.

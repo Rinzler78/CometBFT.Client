@@ -86,4 +86,21 @@ public sealed class BlockTests
         // ReadOnlyCollection<T> is read-only by design — mutation must throw.
         Assert.Throws<NotSupportedException>(() => ((System.Collections.Generic.IList<string>)block.Txs).Add("b"));
     }
+
+    // ── Inheritance (Phase 2 — extensibility-v2) ─────────────────────────────
+
+    [Fact]
+    public void Block_IsAssignableFrom_BlockBase()
+    {
+        var block = new Block(1L, "H", DateTimeOffset.UtcNow, "p", new List<string>().AsReadOnly());
+        Assert.IsAssignableFrom<BlockBase>(block);
+    }
+
+    [Fact]
+    public void WithExpression_RetainsConcreteType()
+    {
+        var block = new Block(1L, "H", DateTimeOffset.UtcNow, "p", new List<string>().AsReadOnly());
+        var modified = block with { Height = 2L };
+        Assert.IsType<Block>(modified);
+    }
 }

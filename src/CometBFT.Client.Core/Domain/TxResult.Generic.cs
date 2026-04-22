@@ -23,8 +23,10 @@ namespace CometBFT.Client.Core.Domain;
 /// <remarks>
 /// Obtain instances via <see cref="TxResultExtensions.Decode{TTx}(TxResult, ITxCodec{TTx})"/>
 /// rather than constructing directly.
+/// Consumers may derive from this record to add application-layer fields
+/// (e.g. <c>record CosmosTxResult&lt;TTx&gt;(..., string RawLog) : TxResult&lt;TTx&gt;(...)</c>).
 /// </remarks>
-public sealed record TxResult<TTx>(
+public record TxResult<TTx>(
     string Hash,
     long Height,
     int Index,
@@ -36,7 +38,8 @@ public sealed record TxResult<TTx>(
     long GasWanted,
     long GasUsed,
     IReadOnlyList<CometBftEvent> Events,
-    string? Codespace) where TTx : notnull;
+    string? Codespace) : TxResultBase(Hash, Height, Index, Code, Data, Log, Info, GasWanted, GasUsed, Events, Codespace)
+    where TTx : notnull;
 
 /// <summary>
 /// Extension methods for converting a raw <see cref="TxResult"/> into a typed <see cref="TxResult{TTx}"/>.

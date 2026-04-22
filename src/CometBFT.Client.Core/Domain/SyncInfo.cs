@@ -12,7 +12,7 @@ namespace CometBFT.Client.Core.Domain;
 /// <param name="EarliestBlockHeight">The height of the earliest block retained.</param>
 /// <param name="EarliestBlockTime">The timestamp of the earliest block retained.</param>
 /// <param name="CatchingUp">Whether the node is currently catching up to the network tip.</param>
-public sealed record SyncInfo(
+public record SyncInfo(
     string LatestBlockHash,
     string LatestAppHash,
     long LatestBlockHeight,
