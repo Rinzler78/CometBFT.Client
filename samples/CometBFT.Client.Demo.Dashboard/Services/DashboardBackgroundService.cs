@@ -114,6 +114,12 @@ internal sealed class DashboardBackgroundService : BackgroundService
 
     private async Task HandleNewBlockAsync(Block<string> wsBlock)
     {
+        var fallbackRow = new BlockRow(
+            wsBlock.Height,
+            wsBlock.Time.ToString("HH:mm:ss"),
+            wsBlock.Txs.Count,
+            wsBlock.Proposer[..Math.Min(12, wsBlock.Proposer.Length)] + "…");
+
         try
         {
             var block = await _rest.GetBlockAsync().ConfigureAwait(false);
@@ -137,6 +143,14 @@ internal sealed class DashboardBackgroundService : BackgroundService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                _vm.LatestHeight = wsBlock.Height;
+                _vm.LatestBlockTxCount = wsBlock.Txs.Count;
+                _vm.Blocks.Insert(0, fallbackRow);
+                while (_vm.Blocks.Count > MaxBlocks)
+                    _vm.Blocks.RemoveAt(_vm.Blocks.Count - 1);
+            });
             AppendEventLog("error", $"GetLatestBlock: {ex.Message}");
         }
     }
