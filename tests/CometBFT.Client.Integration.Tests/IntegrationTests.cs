@@ -8,21 +8,45 @@ using CometBFT.Client.Core.Exceptions;
 namespace CometBFT.Client.Integration.Tests;
 
 /// <summary>
+/// Shared REST client for the Integration test class.
+/// Built once, reused across all 15 REST tests — avoids redundant ServiceProvider allocations.
+/// </summary>
+public sealed class RestClientFixture : IAsyncLifetime
+{
+    private ServiceProvider? _provider;
+
+    public ICometBftRestClient Client => _provider!.GetRequiredService<ICometBftRestClient>();
+
+    public ValueTask InitializeAsync()
+    {
+        var services = new ServiceCollection();
+        services.AddCometBftRest(options => options.BaseUrl = EndpointConfiguration.RequireRpc());
+        _provider = services.BuildServiceProvider();
+        return ValueTask.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_provider is not null)
+            await _provider.DisposeAsync();
+    }
+}
+
+/// <summary>
 /// Integration tests that require live CometBFT endpoints.
 /// Tests are skipped automatically when the corresponding environment variable is not set.
 /// </summary>
-public sealed class IntegrationTests
+public sealed class IntegrationTests(RestClientFixture fixture) : IClassFixture<RestClientFixture>
 {
+    // CometBFT produces a block roughly every 6 s on Cosmos Hub; 30 s gives a 5× margin.
+    // Votes and Tx events use the same window — tight but consistent with E2E tests.
+    private const int EventTimeoutSeconds = 30;
+
     [Fact]
     [Trait("Category", "Integration")]
     public async Task GetHealthAsync_LiveNode_ReturnsTrue()
     {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var healthy = await client.GetHealthAsync();
+        var healthy = await fixture.Client.GetHealthAsync();
         Assert.True(healthy);
     }
 
@@ -30,12 +54,7 @@ public sealed class IntegrationTests
     [Trait("Category", "Integration")]
     public async Task GetStatusAsync_LiveNode_ReturnsNodeInfo()
     {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var (nodeInfo, syncInfo) = await client.GetStatusAsync();
+        var (nodeInfo, syncInfo) = await fixture.Client.GetStatusAsync();
         Assert.NotEmpty(nodeInfo.Network);
         Assert.True(syncInfo.LatestBlockHeight > 0);
     }
@@ -44,12 +63,7 @@ public sealed class IntegrationTests
     [Trait("Category", "Integration")]
     public async Task GetBlockAsync_LiveNode_LatestBlock_ReturnsBlock()
     {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var block = await client.GetBlockAsync();
+        var block = await fixture.Client.GetBlockAsync();
         Assert.True(block.Height > 0);
         Assert.NotEmpty(block.Hash);
     }
@@ -58,12 +72,7 @@ public sealed class IntegrationTests
     [Trait("Category", "Integration")]
     public async Task GetValidatorsAsync_LiveNode_ReturnsValidators()
     {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var validators = await client.GetValidatorsAsync();
+        var validators = await fixture.Client.GetValidatorsAsync();
         Assert.NotEmpty(validators);
         Assert.All(validators, validator => Assert.NotEmpty(validator.Address));
     }
@@ -72,15 +81,140 @@ public sealed class IntegrationTests
     [Trait("Category", "Integration")]
     public async Task GetAbciInfoAsync_LiveNode_ReturnsDictionary()
     {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var info = await client.GetAbciInfoAsync();
+        var info = await fixture.Client.GetAbciInfoAsync();
         Assert.NotNull(info);
         Assert.True(info.ContainsKey("data"));
     }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task GetNetInfoAsync_LiveNode_ReturnsNetworkInfo()
+    {
+        var netInfo = await fixture.Client.GetNetInfoAsync();
+        Assert.True(netInfo.PeerCount >= 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task GetBlockchainAsync_LiveNode_ReturnsHeaders()
+    {
+        var info = await fixture.Client.GetBlockchainAsync();
+        Assert.True(info.LastHeight > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task GetHeaderAsync_LiveNode_ReturnsHeader()
+    {
+        var header = await fixture.Client.GetHeaderAsync();
+        Assert.True(header.Height > 0);
+        Assert.NotEmpty(header.ChainId);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task GetBlockResultsAsync_LiveNode_ReturnsResults()
+    {
+        var results = await fixture.Client.GetBlockResultsAsync();
+        Assert.NotNull(results);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task GetCommitAsync_LiveNode_ReturnsCommitInfo()
+    {
+        var commit = await fixture.Client.GetCommitAsync();
+        Assert.NotNull(commit);
+        Assert.True(commit.ContainsKey("height") || commit.Count > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task GetGenesisAsync_LiveNode_ReturnsGenesisSummary()
+    {
+        try
+        {
+            var genesis = await fixture.Client.GetGenesisAsync();
+            Assert.NotNull(genesis);
+        }
+        catch (Exception ex) when (IsGenesisEndpointUnavailable(ex))
+        {
+            // /genesis is commonly disabled, rate-limited, or times out on public nodes.
+            // Genesis files for mature chains can be hundreds of MB, so HTTP 500, network
+            // timeouts (Polly wraps these as TimeoutRejectedException whose InnerException
+            // is TaskCanceledException), and direct cancellations are all expected here.
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task GetConsensusParamsAsync_LiveNode_ReturnsParams()
+    {
+        var prms = await fixture.Client.GetConsensusParamsAsync();
+        Assert.True(prms.BlockMaxBytes > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task GetUnconfirmedTxsAsync_LiveNode_ReturnsInfo()
+    {
+        var info = await fixture.Client.GetUnconfirmedTxsAsync();
+        Assert.True(info.Count >= 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task GetNumUnconfirmedTxsAsync_LiveNode_ReturnsCount()
+    {
+        var info = await fixture.Client.GetNumUnconfirmedTxsAsync();
+        Assert.True(info.Total >= 0);
+    }
+
+    // ── gRPC — single combined test covers DI resolution, ping, and broadcast paths ───
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task Grpc_LiveNode_PingAndBroadcast_CoverExpectedPaths()
+    {
+        var grpcUrl = EndpointConfiguration.RequireGrpc();
+
+        var services = new ServiceCollection();
+        services.AddCometBftGrpc(options => options.BaseUrl = grpcUrl);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<ICometBftGrpcClient>();
+
+        // Ping must succeed.
+        _ = await client.PingAsync();
+
+        // Empty tx must be rejected at transport or ABCI level.
+        var emptyEx = await Record.ExceptionAsync(() => client.BroadcastTxAsync([]));
+        Assert.NotNull(emptyEx);
+
+        // Minimal invalid tx: either returns a check_tx result or throws at transport level.
+        BroadcastTxResult? result = null;
+        Exception? broadcastEx = null;
+        try
+        {
+            result = await client.BroadcastTxAsync(new byte[] { 0x0a });
+        }
+        catch (Exception ex)
+        {
+            broadcastEx = ex;
+        }
+
+        if (result is not null)
+        {
+            Assert.NotEmpty(result.Hash);
+            Assert.True(result.GasWanted >= 0);
+            Assert.True(result.GasUsed >= 0);
+        }
+        else
+        {
+            Assert.NotNull(broadcastEx);
+        }
+    }
+
+    // ── WebSocket — each test opens its own connection (independent lifecycle) ──────
 
     [Fact]
     [Trait("Category", "Integration")]
@@ -97,9 +231,7 @@ public sealed class IntegrationTests
         client.NewBlockReceived += (_, args) =>
         {
             if (args.Value.Height > 0)
-            {
                 completion.TrySetResult(true);
-            }
         };
 
         await client.ConnectAsync();
@@ -107,7 +239,7 @@ public sealed class IntegrationTests
 
         try
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(EventTimeoutSeconds));
             await completion.Task.WaitAsync(timeout.Token);
         }
         catch (OperationCanceledException)
@@ -135,9 +267,7 @@ public sealed class IntegrationTests
         client.NewBlockHeaderReceived += (_, args) =>
         {
             if (args.Value.Height > 0)
-            {
                 completion.TrySetResult(true);
-            }
         };
 
         await client.ConnectAsync();
@@ -145,13 +275,12 @@ public sealed class IntegrationTests
 
         try
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(EventTimeoutSeconds));
             await completion.Task.WaitAsync(timeout.Token);
         }
         catch (OperationCanceledException)
         {
             // Testnet did not deliver a block header event within the timeout window.
-            // This indicates network latency or testnet congestion, not a client bug.
             return;
         }
 
@@ -181,181 +310,6 @@ public sealed class IntegrationTests
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task GetNetInfoAsync_LiveNode_ReturnsNetworkInfo()
-    {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var netInfo = await client.GetNetInfoAsync();
-        Assert.True(netInfo.PeerCount >= 0);
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task GetBlockchainAsync_LiveNode_ReturnsHeaders()
-    {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var info = await client.GetBlockchainAsync();
-        Assert.True(info.LastHeight > 0);
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task GetHeaderAsync_LiveNode_ReturnsHeader()
-    {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var header = await client.GetHeaderAsync();
-        Assert.True(header.Height > 0);
-        Assert.NotEmpty(header.ChainId);
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task GetBlockResultsAsync_LiveNode_ReturnsResults()
-    {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var results = await client.GetBlockResultsAsync();
-        Assert.NotNull(results);
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task GetCommitAsync_LiveNode_ReturnsCommitInfo()
-    {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var commit = await client.GetCommitAsync();
-        Assert.NotNull(commit);
-        Assert.True(commit.ContainsKey("height") || commit.Count > 0);
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task GetGenesisAsync_LiveNode_ReturnsGenesisSummary()
-    {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        try
-        {
-            var genesis = await client.GetGenesisAsync();
-            Assert.NotNull(genesis);
-        }
-        catch (Exception ex) when (IsGenesisEndpointUnavailable(ex))
-        {
-            // /genesis is commonly disabled, rate-limited, or times out on public nodes.
-            // Genesis files for mature chains can be hundreds of MB, so HTTP 500, network
-            // timeouts (Polly wraps these as TimeoutRejectedException whose InnerException
-            // is TaskCanceledException), and direct cancellations are all expected here.
-        }
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task GetConsensusParamsAsync_LiveNode_ReturnsParams()
-    {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var prms = await client.GetConsensusParamsAsync();
-        Assert.True(prms.BlockMaxBytes > 0);
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task GetUnconfirmedTxsAsync_LiveNode_ReturnsInfo()
-    {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var info = await client.GetUnconfirmedTxsAsync();
-        Assert.True(info.Count >= 0);
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task GetNumUnconfirmedTxsAsync_LiveNode_ReturnsCount()
-    {
-        var rpcUrl = EndpointConfiguration.RequireRpc();
-        await using var sp = BuildRestServices(rpcUrl);
-        var client = sp.GetRequiredService<ICometBftRestClient>();
-
-        var info = await client.GetNumUnconfirmedTxsAsync();
-        Assert.True(info.Total >= 0);
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task Grpc_LiveNode_ResolvesViaDi_And_HandlesExpectedPath()
-    {
-        var grpcUrl = EndpointConfiguration.RequireGrpc();
-
-        var services = new ServiceCollection();
-        services.AddCometBftGrpc(options => options.BaseUrl = grpcUrl);
-        await using var provider = services.BuildServiceProvider();
-        var client = provider.GetRequiredService<ICometBftGrpcClient>();
-
-        _ = await client.PingAsync();
-
-        var ex = await Record.ExceptionAsync(() => client.BroadcastTxAsync([]));
-        Assert.NotNull(ex);
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
-    public async Task Grpc_LiveNode_BroadcastTx_ReturnsCheckTxDetails()
-    {
-        var grpcUrl = EndpointConfiguration.RequireGrpc();
-
-        var services = new ServiceCollection();
-        services.AddCometBftGrpc(options => options.BaseUrl = grpcUrl);
-        await using var provider = services.BuildServiceProvider();
-        var client = provider.GetRequiredService<ICometBftGrpcClient>();
-
-        // Send a minimal (invalid) tx — expect a non-zero ABCI code with check_tx details.
-        BroadcastTxResult? result = null;
-        Exception? broadcastEx = null;
-        try
-        {
-            result = await client.BroadcastTxAsync(new byte[] { 0x0a });
-        }
-        catch (Exception ex)
-        {
-            broadcastEx = ex;
-        }
-
-        // Either the node returned a check_tx result (even with non-zero code)
-        // or it rejected the call at transport level.
-        if (result is not null)
-        {
-            // check_tx fields must be populated — hash is always set.
-            Assert.NotEmpty(result.Hash);
-            Assert.True(result.GasWanted >= 0);
-            Assert.True(result.GasUsed >= 0);
-        }
-        else
-        {
-            Assert.NotNull(broadcastEx);
-        }
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
     public async Task WebSocket_LiveNode_ReceivesVoteEvent()
     {
         var wsUrl = EndpointConfiguration.RequireWs();
@@ -368,11 +322,8 @@ public sealed class IntegrationTests
         var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         client.VoteReceived += (_, args) =>
         {
-            // Type 1 = Prevote, Type 2 = Precommit — both are valid.
             if (args.Value.Height > 0 && args.Value.ValidatorAddress.Length > 0)
-            {
                 completion.TrySetResult(true);
-            }
         };
 
         await client.ConnectAsync();
@@ -380,13 +331,12 @@ public sealed class IntegrationTests
 
         try
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(EventTimeoutSeconds));
             await completion.Task.WaitAsync(timeout.Token);
         }
         catch (OperationCanceledException)
         {
             // Votes are infrequent; testnet may not deliver one within the timeout window.
-            // This indicates network latency or testnet congestion, not a client bug.
             return;
         }
 
@@ -408,24 +358,20 @@ public sealed class IntegrationTests
         client.TxExecuted += (_, args) =>
         {
             if (args.Value.Height > 0)
-            {
                 completion.TrySetResult(true);
-            }
         };
 
         await client.ConnectAsync();
         await client.SubscribeTxAsync();
 
-        // Tx events depend on actual network activity — allow a generous window.
         try
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(180));
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(EventTimeoutSeconds));
             await completion.Task.WaitAsync(timeout.Token);
         }
         catch (OperationCanceledException)
         {
             // No transaction was broadcast within the timeout window.
-            // This indicates low network activity or testnet congestion, not a client bug.
             return;
         }
 
@@ -449,13 +395,6 @@ public sealed class IntegrationTests
         var ex = await Record.ExceptionAsync(() => client.SubscribeValidatorSetUpdatesAsync());
         Assert.Null(ex);
         await client.DisconnectAsync();
-    }
-
-    private static ServiceProvider BuildRestServices(string rpcUrl)
-    {
-        var services = new ServiceCollection();
-        services.AddCometBftRest(options => options.BaseUrl = rpcUrl);
-        return services.BuildServiceProvider();
     }
 
     /// <summary>
