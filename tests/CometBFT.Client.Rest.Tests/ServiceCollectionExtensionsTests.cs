@@ -5,6 +5,7 @@ using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Core.Options;
 using CometBFT.Client.Extensions;
 using CometBFT.Client.Rest;
+using CometBFT.Client.WebSocket;
 using Xunit;
 
 namespace CometBFT.Client.Rest.Tests;
@@ -178,5 +179,110 @@ public sealed class ServiceCollectionExtensionsTests
         var services = new ServiceCollection();
         var ex = Record.Exception(() => services.AddCometBftClient(null));
         Assert.Null(ex);
+    }
+
+    // ── Generic overloads (Phase 5 — extensibility-v2) ───────────────────────
+
+    [Fact]
+    public void AddCometBftRest_Generic_ResolvesCustomInterface()
+    {
+        var services = new ServiceCollection();
+        services.AddCometBftRest<ICometBftRestClient, CometBftRestClient>(
+            options => options.BaseUrl = "https://localhost:26657");
+        var provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetRequiredService<ICometBftRestClient>());
+    }
+
+    [Fact]
+    public void AddCometBftRest_Generic_NullServices_ThrowsArgumentNullException()
+    {
+        IServiceCollection services = null!;
+        Assert.Throws<ArgumentNullException>(
+            () => services.AddCometBftRest<ICometBftRestClient, CometBftRestClient>(
+                o => o.BaseUrl = "https://localhost:26657"));
+    }
+
+    [Fact]
+    public void AddCometBftRest_Generic_NullConfigure_ThrowsArgumentNullException()
+    {
+        var services = new ServiceCollection();
+        Assert.Throws<ArgumentNullException>(
+            () => services.AddCometBftRest<ICometBftRestClient, CometBftRestClient>(null!));
+    }
+
+    [Fact]
+    public void AddCometBftWebSocket_Generic_ResolvesCustomInterface()
+    {
+        var services = new ServiceCollection();
+        services.AddCometBftWebSocket<string, ICometBftWebSocketClient<string>, CometBftWebSocketClient<string>>(
+            options => options.BaseUrl = "ws://localhost:26657/websocket",
+            RawTxCodec.Instance);
+        var provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetRequiredService<ICometBftWebSocketClient<string>>());
+    }
+
+    [Fact]
+    public void AddCometBftWebSocket_Generic_NullServices_ThrowsArgumentNullException()
+    {
+        IServiceCollection services = null!;
+        Assert.Throws<ArgumentNullException>(
+            () => services.AddCometBftWebSocket<string, ICometBftWebSocketClient<string>, CometBftWebSocketClient<string>>(
+                _ => { }, RawTxCodec.Instance));
+    }
+
+    [Fact]
+    public void AddCometBftWebSocket_Generic_NullConfigure_ThrowsArgumentNullException()
+    {
+        var services = new ServiceCollection();
+        Assert.Throws<ArgumentNullException>(
+            () => services.AddCometBftWebSocket<string, ICometBftWebSocketClient<string>, CometBftWebSocketClient<string>>(
+                null!, RawTxCodec.Instance));
+    }
+
+    [Fact]
+    public void AddCometBftWebSocket_Generic_NullCodec_ThrowsArgumentNullException()
+    {
+        var services = new ServiceCollection();
+        Assert.Throws<ArgumentNullException>(
+            () => services.AddCometBftWebSocket<string, ICometBftWebSocketClient<string>, CometBftWebSocketClient<string>>(
+                _ => { }, null!));
+    }
+
+    // ── Fully-parameterized overloads (5-param REST / 6-param WebSocket) ─────
+
+    [Fact]
+    public void AddCometBftRest_FullyParameterized_ResolvesCustomInterface()
+    {
+        var services = new ServiceCollection();
+        services.AddCometBftRest<
+            CometBFT.Client.Core.Domain.Block,
+            CometBFT.Client.Core.Domain.TxResult,
+            CometBFT.Client.Core.Domain.Validator,
+            ICometBftRestClient,
+            CometBftRestClient>(
+            options => options.BaseUrl = "https://localhost:26657");
+        var provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetRequiredService<ICometBftRestClient>());
+    }
+
+    [Fact]
+    public void AddCometBftWebSocket_FullyParameterized_ResolvesCustomInterface()
+    {
+        var services = new ServiceCollection();
+        services.AddCometBftWebSocket<
+            string,
+            CometBFT.Client.Core.Domain.Block<string>,
+            CometBFT.Client.Core.Domain.TxResult<string>,
+            CometBFT.Client.Core.Domain.Validator,
+            ICometBftWebSocketClient<string>,
+            CometBftWebSocketClient<string>>(
+            options => options.BaseUrl = "ws://localhost:26657/websocket",
+            RawTxCodec.Instance);
+        var provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetRequiredService<ICometBftWebSocketClient<string>>());
     }
 }

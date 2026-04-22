@@ -131,3 +131,37 @@ finally
 }
 
 logger.LogInformation("Sample complete.");
+
+// ── Extension guide (v2.0.0) ─────────────────────────────────────────────────
+//
+// CometBFT.Client v2 is designed for extension without redefinition.
+//
+// 1. Extend a domain type:
+//
+//    record CosmosBlock<TTx>(
+//        long Height, string Hash, DateTimeOffset Time, string Proposer,
+//        IReadOnlyList<TTx> Txs,
+//        string AppHash,   // Cosmos-specific
+//        string ChainId)   // Cosmos-specific
+//        : Block<TTx>(Height, Hash, Time, Proposer, Txs)
+//        where TTx : notnull;
+//
+// 2. Extend the REST client interface:
+//
+//    interface ICosmosRestClient
+//        : ICometBftRestClient<CosmosBlock<string>, TxResult, Validator> { }
+//
+// 3. Register with the 5-param overload — same Polly pipeline, no boilerplate:
+//
+//    services.AddCometBftRest<CosmosBlock<string>, TxResult, Validator,
+//        ICosmosRestClient, CosmosRestClient>(o => { ... });
+//
+// 4. Extend the WebSocket client interface:
+//
+//    interface ICosmosWebSocketClient
+//        : ICometBftWebSocketClient<CosmosTx, CosmosBlock<CosmosTx>, CosmosTxResult, CosmosValidator> { }
+//
+// 5. Register with the 6-param overload:
+//
+//    services.AddCometBftWebSocket<CosmosTx, CosmosBlock<CosmosTx>, CosmosTxResult, CosmosValidator,
+//        ICosmosWebSocketClient, CosmosWebSocketClient>(o => { ... }, codec);

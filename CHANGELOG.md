@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-04-22
+
+### Breaking Changes
+- `IBlockService` now inherits `IBlockService<Block>` (shim). Existing code that depends on
+  `IBlockService` directly is unaffected, but implementations must now satisfy the generic
+  contract (i.e., return covariant types where the shim allows).
+- `ITxService` now inherits `ITxService<TxResult>` (shim).
+- `IValidatorService` now inherits `IValidatorService<Validator>` (shim).
+- `ICometBftRestClient` now inherits `ICometBftRestClient<Block, TxResult, Validator>` (shim).
+- `ICometBftWebSocketClient<TTx>` now inherits
+  `ICometBftWebSocketClient<TTx, Block<TTx>, TxResult<TTx>, Validator>` (shim).
+- Existing implementations (`CometBftRestClient`, `CometBftWebSocketClient<TTx>`) are
+  unmodified and satisfy all shims without any code change.
+
+### Added
+- `abstract record BlockBase(long Height, string Hash, DateTimeOffset Time, string Proposer)` —
+  shared base for `Block` and `Block<TTx>`, enabling consumer inheritance without redefinition.
+- `abstract record TxResultBase(Hash, Height, Index, Code, Data, Log, Info, GasWanted, GasUsed, Events, Codespace)` —
+  shared base for `TxResult` and `TxResult<TTx>`.
+- `IBlockService<TBlock> where TBlock : BlockBase` — generic service interface.
+- `ITxService<TTxResult> where TTxResult : TxResultBase` — generic service interface.
+- `IValidatorService<TValidator> where TValidator : Validator` — generic service interface.
+- `ICometBftRestClient<TBlock, TTxResult, TValidator>` — 3-parameter aggregate interface.
+- `ICometBftWebSocketClient<TTx, TBlock, TTxResult, TValidator>` — 4-parameter aggregate interface with
+  `where TBlock : Block<TTx>` and `where TTxResult : TxResult<TTx>` constraints.
+- `AddCometBftRest<TInterface, TClient>()` — generic DI overload; runs the same Polly pipeline
+  for any `TClient : TInterface : ICometBftRestClient`.
+- `AddCometBftWebSocket<TTx, TInterface, TClient>()` — generic DI overload for typed WebSocket clients.
+
+### Changed
+- `Block`, `Block<TTx>` — removed `sealed`; both inherit `BlockBase`.
+- `TxResult`, `TxResult<TTx>` — removed `sealed`; both inherit `TxResultBase`.
+- `Validator`, `BroadcastTxResult`, `BlockHeader`, `ConsensusParamsInfo`, `NodeInfo`,
+  `SyncInfo`, `UnconfirmedTxsInfo`, `BlockchainInfo` — removed `sealed` to allow
+  application-layer enrichment (e.g. Cosmos adds `AppHash`, `ChainId`, `RawLog`).
+- `AddCometBftRest()` and `AddCometBftWebSocket<TTx>()` now delegate to their generic
+  overloads — no behavioral change.
+- Protocol-pure types (`Vote`, `AbciEventEntry`, `AbciQueryResponse`, `AbciProofOps`,
+  `AbciProofOp`, `GenesisChunk`, `ProtocolVersion`, `NetworkInfo`, `NetworkPeer`,
+  `CometBftEvent`, `RawTxCodec`) remain `sealed`.
+
 ## [1.0.0] - 2026-04-20
 
 > **Breaking-change notice**

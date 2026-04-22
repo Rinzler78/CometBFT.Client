@@ -142,4 +142,14 @@ public sealed class TxResultGenericTests
         TxResult raw = null!;
         Assert.Throws<ArgumentNullException>(() => raw.DecodeRaw());
     }
+
+    // ── Inheritance (Phase 2 — extensibility-v2) ─────────────────────────────
+
+    [Fact]
+    public void TxResultGeneric_IsAssignableFrom_TxResultBase()
+    {
+        var events = new List<CometBftEvent>().AsReadOnly();
+        var tx = new TxResult<string>("H", 1L, 0, "decoded", 0u, null, null, null, 0, 0, events, null);
+        Assert.IsAssignableFrom<TxResultBase>(tx);
+    }
 }

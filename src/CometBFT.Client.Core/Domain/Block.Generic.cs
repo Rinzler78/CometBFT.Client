@@ -15,15 +15,17 @@ namespace CometBFT.Client.Core.Domain;
 /// <param name="Txs">The decoded transactions included in this block.</param>
 /// <remarks>
 /// Obtain instances via <see cref="BlockExtensions.Decode{TTx}(Block, ITxCodec{TTx})"/>
-/// rather than constructing directly. All consensus fields are identical to the
-/// raw <see cref="Block"/>; only <see cref="Txs"/> carries application-specific data.
+/// rather than constructing directly. All consensus fields are inherited from
+/// <see cref="BlockBase"/>; only <see cref="Txs"/> carries application-specific data.
+/// Consumers may derive from this record to add application-layer fields
+/// (e.g. <c>record CosmosBlock&lt;TTx&gt;(..., string AppHash) : Block&lt;TTx&gt;(...)</c>).
 /// </remarks>
-public sealed record Block<TTx>(
+public record Block<TTx>(
     long Height,
     string Hash,
     DateTimeOffset Time,
     string Proposer,
-    IReadOnlyList<TTx> Txs) where TTx : notnull;
+    IReadOnlyList<TTx> Txs) : BlockBase(Height, Hash, Time, Proposer) where TTx : notnull;
 
 /// <summary>
 /// Extension methods for converting a raw <see cref="Block"/> into a typed <see cref="Block{TTx}"/>.

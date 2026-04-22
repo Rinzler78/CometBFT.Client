@@ -17,7 +17,7 @@ namespace CometBFT.Client.Core.Domain;
 /// <param name="LastResultsHash">The Merkle hash of the results of the previous block's transactions.</param>
 /// <param name="EvidenceHash">The hash of evidence of misbehaviour.</param>
 /// <param name="ProposerAddress">The address of the block proposer.</param>
-public sealed record BlockHeader(
+public record BlockHeader(
     string Version,
     string ChainId,
     long Height,

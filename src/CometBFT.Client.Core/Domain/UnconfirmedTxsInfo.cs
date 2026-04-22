@@ -7,7 +7,7 @@ namespace CometBFT.Client.Core.Domain;
 /// <param name="Total">The total number of unconfirmed transactions in the mempool.</param>
 /// <param name="TotalBytes">The total size in bytes of the unconfirmed transactions.</param>
 /// <param name="Txs">The base64-encoded transactions returned by the endpoint.</param>
-public sealed record UnconfirmedTxsInfo(
+public record UnconfirmedTxsInfo(
     int Count,
     int Total,
     int TotalBytes,

@@ -5,6 +5,6 @@ namespace CometBFT.Client.Core.Domain;
 /// </summary>
 /// <param name="LastHeight">The highest block height available from the node.</param>
 /// <param name="Headers">The returned block headers in descending height order.</param>
-public sealed record BlockchainInfo(
+public record BlockchainInfo(
     long LastHeight,
     IReadOnlyList<BlockHeader> Headers);

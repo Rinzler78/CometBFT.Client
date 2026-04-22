@@ -10,7 +10,7 @@ namespace CometBFT.Client.Core.Domain;
 /// <param name="Channels">The hex-encoded channels bitmask.</param>
 /// <param name="Moniker">The human-readable node name.</param>
 /// <param name="ProtocolVersion">The protocol version details.</param>
-public sealed record NodeInfo(
+public record NodeInfo(
     string Id,
     string ListenAddr,
     string Network,
