@@ -103,13 +103,23 @@ services.AddCometBftWebSocket(options =>
 
 var ws = provider.GetRequiredService<ICometBftWebSocketClient>();
 
-// Subscribe to events
+// Legacy event handlers
 ws.NewBlockReceived       += (_, e) => Console.WriteLine($"Block  #{e.Value.Height}");
 ws.NewBlockHeaderReceived += (_, e) => Console.WriteLine($"Header #{e.Value.Height}");
 ws.TxExecuted             += (_, e) => Console.WriteLine($"Tx {e.Value.Hash}");
 ws.VoteReceived           += (_, e) => Console.WriteLine($"Vote h={e.Value.Height} r={e.Value.Round}");
 ws.ValidatorSetUpdated    += (_, e) => Console.WriteLine($"ValidatorSet: {e.Value.Count} validators");
 ws.ErrorOccurred          += (_, e) => Console.WriteLine($"[ERR] {e.Value.Message}");
+
+// Observable streams (v2.1.0+)
+using var newBlockEventsSub = ws.NewBlockEventsStream
+    .Subscribe(d => Console.WriteLine($"Block #{d.Height}: {d.Events.Count} ABCI events"));
+using var completeProposalSub = ws.CompleteProposalStream
+    .Subscribe(d => Console.WriteLine($"Proposal #{d.Height} round={d.Round}"));
+using var newEvidenceSub = ws.NewEvidenceStream
+    .Subscribe(d => Console.WriteLine($"Evidence h={d.Height} type={d.EvidenceType}"));
+using var consensusSub = ws.ConsensusInternalStream
+    .Subscribe(e => Console.WriteLine($"Consensus: {e.Type}"));
 
 await ws.ConnectAsync();
 
@@ -119,6 +129,10 @@ await ws.SubscribeNewBlockHeaderAsync();
 await ws.SubscribeTxAsync();
 await ws.SubscribeVoteAsync();
 await ws.SubscribeValidatorSetUpdatesAsync();
+await ws.SubscribeNewBlockEventsAsync();
+await ws.SubscribeCompleteProposalAsync();
+await ws.SubscribeNewEvidenceAsync();
+await ws.SubscribeConsensusInternalAsync();
 
 await Task.Delay(Timeout.Infinite);
 
@@ -236,7 +250,7 @@ NUGET_API_KEY=<key> ./scripts/docker/publish.sh
 ## CometBFT Reference
 
 - [CometBFT v0.39.1 Release](https://github.com/cometbft/cometbft/releases/tag/v0.39.1)
-- [CometBFT RPC Documentation](https://docs.cometbft.com/v0.38/rpc/)
+- [CometBFT RPC Documentation](https://docs.cometbft.com/v0.39/rpc/)
 
 ## Validated Public Endpoints
 
