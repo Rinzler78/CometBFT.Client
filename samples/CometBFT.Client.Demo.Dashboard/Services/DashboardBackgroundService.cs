@@ -1,5 +1,6 @@
 using Avalonia.Threading;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using CometBFT.Client.Core.Domain;
 using CometBFT.Client.Core.Events;
 using CometBFT.Client.Core.Interfaces;
@@ -7,24 +8,36 @@ using CometBFT.Client.Demo.Dashboard.ViewModels;
 
 namespace CometBFT.Client.Demo.Dashboard.Services;
 
+/// <summary>
+/// Drives the dashboard: one WebSocket connection with a burst of concurrent
+/// <c>Subscribe…Async</c> calls plus REST state refreshes, then a 30 s periodic
+/// poll for non-event data. The burst is intentional — the ACK pattern documented
+/// in <c>/openspec/changes/websocket-events-protocol-v0.39.1/</c> shows relays
+/// batch-flush ACKs only when multiple subscribes arrive on the wire, so serial
+/// subscribes stall the first ACK for 30–45 s.
+/// </summary>
 internal sealed class DashboardBackgroundService : BackgroundService
 {
     private const int MaxBlocks = 50;
     private const int MaxTxs = 50;
     private const int MaxEventLog = 100;
+    private static readonly TimeSpan PeriodicRefreshInterval = TimeSpan.FromSeconds(30);
 
     private readonly ICometBftWebSocketClient _ws;
     private readonly ICometBftRestClient _rest;
     private readonly MainWindowViewModel _vm;
+    private readonly ILogger<DashboardBackgroundService> _logger;
 
     public DashboardBackgroundService(
         ICometBftWebSocketClient ws,
         ICometBftRestClient rest,
-        MainWindowViewModel vm)
+        MainWindowViewModel vm,
+        ILogger<DashboardBackgroundService> logger)
     {
         _ws = ws;
         _rest = rest;
         _vm = vm;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -36,42 +49,44 @@ internal sealed class DashboardBackgroundService : BackgroundService
         _ws.ValidatorSetUpdated += OnValidatorSetUpdated;
         _ws.ErrorOccurred += OnError;
 
+        using var evidenceSub = _ws.NewEvidenceStream.Subscribe(e =>
+            AppendEventLog("evidence", $"Evidence at h={e.Height} type={e.EvidenceType}"));
+
         try
         {
+            _logger.LogInformation("Connecting to WebSocket…");
             await _ws.ConnectAsync(stoppingToken);
-            _vm.ConnectionStatus = "Connected";
-            _vm.IsConnected = true;
+            await SetConnectionStatusAsync("Subscribing…", isConnected: true);
 
-            // Core subscriptions — awaited: delivery is required before data flows
-            await _ws.SubscribeNewBlockAsync(stoppingToken);
-            await _ws.SubscribeNewBlockHeaderAsync(stoppingToken);
-            await _ws.SubscribeTxAsync(stoppingToken);
-            await _ws.SubscribeVoteAsync(stoppingToken);
-            await _ws.SubscribeValidatorSetUpdatesAsync(stoppingToken);
+            // Burst all subscribes + initial REST loads concurrently. On the relay the
+            // subscribe batch completes in ~12 s and REST completes in ~1 s — the UI
+            // becomes fully live in roughly one subscribe burst with no serial stall.
+            await Task.WhenAll(
+                _ws.SubscribeNewBlockAsync(stoppingToken),
+                _ws.SubscribeNewBlockHeaderAsync(stoppingToken),
+                _ws.SubscribeTxAsync(stoppingToken),
+                _ws.SubscribeVoteAsync(stoppingToken),
+                _ws.SubscribeValidatorSetUpdatesAsync(stoppingToken),
+                _ws.SubscribeNewBlockEventsAsync(stoppingToken),
+                _ws.SubscribeNewEvidenceAsync(stoppingToken),
+                RefreshNodeInfoAsync(stoppingToken),
+                RefreshValidatorsAsync(stoppingToken),
+                RefreshNetInfoAsync(stoppingToken));
 
-            // Initial load — do not block on optional stream subscriptions
-            await RefreshNodeInfoAsync(stoppingToken);
-            await RefreshValidatorsAsync(stoppingToken);
-            await RefreshNetInfoAsync(stoppingToken);
+            await SetConnectionStatusAsync("Connected", isConnected: true);
+            _logger.LogInformation("Dashboard live.");
 
-            // Optional stream — fire-and-forget: ACK timeout (if node unsupported) fires
-            // ErrorOccurred but must not delay the initial data load above.
-            _ = _ws.SubscribeNewBlockEventsAsync(stoppingToken);
-            using var newBlockEventsSub = _ws.NewBlockEventsStream
-                .Subscribe(d => AppendEventLog("events",
-                    $"Block #{d.Height}: {d.Events.Count} ABCI events"));
-
-            // Periodic refresh every 30s for network info and node status
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+            using var timer = new PeriodicTimer(PeriodicRefreshInterval);
             while (await timer.WaitForNextTickAsync(stoppingToken))
             {
                 await RefreshNodeInfoAsync(stoppingToken);
                 await RefreshNetInfoAsync(stoppingToken);
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
         {
-            // Normal shutdown
+            _logger.LogCritical(ex, "Dashboard service failure");
         }
         finally
         {
@@ -82,86 +97,90 @@ internal sealed class DashboardBackgroundService : BackgroundService
             _ws.ValidatorSetUpdated -= OnValidatorSetUpdated;
             _ws.ErrorOccurred -= OnError;
 
-            _vm.ConnectionStatus = "Disconnected";
-            _vm.IsConnected = false;
+            Dispatcher.UIThread.Post(() =>
+            {
+                _vm.ConnectionStatus = "Disconnected";
+                _vm.IsConnected = false;
+            });
         }
     }
 
     // ── Event handlers ────────────────────────────────────────────────────────
 
     private void OnNewBlock(object? sender, CometBftEventArgs<Block<string>> e) =>
-        _ = HandleNewBlockAsync(e.Value);
+        _ = HandleNewBlockEnrichmentAsync(e.Value);
 
     private void OnNewBlockHeader(object? sender, CometBftEventArgs<BlockHeader> e) =>
         AppendEventLog("header", $"Header #{e.Value.Height} — {e.Value.Time:HH:mm:ss}");
 
     private void OnTxExecuted(object? sender, CometBftEventArgs<TxResult<string>> e) =>
-        _ = HandleTxAsync(e.Value);
+        _ = HandleTxEnrichmentAsync(e.Value);
 
     private void OnVote(object? sender, CometBftEventArgs<Vote> e) =>
         AppendEventLog("vote", $"Vote h={e.Value.Height} r={e.Value.Round} type={e.Value.Type}");
 
     private void OnValidatorSetUpdated(object? sender, CometBftEventArgs<IReadOnlyList<Validator>> e) =>
-        _ = HandleValidatorSetUpdatedAsync();
+        _ = RefreshValidatorsAsync(CancellationToken.None);
 
     private void OnError(object? sender, CometBftEventArgs<Exception> e)
     {
-        _vm.ConnectionStatus = $"Error: {e.Value.Message}";
-        AppendEventLog("error", $"{e.Value.Message}");
+        _logger.LogError(e.Value, "WS Error: {Message}", e.Value.Message);
+        AppendEventLog("error", e.Value.Message);
     }
 
-    // ── Async enrichment ──────────────────────────────────────────────────────
+    // ── Enrichment (REST calls triggered by events) ───────────────────────────
 
-    private async Task HandleNewBlockAsync(Block<string> wsBlock)
+    private async Task HandleNewBlockEnrichmentAsync(Block<string> wsBlock)
     {
-        var fallbackRow = new BlockRow(
+        var row = new BlockRow(
             wsBlock.Height,
             wsBlock.Time.ToString("HH:mm:ss"),
             wsBlock.Txs.Count,
             wsBlock.Proposer[..Math.Min(12, wsBlock.Proposer.Length)] + "…");
 
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (_vm.Blocks.Any(b => b.Height == wsBlock.Height))
+            {
+                return;
+            }
+            _vm.Blocks.Insert(0, row);
+            _vm.LatestHeight = wsBlock.Height;
+            _vm.LatestBlockTime = wsBlock.Time.ToString("yyyy-MM-dd HH:mm:ss UTC");
+            _vm.LatestBlockTxCount = wsBlock.Txs.Count;
+            while (_vm.Blocks.Count > MaxBlocks)
+            {
+                _vm.Blocks.RemoveAt(_vm.Blocks.Count - 1);
+            }
+        });
+
         try
         {
-            var block = await _rest.GetBlockAsync().ConfigureAwait(false);
-            var row = new BlockRow(
-                block.Height,
-                block.Time.ToString("HH:mm:ss"),
-                block.Txs.Count,
-                block.Proposer[..Math.Min(12, block.Proposer.Length)] + "…");
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                _vm.LatestHeight = block.Height;
-                _vm.LatestBlockTime = block.Time.ToString("yyyy-MM-dd HH:mm:ss UTC");
-                _vm.LatestBlockTxCount = block.Txs.Count;
-                _vm.Blocks.Insert(0, row);
-                while (_vm.Blocks.Count > MaxBlocks)
-                    _vm.Blocks.RemoveAt(_vm.Blocks.Count - 1);
-            });
-
-            AppendEventLog("block", $"Block #{block.Height} — {block.Txs.Count} txs");
+            var fullBlock = await _rest.GetBlockAsync(wsBlock.Height).ConfigureAwait(false);
+            AppendEventLog("block", $"Block #{fullBlock.Height} enriched via REST. Hash: {fullBlock.Hash[..8]}…");
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
         {
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                _vm.LatestHeight = wsBlock.Height;
-                _vm.LatestBlockTxCount = wsBlock.Txs.Count;
-                _vm.Blocks.Insert(0, fallbackRow);
-                while (_vm.Blocks.Count > MaxBlocks)
-                    _vm.Blocks.RemoveAt(_vm.Blocks.Count - 1);
-            });
-            AppendEventLog("error", $"GetLatestBlock: {ex.Message}");
+            _logger.LogDebug("REST enrichment failed for block {H}: {Msg}", wsBlock.Height, ex.Message);
         }
     }
 
-    private async Task HandleTxAsync(TxResult<string> tx)
+    private async Task HandleTxEnrichmentAsync(TxResult<string> tx)
     {
         var row = new TxRow(
             tx.Hash[..Math.Min(16, tx.Hash.Length)] + "…",
             tx.Height,
             tx.Code,
             tx.Log ?? string.Empty);
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _vm.Transactions.Insert(0, row);
+            while (_vm.Transactions.Count > MaxTxs)
+            {
+                _vm.Transactions.RemoveAt(_vm.Transactions.Count - 1);
+            }
+        });
 
         try
         {
@@ -170,47 +189,33 @@ internal sealed class DashboardBackgroundService : BackgroundService
             {
                 _vm.PendingTxCount = mempool.Total;
                 _vm.PendingTxBytes = mempool.TotalBytes;
-                _vm.Transactions.Insert(0, row);
-                while (_vm.Transactions.Count > MaxTxs)
-                    _vm.Transactions.RemoveAt(_vm.Transactions.Count - 1);
             });
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch
         {
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                _vm.Transactions.Insert(0, row);
-                while (_vm.Transactions.Count > MaxTxs)
-                    _vm.Transactions.RemoveAt(_vm.Transactions.Count - 1);
-            });
-            AppendEventLog("error", $"GetNumUnconfirmedTxs: {ex.Message}");
+            // best-effort for demo robustness
         }
-
-        AppendEventLog("tx", $"Tx {row.Hash} h={tx.Height} code={tx.Code}");
     }
 
-    private async Task HandleValidatorSetUpdatedAsync()
-    {
-        await RefreshValidatorsAsync(CancellationToken.None);
-        AppendEventLog("validator", "ValidatorSet updated");
-    }
-
-    // ── Periodic refresh helpers ──────────────────────────────────────────────
+    // ── Periodic REST helpers ─────────────────────────────────────────────────
 
     private async Task RefreshNodeInfoAsync(CancellationToken ct)
     {
         try
         {
             var (nodeInfo, syncInfo) = await _rest.GetStatusAsync(ct).ConfigureAwait(false);
-            _vm.ChainId = nodeInfo.Network;
-            _vm.Moniker = nodeInfo.Moniker;
-            _vm.NodeId = nodeInfo.Id[..Math.Min(16, nodeInfo.Id.Length)] + "…";
-            _vm.NodeVersion = nodeInfo.Version;
-            _vm.IsSyncing = syncInfo.CatchingUp;
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                _vm.ChainId = nodeInfo.Network;
+                _vm.Moniker = nodeInfo.Moniker;
+                _vm.NodeId = nodeInfo.Id[..Math.Min(16, nodeInfo.Id.Length)] + "…";
+                _vm.NodeVersion = nodeInfo.Version;
+                _vm.IsSyncing = syncInfo.CatchingUp;
+            });
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
         {
-            AppendEventLog("error", $"GetStatus: {ex.Message}");
+            AppendEventLog("error", $"REST Status failed: {ex.Message}");
         }
     }
 
@@ -221,25 +226,25 @@ internal sealed class DashboardBackgroundService : BackgroundService
             var validators = await _rest.GetValidatorsAsync(cancellationToken: ct).ConfigureAwait(false);
             var sorted = validators.OrderByDescending(v => v.VotingPower).ToList();
             var totalPower = sorted.Sum(v => (double)v.VotingPower);
-            var rows = sorted
-                    .Select((v, i) => new ValidatorRow(
-                        i + 1,
-                        v.Address[..Math.Min(16, v.Address.Length)] + "…",
-                        v.VotingPower,
-                        v.ProposerPriority,
-                        totalPower > 0 ? Math.Round(v.VotingPower / totalPower * 100, 1) : 0))
-                    .ToList();
+            var rows = sorted.Select((v, i) => new ValidatorRow(
+                i + 1,
+                v.Address[..Math.Min(16, v.Address.Length)] + "…",
+                v.VotingPower,
+                v.ProposerPriority,
+                totalPower > 0 ? Math.Round(v.VotingPower / totalPower * 100, 1) : 0)).ToList();
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 _vm.Validators.Clear();
-                foreach (var row in rows)
-                    _vm.Validators.Add(row);
+                foreach (var r in rows)
+                {
+                    _vm.Validators.Add(r);
+                }
             });
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
         {
-            AppendEventLog("error", $"GetLatestValidators: {ex.Message}");
+            AppendEventLog("error", $"REST Validators failed: {ex.Message}");
         }
     }
 
@@ -248,15 +253,20 @@ internal sealed class DashboardBackgroundService : BackgroundService
         try
         {
             var netInfo = await _rest.GetNetInfoAsync(ct).ConfigureAwait(false);
-            _vm.PeerCount = netInfo.PeerCount;
+            await Dispatcher.UIThread.InvokeAsync(() => _vm.PeerCount = netInfo.PeerCount);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch
         {
-            AppendEventLog("error", $"GetNetInfo: {ex.Message}");
+            // best-effort
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    private Task SetConnectionStatusAsync(string status, bool isConnected) =>
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _vm.ConnectionStatus = status;
+            _vm.IsConnected = isConnected;
+        }).GetTask();
 
     private void AppendEventLog(string category, string message)
     {
@@ -265,7 +275,9 @@ internal sealed class DashboardBackgroundService : BackgroundService
         {
             _vm.EventLog.Insert(0, row);
             while (_vm.EventLog.Count > MaxEventLog)
+            {
                 _vm.EventLog.RemoveAt(_vm.EventLog.Count - 1);
+            }
         });
     }
 }
