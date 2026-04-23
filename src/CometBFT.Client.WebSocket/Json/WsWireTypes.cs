@@ -61,6 +61,42 @@ internal sealed class WsEnvelope
 
     [JsonPropertyName("result")]
     public WsResult? Result { get; init; }
+
+    /// <summary>JSON-RPC error object, populated when the server rejects a request (e.g. 429).</summary>
+    [JsonPropertyName("error")]
+    public WsError? Error { get; init; }
+}
+
+internal sealed class WsError
+{
+    [JsonPropertyName("code")]
+    public int Code { get; init; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; init; } = string.Empty;
+
+    [JsonPropertyName("data")]
+    public string? Data { get; init; }
+}
+
+/// <summary>
+/// Non-JSON-RPC envelope emitted by Lava relay nodes when the upstream provider rejects a request.
+/// Shape: <c>{"Error_Received":"&lt;string or embedded JSON&gt;"}</c>.
+/// </summary>
+internal sealed class WsProviderErrorEnvelope
+{
+    [JsonPropertyName("Error_Received")]
+    public string ErrorReceived { get; init; } = string.Empty;
+}
+
+/// <summary>Embedded JSON payload inside <see cref="WsProviderErrorEnvelope.ErrorReceived"/> when it is valid JSON.</summary>
+internal sealed class WsProviderErrorPayload
+{
+    [JsonPropertyName("Error_GUID")]
+    public string ErrorGuid { get; init; } = string.Empty;
+
+    [JsonPropertyName("Error")]
+    public string Error { get; init; } = string.Empty;
 }
 
 internal sealed class WsResult

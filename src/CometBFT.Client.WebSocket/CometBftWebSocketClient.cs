@@ -22,13 +22,14 @@ namespace CometBFT.Client.WebSocket;
 /// Uses <see cref="WebsocketClient"/> with automatic reconnection.
 /// </summary>
 /// <typeparam name="TTx">The application-specific transaction type.</typeparam>
-public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where TTx : notnull
+public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisposable where TTx : notnull
 {
     private readonly CometBftWebSocketOptions _options;
     private readonly IWebSocketClientFactory _factory;
     private readonly ITxCodec<TTx> _codec;
     private readonly SemaphoreSlim _connectLock = new(1, 1);
     private readonly ConcurrentDictionary<string, byte> _activeSubscriptions = new(StringComparer.Ordinal);
+    private readonly object _unsubscribeLock = new();
 
     /// <summary>
     /// Pending subscribe acknowledgments keyed by JSON-RPC request id.
@@ -201,62 +202,92 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
 
     /// <inheritdoc />
     public Task SubscribeNewBlockAsync(CancellationToken cancellationToken = default) =>
-        SendSubscribeAsync("tm.event='NewBlock'", cancellationToken);
+        SubscribeAsync(WebSocketEventTopic.NewBlock, cancellationToken);
 
     /// <inheritdoc />
     public Task SubscribeNewBlockHeaderAsync(CancellationToken cancellationToken = default) =>
-        SendSubscribeAsync("tm.event='NewBlockHeader'", cancellationToken);
+        SubscribeAsync(WebSocketEventTopic.NewBlockHeader, cancellationToken);
 
     /// <inheritdoc />
     public Task SubscribeTxAsync(CancellationToken cancellationToken = default) =>
-        SendSubscribeAsync("tm.event='Tx'", cancellationToken);
+        SubscribeAsync(WebSocketEventTopic.Tx, cancellationToken);
 
     /// <inheritdoc />
     public Task SubscribeVoteAsync(CancellationToken cancellationToken = default) =>
-        SendSubscribeAsync("tm.event='Vote'", cancellationToken);
+        SubscribeAsync(WebSocketEventTopic.Vote, cancellationToken);
 
     /// <inheritdoc />
     public Task SubscribeValidatorSetUpdatesAsync(CancellationToken cancellationToken = default) =>
-        SendSubscribeAsync("tm.event='ValidatorSetUpdates'", cancellationToken);
+        SubscribeAsync(WebSocketEventTopic.ValidatorSetUpdates, cancellationToken);
 
     /// <inheritdoc />
     public Task SubscribeNewBlockEventsAsync(CancellationToken cancellationToken = default) =>
-        SendSubscribeAsync("tm.event='NewBlockEvents'", cancellationToken);
+        SubscribeAsync(WebSocketEventTopic.NewBlockEvents, cancellationToken);
 
     /// <inheritdoc />
     public Task SubscribeCompleteProposalAsync(CancellationToken cancellationToken = default) =>
-        SendSubscribeAsync("tm.event='CompleteProposal'", cancellationToken);
+        SubscribeAsync(WebSocketEventTopic.CompleteProposal, cancellationToken);
 
     /// <inheritdoc />
     public Task SubscribeNewEvidenceAsync(CancellationToken cancellationToken = default) =>
-        SendSubscribeAsync("tm.event='NewEvidence'", cancellationToken);
+        SubscribeAsync(WebSocketEventTopic.NewEvidence, cancellationToken);
 
     /// <inheritdoc />
     public Task SubscribeConsensusInternalAsync(CancellationToken cancellationToken = default) =>
-        Task.WhenAll(
-            SendSubscribeAsync("tm.event='TimeoutPropose'", cancellationToken),
-            SendSubscribeAsync("tm.event='TimeoutWait'", cancellationToken),
-            SendSubscribeAsync("tm.event='Lock'", cancellationToken),
-            SendSubscribeAsync("tm.event='Unlock'", cancellationToken),
-            SendSubscribeAsync("tm.event='Relock'", cancellationToken),
-            SendSubscribeAsync("tm.event='PolkaAny'", cancellationToken),
-            SendSubscribeAsync("tm.event='PolkaNil'", cancellationToken),
-            SendSubscribeAsync("tm.event='PolkaAgain'", cancellationToken),
-            SendSubscribeAsync("tm.event='MissingProposalBlock'", cancellationToken));
+        Task.WhenAll(WebSocketQueries.ConsensusInternalTopics
+            .Select(topic => SubscribeAsync(topic, cancellationToken)));
+
+    private Task SubscribeAsync(WebSocketEventTopic topic, CancellationToken cancellationToken) =>
+        SendSubscribeAsync(WebSocketQueries.Of(topic), cancellationToken);
 
     /// <inheritdoc />
     public Task UnsubscribeAllAsync(CancellationToken cancellationToken = default)
     {
         EnsureConnected();
-        var id = Interlocked.Increment(ref _requestId);
-        var request = new WsUnsubscribeAllRequest { Id = id };
-        _client!.Send(JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsUnsubscribeAllRequest));
-        _activeSubscriptions.Clear();
+
+        string payload;
+        lock (_unsubscribeLock)
+        {
+            if (_activeSubscriptions.IsEmpty)
+            {
+                return Task.CompletedTask;
+            }
+
+            _activeSubscriptions.Clear();
+            var id = Interlocked.Increment(ref _requestId);
+            var request = new WsUnsubscribeAllRequest { Id = id };
+            payload = JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsUnsubscribeAllRequest);
+        }
+
+        _client!.Send(payload);
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Synchronous disposal. Starts a best-effort WebSocket stop without blocking
+    /// the caller. Consumers that need a bounded graceful shutdown should call
+    /// <see cref="DisposeAsync"/> instead.
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
+    {
+        await DisposeAsyncCore().ConfigureAwait(false);
+        Dispose(disposing: false);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Releases managed state. When <paramref name="disposing"/> is <c>true</c> (sync
+    /// entry point), fires-and-forgets <c>_client.Stop()</c>; when <c>false</c> the
+    /// async path in <see cref="DisposeAsyncCore"/> has already awaited a bounded stop.
+    /// </summary>
+    protected virtual void Dispose(bool disposing)
     {
         if (_disposed)
         {
@@ -264,7 +295,6 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
         }
 
         _disposed = true;
-        GC.SuppressFinalize(this);
 
         foreach (var (_, tcs) in _pendingAcks)
         {
@@ -286,26 +316,41 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
         _consensusInternalSubject.OnCompleted();
         _consensusInternalSubject.Dispose();
 
-        if (_client is not null)
+        if (disposing && _client is not null)
         {
-            try
-            {
-                await _client.Stop(
-                    System.Net.WebSockets.WebSocketCloseStatus.NormalClosure,
-                    "Disposing")
-                    .WaitAsync(TimeSpan.FromSeconds(5))
-                    .ConfigureAwait(false);
-            }
-            catch
-            {
-                // Best-effort close — timeout or transport error, continue disposal
-            }
-
-            _client.Dispose();
-            _client = null;
+            _ = _client.Stop(
+                System.Net.WebSockets.WebSocketCloseStatus.NormalClosure,
+                "Disposing");
         }
 
+        _client?.Dispose();
+        _client = null;
         _connectLock.Dispose();
+    }
+
+    /// <summary>
+    /// Async-specific disposal: waits up to 5 s for the WebSocket graceful close
+    /// before the sync cleanup runs. Override to extend the async teardown.
+    /// </summary>
+    protected virtual async ValueTask DisposeAsyncCore()
+    {
+        if (_disposed || _client is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _client.Stop(
+                System.Net.WebSockets.WebSocketCloseStatus.NormalClosure,
+                "Disposing")
+                .WaitAsync(TimeSpan.FromSeconds(5))
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            // Best-effort close — timeout or transport error, continue disposal
+        }
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
@@ -313,7 +358,10 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
     private async Task SendSubscribeAsync(string query, CancellationToken cancellationToken)
     {
         EnsureConnected();
-        _activeSubscriptions.TryAdd(query, 0);
+        if (!_activeSubscriptions.TryAdd(query, 0))
+        {
+            return;
+        }
 
         var id = Interlocked.Increment(ref _requestId);
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -328,12 +376,22 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
         {
             await tcs.Task.WaitAsync(ackCts.Token).ConfigureAwait(false);
         }
+        catch (CometBftWebSocketException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Server explicitly rejected the subscription (JSON-RPC error or provider relay error).
+            // Roll back local state so reconnect does not replay a guaranteed-failing subscription.
+            _pendingAcks.TryRemove(id, out _);
+            _activeSubscriptions.TryRemove(query, out _);
+            ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(ex));
+        }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
+            // Timeout: the frame was sent, the ACK never arrived. Keep the subscription
+            // registered so OnReconnected replays it on the next connection. Surface as non-fatal.
             _pendingAcks.TryRemove(id, out _);
             ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(
                 new CometBftWebSocketException(
-                    $"Subscribe ACK for query '{query}' not received within {_options.SubscribeAckTimeout.TotalSeconds:F0} s — subscription was sent and may still be active.")));
+                    $"Subscribe ACK for query '{query}' not received within {_options.SubscribeAckTimeout.TotalSeconds:F0}s — subscription was sent and may still be active.")));
         }
     }
 
@@ -367,6 +425,17 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
 
         try
         {
+            // Lava-style provider-relay error precedes the JSON-RPC envelope parse
+            // because its shape does not match WsEnvelope.
+            var providerErrorEnvelope = JsonSerializer.Deserialize(message.Text, CometBftWebSocketJsonContext.Default.WsProviderErrorEnvelope);
+            if (providerErrorEnvelope is not null && !string.IsNullOrWhiteSpace(providerErrorEnvelope.ErrorReceived))
+            {
+                var providerError = CreateProviderErrorException(providerErrorEnvelope);
+                FailPendingAcks(providerError);
+                ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(providerError));
+                return;
+            }
+
             var envelope = JsonSerializer.Deserialize(message.Text, CometBftWebSocketJsonContext.Default.WsEnvelope);
             if (envelope is null)
             {
@@ -375,11 +444,25 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
 
             if (envelope.Id > 0 && _pendingAcks.TryRemove(envelope.Id, out var ackTcs))
             {
+                if (envelope.Error is not null)
+                {
+                    var serverError = CreateJsonRpcErrorException(envelope);
+                    ackTcs.TrySetException(serverError);
+                    ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(serverError));
+                    return;
+                }
+
                 ackTcs.TrySetResult(true);
                 if (envelope.Result?.Data is null)
                 {
                     return;
                 }
+            }
+
+            if (envelope.Error is not null)
+            {
+                ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(CreateJsonRpcErrorException(envelope)));
+                return;
             }
 
             switch (envelope.Result?.Data)
@@ -508,6 +591,45 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx> where 
         {
             ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(ex));
         }
+    }
+
+    private void FailPendingAcks(CometBftWebSocketException exception)
+    {
+        foreach (var (id, tcs) in _pendingAcks)
+        {
+            if (_pendingAcks.TryRemove(id, out _))
+            {
+                tcs.TrySetException(exception);
+            }
+        }
+    }
+
+    private static CometBftWebSocketException CreateJsonRpcErrorException(WsEnvelope envelope)
+    {
+        var error = envelope.Error!;
+        var suffix = string.IsNullOrWhiteSpace(error.Data) ? string.Empty : $" Data: {error.Data}";
+        return new CometBftWebSocketException($"JSON-RPC error {error.Code}: {error.Message}{suffix}");
+    }
+
+    private static CometBftWebSocketException CreateProviderErrorException(WsProviderErrorEnvelope envelope)
+    {
+        WsProviderErrorPayload? payload;
+        try
+        {
+            payload = JsonSerializer.Deserialize(envelope.ErrorReceived, CometBftWebSocketJsonContext.Default.WsProviderErrorPayload);
+        }
+        catch (JsonException)
+        {
+            payload = null;
+        }
+
+        if (payload is null)
+        {
+            return new CometBftWebSocketException($"Provider relay error: {envelope.ErrorReceived}");
+        }
+
+        var guidSuffix = string.IsNullOrWhiteSpace(payload.ErrorGuid) ? string.Empty : $" ({payload.ErrorGuid})";
+        return new CometBftWebSocketException($"Provider relay error{guidSuffix}: {payload.Error}");
     }
 }
 
