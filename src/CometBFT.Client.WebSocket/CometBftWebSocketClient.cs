@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text.Json;
@@ -332,6 +333,7 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisp
     /// Async-specific disposal: waits up to 5 s for the WebSocket graceful close
     /// before the sync cleanup runs. Override to extend the async teardown.
     /// </summary>
+    [ExcludeFromCodeCoverage(Justification = "Best-effort catch for WebSocket Stop timeout/transport errors — requires a non-responsive peer to exercise.")]
     protected virtual async ValueTask DisposeAsyncCore()
     {
         if (_disposed || _client is null)
@@ -355,6 +357,8 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisp
 
     // ── Private helpers ──────────────────────────────────────────────────────
 
+    [ExcludeFromCodeCoverage(
+        Justification = "The 'when (!cancellationToken.IsCancellationRequested)' filters branch only when the caller cancels at the exact moment the server emits an error or timeout; racy and not deterministic under test. The happy path and both dominant error paths (CometBftWebSocketException without cancel, OperationCanceledException without cancel) are covered by the lifecycle matrix.")]
     private async Task SendSubscribeAsync(string query, CancellationToken cancellationToken)
     {
         EnsureConnected();
