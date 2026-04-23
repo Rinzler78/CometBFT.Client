@@ -20,7 +20,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-dotnet pack CometBFT.Client.sln --configuration Release --output ./artifacts
+# /p:_ProjectReferencePackAssets=all marks the ProjectReferences in
+# CometBFT.Client.Extensions.csproj as PrivateAssets during pack so NuGet does
+# not emit them as fictional package dependencies. The Core/Rest/WebSocket/Grpc
+# DLLs are still bundled inside the nupkg by the IncludeProjectReferenceBuildOutputs
+# target; only the nuspec dependency list is cleaned up.
+dotnet pack CometBFT.Client.sln --configuration Release --output ./artifacts \
+  /p:_ProjectReferencePackAssets=all
 
 if [ "$DRY_RUN" = false ] && [ -n "$API_KEY" ]; then
   dotnet nuget push "./artifacts/*.nupkg" --api-key "$API_KEY" --source "$SOURCE" --skip-duplicate

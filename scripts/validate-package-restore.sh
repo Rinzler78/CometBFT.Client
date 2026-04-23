@@ -30,7 +30,11 @@ fi
 rm -rf "${ARTIFACT_DIR}"
 mkdir -p "${ARTIFACT_DIR}"
 
-dotnet pack "${PACKAGE_PROJECT}" --configuration Release --output "${ARTIFACT_DIR}" >/dev/null
+# /p:_ProjectReferencePackAssets=all — see the comment in
+# src/CometBFT.Client.Extensions/CometBFT.Client.Extensions.csproj. Must match the
+# publish.sh invocation so the validation exercise the same nuspec shape as release.
+dotnet pack "${PACKAGE_PROJECT}" --configuration Release --output "${ARTIFACT_DIR}" \
+  /p:_ProjectReferencePackAssets=all >/dev/null
 
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT

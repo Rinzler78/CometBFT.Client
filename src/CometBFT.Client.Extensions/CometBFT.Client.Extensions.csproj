@@ -15,19 +15,25 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeProjectReferenceBuildOutputs</TargetsForTfmSpecificBuildOutput>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <!--
+      Pack-time flag: when set to 'all', the ProjectReferences below are marked
+      PrivateAssets so NuGet does not emit them as fictional package dependencies
+      in the nuspec (the Core/Rest/WebSocket/Grpc DLLs are bundled via the
+      IncludeProjectReferenceBuildOutputs Target instead). When unset (regular
+      build), the default empty value preserves transitive ProjectReference
+      visibility for in-repo consumers (Samples, Tests).
+
+      Expected invocation from publish.sh and validate-package-restore.sh:
+        dotnet pack … /p:_ProjectReferencePackAssets=all
+    -->
+    <_ProjectReferencePackAssets Condition="'$(_ProjectReferencePackAssets)' == ''"></_ProjectReferencePackAssets>
   </PropertyGroup>
 
   <ItemGroup>
-    <!--
-      Project references are bundled as DLLs via IncludeProjectReferenceBuildOutputs
-      (see Target below). PrivateAssets=all prevents NuGet from emitting them as
-      package dependencies in the nuspec; the Microsoft.Extensions.* PackageReferences
-      below remain as explicit dependencies so consumers get them transitively.
-    -->
-    <ProjectReference Include="..\CometBFT.Client.Core\CometBFT.Client.Core.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\CometBFT.Client.Rest\CometBFT.Client.Rest.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\CometBFT.Client.WebSocket\CometBFT.Client.WebSocket.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\CometBFT.Client.Grpc\CometBFT.Client.Grpc.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\CometBFT.Client.Core\CometBFT.Client.Core.csproj" PrivateAssets="$(_ProjectReferencePackAssets)" />
+    <ProjectReference Include="..\CometBFT.Client.Rest\CometBFT.Client.Rest.csproj" PrivateAssets="$(_ProjectReferencePackAssets)" />
+    <ProjectReference Include="..\CometBFT.Client.WebSocket\CometBFT.Client.WebSocket.csproj" PrivateAssets="$(_ProjectReferencePackAssets)" />
+    <ProjectReference Include="..\CometBFT.Client.Grpc\CometBFT.Client.Grpc.csproj" PrivateAssets="$(_ProjectReferencePackAssets)" />
   </ItemGroup>
 
   <ItemGroup>
