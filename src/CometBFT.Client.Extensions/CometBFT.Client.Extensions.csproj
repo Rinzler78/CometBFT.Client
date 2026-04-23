@@ -13,13 +13,27 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeProjectReferenceBuildOutputs</TargetsForTfmSpecificBuildOutput>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <!--
+      Pack-time flag: when set to 'all', the ProjectReferences below are marked
+      PrivateAssets so NuGet does not emit them as fictional package dependencies
+      in the nuspec (the Core/Rest/WebSocket/Grpc DLLs are bundled via the
+      IncludeProjectReferenceBuildOutputs Target instead). When unset (regular
+      build), the default empty value preserves transitive ProjectReference
+      visibility for in-repo consumers (Samples, Tests).
+
+      Expected invocation from publish.sh and validate-package-restore.sh:
+        dotnet pack … /p:_ProjectReferencePackAssets=all
+    -->
+    <_ProjectReferencePackAssets Condition="'$(_ProjectReferencePackAssets)' == ''"></_ProjectReferencePackAssets>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CometBFT.Client.Core\CometBFT.Client.Core.csproj" />
-    <ProjectReference Include="..\CometBFT.Client.Rest\CometBFT.Client.Rest.csproj" />
-    <ProjectReference Include="..\CometBFT.Client.WebSocket\CometBFT.Client.WebSocket.csproj" />
-    <ProjectReference Include="..\CometBFT.Client.Grpc\CometBFT.Client.Grpc.csproj" />
+    <ProjectReference Include="..\CometBFT.Client.Core\CometBFT.Client.Core.csproj" PrivateAssets="$(_ProjectReferencePackAssets)" />
+    <ProjectReference Include="..\CometBFT.Client.Rest\CometBFT.Client.Rest.csproj" PrivateAssets="$(_ProjectReferencePackAssets)" />
+    <ProjectReference Include="..\CometBFT.Client.WebSocket\CometBFT.Client.WebSocket.csproj" PrivateAssets="$(_ProjectReferencePackAssets)" />
+    <ProjectReference Include="..\CometBFT.Client.Grpc\CometBFT.Client.Grpc.csproj" PrivateAssets="$(_ProjectReferencePackAssets)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,5 +42,11 @@
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.7" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.203" PrivateAssets="All" />
   </ItemGroup>
+
+  <Target Name="IncludeProjectReferenceBuildOutputs" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths->WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
+    </ItemGroup>
+  </Target>
 
 </Project>
