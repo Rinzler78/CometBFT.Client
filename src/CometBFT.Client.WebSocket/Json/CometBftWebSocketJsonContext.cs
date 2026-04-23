@@ -8,6 +8,8 @@ namespace CometBFT.Client.WebSocket.Json;
 /// </summary>
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
 [JsonSerializable(typeof(WsEnvelope))]
+[JsonSerializable(typeof(WsProviderErrorEnvelope))]
+[JsonSerializable(typeof(WsProviderErrorPayload))]
 [JsonSerializable(typeof(WsSubscribeRequest))]
 [JsonSerializable(typeof(WsUnsubscribeAllRequest))]
 internal sealed partial class CometBftWebSocketJsonContext : JsonSerializerContext
