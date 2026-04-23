@@ -41,6 +41,26 @@ export NUGET_PACKAGES="${WORK_DIR}/.packages"
 dotnet new classlib -n RestoreProbe --framework net10.0 >/dev/null
 cd RestoreProbe
 
+# Replace the scaffolded Class1.cs with code that imports and uses types from
+# the package. A probe that never references the package hides broken outputs
+# (missing DLLs, stripped transitive deps) behind a successful no-op build.
+rm -f Class1.cs
+cat > Probe.cs <<'EOF'
+using Microsoft.Extensions.DependencyInjection;
+using CometBFT.Client.Extensions;
+
+namespace RestoreProbe;
+
+/// <summary>Compile-time validation that the published package exposes its public surface.</summary>
+public static class Probe
+{
+    public static IServiceCollection Configure(IServiceCollection services) =>
+        services
+            .AddCometBftRest(options => options.BaseUrl = "https://example.com")
+            .AddCometBftWebSocket(options => options.BaseUrl = "wss://example.com/websocket");
+}
+EOF
+
 cat > NuGet.Config <<EOF
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
@@ -52,10 +72,10 @@ cat > NuGet.Config <<EOF
 </configuration>
 EOF
 
-dotnet add package "${PACKAGE_ID}" --version "${VERSION}" --source "${ARTIFACT_DIR}" >/dev/null
-
+# --configfile scopes the NuGet sources; --no-restore keeps `add package` from
+# doing a silent implicit restore against the wrong source list.
+dotnet add package "${PACKAGE_ID}" --version "${VERSION}" --no-restore >/dev/null
 dotnet restore --configfile NuGet.Config >/dev/null
-
 dotnet build --configuration Release --no-restore >/dev/null
 
 echo "Validated NuGet package restore for ${PACKAGE_ID} ${VERSION}."

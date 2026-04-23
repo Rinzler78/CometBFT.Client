@@ -13,16 +13,21 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeProjectReferenceBuildOutputs</TargetsForTfmSpecificBuildOutput>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CometBFT.Client.Core\CometBFT.Client.Core.csproj" />
-    <ProjectReference Include="..\CometBFT.Client.Rest\CometBFT.Client.Rest.csproj" />
-    <ProjectReference Include="..\CometBFT.Client.WebSocket\CometBFT.Client.WebSocket.csproj" />
-    <ProjectReference Include="..\CometBFT.Client.Grpc\CometBFT.Client.Grpc.csproj" />
+    <!--
+      Project references are bundled as DLLs via IncludeProjectReferenceBuildOutputs
+      (see Target below). PrivateAssets=all prevents NuGet from emitting them as
+      package dependencies in the nuspec; the Microsoft.Extensions.* PackageReferences
+      below remain as explicit dependencies so consumers get them transitively.
+    -->
+    <ProjectReference Include="..\CometBFT.Client.Core\CometBFT.Client.Core.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\CometBFT.Client.Rest\CometBFT.Client.Rest.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\CometBFT.Client.WebSocket\CometBFT.Client.WebSocket.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\CometBFT.Client.Grpc\CometBFT.Client.Grpc.csproj" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
