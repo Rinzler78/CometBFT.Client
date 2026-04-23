@@ -1,4 +1,3 @@
-using Avalonia.Threading;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using CometBFT.Client.Core.Domain;
@@ -9,18 +8,13 @@ using CometBFT.Client.Demo.Dashboard.ViewModels;
 namespace CometBFT.Client.Demo.Dashboard.Services;
 
 /// <summary>
-/// Drives the dashboard: one WebSocket connection with a burst of concurrent
-/// <c>Subscribe…Async</c> calls plus REST state refreshes, then a 30 s periodic
-/// poll for non-event data. The burst is intentional — the ACK pattern documented
-/// in <c>/openspec/changes/websocket-events-protocol-v0.39.1/</c> shows relays
-/// batch-flush ACKs only when multiple subscribes arrive on the wire, so serial
-/// subscribes stall the first ACK for 30–45 s.
+/// Orchestrator — connects to the CometBFT WebSocket, drives REST refreshes and
+/// feeds the ViewModel through its typed domain-oriented API. This class knows
+/// nothing about Avalonia threading or UI row records; all of that lives in
+/// <see cref="MainWindowViewModel"/>.
 /// </summary>
 internal sealed class DashboardBackgroundService : BackgroundService
 {
-    private const int MaxBlocks = 50;
-    private const int MaxTxs = 50;
-    private const int MaxEventLog = 100;
     private static readonly TimeSpan PeriodicRefreshInterval = TimeSpan.FromSeconds(30);
 
     private readonly ICometBftWebSocketClient _ws;
@@ -50,20 +44,18 @@ internal sealed class DashboardBackgroundService : BackgroundService
         _ws.ErrorOccurred += OnError;
 
         using var evidenceSub = _ws.NewEvidenceStream.Subscribe(e =>
-            AppendEventLog("evidence", $"Evidence at h={e.Height} type={e.EvidenceType}"));
+            _vm.AppendEventLog("evidence", $"Evidence at h={e.Height} type={e.EvidenceType}"));
 
         try
         {
             _logger.LogInformation("Connecting to WebSocket…");
             await _ws.ConnectAsync(stoppingToken);
-            await SetConnectionStatusAsync("Subscribing…", isConnected: true);
+            _vm.SetConnectionStatus("Subscribing…", isConnected: true);
 
             // Burst all subscribes + initial REST loads concurrently. On the relay the
-            // subscribe batch completes in ~12 s and REST completes in ~1 s — the UI
-            // becomes fully live in roughly one subscribe burst with no serial stall.
-            // Each task is wrapped in Resilient(...) so a single failure (e.g. relay
-            // rate-limits NewEvidence) does not fail-fast Task.WhenAll and abort the
-            // whole dashboard — failures are logged and the surviving topics stream.
+            // subscribe batch completes in ~12 s and REST completes in ~1 s. Each task
+            // is wrapped in Resilient so a single topic failure (e.g. relay rate-limits
+            // NewEvidence) does not fail-fast Task.WhenAll and abort the whole dashboard.
             await Task.WhenAll(
                 Resilient("subscribe NewBlock", _ws.SubscribeNewBlockAsync(stoppingToken)),
                 Resilient("subscribe NewBlockHeader", _ws.SubscribeNewBlockHeaderAsync(stoppingToken)),
@@ -76,7 +68,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
                 RefreshValidatorsAsync(stoppingToken),
                 RefreshNetInfoAsync(stoppingToken));
 
-            await SetConnectionStatusAsync("Connected", isConnected: true);
+            _vm.SetConnectionStatus("Connected", isConnected: true);
             _logger.LogInformation("Dashboard live.");
 
             using var timer = new PeriodicTimer(PeriodicRefreshInterval);
@@ -86,7 +78,10 @@ internal sealed class DashboardBackgroundService : BackgroundService
                 await RefreshNetInfoAsync(stoppingToken);
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+            // Normal shutdown.
+        }
         catch (Exception ex)
         {
             _logger.LogCritical(ex, "Dashboard service failure");
@@ -100,27 +95,23 @@ internal sealed class DashboardBackgroundService : BackgroundService
             _ws.ValidatorSetUpdated -= OnValidatorSetUpdated;
             _ws.ErrorOccurred -= OnError;
 
-            Dispatcher.UIThread.Post(() =>
-            {
-                _vm.ConnectionStatus = "Disconnected";
-                _vm.IsConnected = false;
-            });
+            _vm.SetConnectionStatus("Disconnected", isConnected: false);
         }
     }
 
-    // ── Event handlers ────────────────────────────────────────────────────────
+    // ── WebSocket event handlers — delegate straight to the ViewModel ────────
 
     private void OnNewBlock(object? sender, CometBftEventArgs<Block<string>> e) =>
         _ = HandleNewBlockEnrichmentAsync(e.Value);
 
     private void OnNewBlockHeader(object? sender, CometBftEventArgs<BlockHeader> e) =>
-        AppendEventLog("header", $"Header #{e.Value.Height} — {e.Value.Time:HH:mm:ss}");
+        _vm.AppendEventLog("header", $"Header #{e.Value.Height} — {e.Value.Time:HH:mm:ss}");
 
     private void OnTxExecuted(object? sender, CometBftEventArgs<TxResult<string>> e) =>
         _ = HandleTxEnrichmentAsync(e.Value);
 
     private void OnVote(object? sender, CometBftEventArgs<Vote> e) =>
-        AppendEventLog("vote", $"Vote h={e.Value.Height} r={e.Value.Round} type={e.Value.Type}");
+        _vm.AppendEventLog("vote", $"Vote h={e.Value.Height} r={e.Value.Round} type={e.Value.Type}");
 
     private void OnValidatorSetUpdated(object? sender, CometBftEventArgs<IReadOnlyList<Validator>> e) =>
         _ = RefreshValidatorsAsync(CancellationToken.None);
@@ -128,41 +119,23 @@ internal sealed class DashboardBackgroundService : BackgroundService
     private void OnError(object? sender, CometBftEventArgs<Exception> e)
     {
         _logger.LogError(e.Value, "WS Error: {Message}", e.Value.Message);
-        AppendEventLog("error", e.Value.Message);
+        _vm.AppendEventLog("error", e.Value.Message);
     }
 
-    // ── Enrichment (REST calls triggered by events) ───────────────────────────
+    // ── Enrichment — WebSocket event → VM + REST follow-up ──────────────────
 
     private async Task HandleNewBlockEnrichmentAsync(Block<string> wsBlock)
     {
-        var row = new BlockRow(
-            wsBlock.Height,
-            wsBlock.Time.ToString("HH:mm:ss"),
-            wsBlock.Txs.Count,
-            wsBlock.Proposer[..Math.Min(12, wsBlock.Proposer.Length)] + "…");
-
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (_vm.Blocks.Any(b => b.Height == wsBlock.Height))
-            {
-                return;
-            }
-            _vm.Blocks.Insert(0, row);
-            _vm.LatestHeight = wsBlock.Height;
-            _vm.LatestBlockTime = wsBlock.Time.ToString("yyyy-MM-dd HH:mm:ss UTC");
-            _vm.LatestBlockTxCount = wsBlock.Txs.Count;
-            while (_vm.Blocks.Count > MaxBlocks)
-            {
-                _vm.Blocks.RemoveAt(_vm.Blocks.Count - 1);
-            }
-        });
+        _vm.OnNewBlock(wsBlock);
 
         try
         {
             var fullBlock = await _rest.GetBlockAsync(wsBlock.Height).ConfigureAwait(false);
-            AppendEventLog("block", $"Block #{fullBlock.Height} enriched via REST. Hash: {fullBlock.Hash[..8]}…");
+            _vm.AppendEventLog(
+                "block",
+                $"Block #{fullBlock.Height} enriched via REST. Hash: {Safe(fullBlock.Hash, 8)}…");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogDebug("REST enrichment failed for block {H}: {Msg}", wsBlock.Height, ex.Message);
         }
@@ -170,33 +143,16 @@ internal sealed class DashboardBackgroundService : BackgroundService
 
     private async Task HandleTxEnrichmentAsync(TxResult<string> tx)
     {
-        var row = new TxRow(
-            tx.Hash[..Math.Min(16, tx.Hash.Length)] + "…",
-            tx.Height,
-            tx.Code,
-            tx.Log ?? string.Empty);
-
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            _vm.Transactions.Insert(0, row);
-            while (_vm.Transactions.Count > MaxTxs)
-            {
-                _vm.Transactions.RemoveAt(_vm.Transactions.Count - 1);
-            }
-        });
+        _vm.OnTransaction(tx);
 
         try
         {
             var mempool = await _rest.GetNumUnconfirmedTxsAsync().ConfigureAwait(false);
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                _vm.PendingTxCount = mempool.Total;
-                _vm.PendingTxBytes = mempool.TotalBytes;
-            });
+            _vm.UpdateMempool(mempool);
         }
-        catch
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // best-effort for demo robustness
+            _logger.LogDebug("REST mempool refresh failed: {Msg}", ex.Message);
         }
     }
 
@@ -207,18 +163,11 @@ internal sealed class DashboardBackgroundService : BackgroundService
         try
         {
             var (nodeInfo, syncInfo) = await _rest.GetStatusAsync(ct).ConfigureAwait(false);
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                _vm.ChainId = nodeInfo.Network;
-                _vm.Moniker = nodeInfo.Moniker;
-                _vm.NodeId = nodeInfo.Id[..Math.Min(16, nodeInfo.Id.Length)] + "…";
-                _vm.NodeVersion = nodeInfo.Version;
-                _vm.IsSyncing = syncInfo.CatchingUp;
-            });
+            _vm.UpdateNodeStatus(nodeInfo, syncInfo);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            AppendEventLog("error", $"REST Status failed: {ex.Message}");
+            _vm.AppendEventLog("error", $"REST Status failed: {ex.Message}");
         }
     }
 
@@ -227,27 +176,11 @@ internal sealed class DashboardBackgroundService : BackgroundService
         try
         {
             var validators = await _rest.GetValidatorsAsync(cancellationToken: ct).ConfigureAwait(false);
-            var sorted = validators.OrderByDescending(v => v.VotingPower).ToList();
-            var totalPower = sorted.Sum(v => (double)v.VotingPower);
-            var rows = sorted.Select((v, i) => new ValidatorRow(
-                i + 1,
-                v.Address[..Math.Min(16, v.Address.Length)] + "…",
-                v.VotingPower,
-                v.ProposerPriority,
-                totalPower > 0 ? Math.Round(v.VotingPower / totalPower * 100, 1) : 0)).ToList();
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                _vm.Validators.Clear();
-                foreach (var r in rows)
-                {
-                    _vm.Validators.Add(r);
-                }
-            });
+            _vm.UpdateValidators(validators);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            AppendEventLog("error", $"REST Validators failed: {ex.Message}");
+            _vm.AppendEventLog("error", $"REST Validators failed: {ex.Message}");
         }
     }
 
@@ -256,7 +189,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
         try
         {
             var netInfo = await _rest.GetNetInfoAsync(ct).ConfigureAwait(false);
-            await Dispatcher.UIThread.InvokeAsync(() => _vm.PeerCount = netInfo.PeerCount);
+            _vm.UpdatePeerCount(netInfo.PeerCount);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -264,17 +197,12 @@ internal sealed class DashboardBackgroundService : BackgroundService
         }
     }
 
-    private Task SetConnectionStatusAsync(string status, bool isConnected) =>
-        Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            _vm.ConnectionStatus = status;
-            _vm.IsConnected = isConnected;
-        }).GetTask();
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Awaits <paramref name="task"/> and swallows non-cancellation exceptions so that
     /// <c>Task.WhenAll</c> does not fail-fast when a single startup step fails (e.g. the
-    /// relay 429s one of ten parallel subscribes). Cancellation propagates normally so
+    /// relay 429s one of the parallel subscribes). Cancellation propagates normally so
     /// shutdown works as expected.
     /// </summary>
     private async Task Resilient(string step, Task task)
@@ -290,20 +218,10 @@ internal sealed class DashboardBackgroundService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Startup step '{Step}' failed (dashboard continues with other topics).", step);
-            AppendEventLog("startup", $"{step} failed: {ex.Message}");
+            _vm.AppendEventLog("startup", $"{step} failed: {ex.Message}");
         }
     }
 
-    private void AppendEventLog(string category, string message)
-    {
-        var row = new EventLogRow(DateTime.UtcNow.ToString("HH:mm:ss"), category, message);
-        Dispatcher.UIThread.Post(() =>
-        {
-            _vm.EventLog.Insert(0, row);
-            while (_vm.EventLog.Count > MaxEventLog)
-            {
-                _vm.EventLog.RemoveAt(_vm.EventLog.Count - 1);
-            }
-        });
-    }
+    private static string Safe(string value, int max) =>
+        value.Length <= max ? value : value[..max];
 }
