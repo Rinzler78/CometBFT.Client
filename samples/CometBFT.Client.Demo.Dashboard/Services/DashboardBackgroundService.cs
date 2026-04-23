@@ -61,14 +61,17 @@ internal sealed class DashboardBackgroundService : BackgroundService
             // Burst all subscribes + initial REST loads concurrently. On the relay the
             // subscribe batch completes in ~12 s and REST completes in ~1 s — the UI
             // becomes fully live in roughly one subscribe burst with no serial stall.
+            // Each task is wrapped in Resilient(...) so a single failure (e.g. relay
+            // rate-limits NewEvidence) does not fail-fast Task.WhenAll and abort the
+            // whole dashboard — failures are logged and the surviving topics stream.
             await Task.WhenAll(
-                _ws.SubscribeNewBlockAsync(stoppingToken),
-                _ws.SubscribeNewBlockHeaderAsync(stoppingToken),
-                _ws.SubscribeTxAsync(stoppingToken),
-                _ws.SubscribeVoteAsync(stoppingToken),
-                _ws.SubscribeValidatorSetUpdatesAsync(stoppingToken),
-                _ws.SubscribeNewBlockEventsAsync(stoppingToken),
-                _ws.SubscribeNewEvidenceAsync(stoppingToken),
+                Resilient("subscribe NewBlock", _ws.SubscribeNewBlockAsync(stoppingToken)),
+                Resilient("subscribe NewBlockHeader", _ws.SubscribeNewBlockHeaderAsync(stoppingToken)),
+                Resilient("subscribe Tx", _ws.SubscribeTxAsync(stoppingToken)),
+                Resilient("subscribe Vote", _ws.SubscribeVoteAsync(stoppingToken)),
+                Resilient("subscribe ValidatorSetUpdates", _ws.SubscribeValidatorSetUpdatesAsync(stoppingToken)),
+                Resilient("subscribe NewBlockEvents", _ws.SubscribeNewBlockEventsAsync(stoppingToken)),
+                Resilient("subscribe NewEvidence", _ws.SubscribeNewEvidenceAsync(stoppingToken)),
                 RefreshNodeInfoAsync(stoppingToken),
                 RefreshValidatorsAsync(stoppingToken),
                 RefreshNetInfoAsync(stoppingToken));
@@ -213,7 +216,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
                 _vm.IsSyncing = syncInfo.CatchingUp;
             });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             AppendEventLog("error", $"REST Status failed: {ex.Message}");
         }
@@ -242,7 +245,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
                 }
             });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             AppendEventLog("error", $"REST Validators failed: {ex.Message}");
         }
@@ -255,9 +258,9 @@ internal sealed class DashboardBackgroundService : BackgroundService
             var netInfo = await _rest.GetNetInfoAsync(ct).ConfigureAwait(false);
             await Dispatcher.UIThread.InvokeAsync(() => _vm.PeerCount = netInfo.PeerCount);
         }
-        catch
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // best-effort
+            _logger.LogDebug("RefreshNetInfo failed: {Msg}", ex.Message);
         }
     }
 
@@ -267,6 +270,29 @@ internal sealed class DashboardBackgroundService : BackgroundService
             _vm.ConnectionStatus = status;
             _vm.IsConnected = isConnected;
         }).GetTask();
+
+    /// <summary>
+    /// Awaits <paramref name="task"/> and swallows non-cancellation exceptions so that
+    /// <c>Task.WhenAll</c> does not fail-fast when a single startup step fails (e.g. the
+    /// relay 429s one of ten parallel subscribes). Cancellation propagates normally so
+    /// shutdown works as expected.
+    /// </summary>
+    private async Task Resilient(string step, Task task)
+    {
+        try
+        {
+            await task.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Startup step '{Step}' failed (dashboard continues with other topics).", step);
+            AppendEventLog("startup", $"{step} failed: {ex.Message}");
+        }
+    }
 
     private void AppendEventLog(string category, string message)
     {

@@ -17,8 +17,12 @@ subscribable events not implemented in the current client.
 1. Add `NewBlockEvents` subscription — critical path for all downstream consumers.
 2. Add the remaining consensus-internal events at subscriber's discretion (opt-in topic strings).
 3. Bump protocol version target from v0.38.9 to v0.39.1.
-4. Keep the change **additive and non-breaking** — existing subscriptions and interfaces
-   remain unchanged; new overloads / new event topics extend the surface.
+4. Keep the change **additive for consumers** — existing `SubscribeXAsync` methods and
+   their signatures are unchanged. New members are added to the public
+   `ICometBftWebSocketClient<...>` generic interface; this is a source-compat break for
+   any third-party code that *implements* the interface (they'd need to implement the
+   new members) but is transparent for the much more common case of callers that only
+   inject or consume the interface. We assume no external implementer today.
 
 ## What Changes
 

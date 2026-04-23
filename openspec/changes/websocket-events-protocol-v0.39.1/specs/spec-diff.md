@@ -1,7 +1,14 @@
 # Spec Diff — websocket-events-completeness
 
 Changes to public API surface introduced by v2.1.0.
-All changes are additive. No existing type or interface is modified or removed.
+
+**Compatibility caveat:** all changes are additive for *consumers* of the
+interfaces (no member is removed or signature-changed). Adding members to the
+public `ICometBftWebSocketClient<...>` generic interface is a source-compat
+break for **third-party implementers** of that interface — they must add the
+new members to compile against v2.1.0. We assume the interface is implemented
+only by this repo's client; library consumers that only inject / consume the
+interface are unaffected.
 
 ---
 
@@ -104,7 +111,7 @@ IObservable<CometBftEvent> ConsensusInternalStream { get; }
 | `CompleteProposalStream` | `CompleteProposal` |
 | `ValidatorSetUpdatesStream` | `ValidatorSetUpdates` |
 | `NewEvidenceStream` | `NewEvidence` |
-| `ConsensusInternalStream` | merged subscription — one per topic, merged via `Observable.Merge` |
+| `ConsensusInternalStream` | merged subscription — the nine consensus-internal topics listed in `WebSocketQueries.ConsensusInternalTopics` all dispatch into a single `Subject<CometBftEvent>`; the consumer sees a single stream of low-priority consensus events |
 
 ---
 
@@ -118,9 +125,11 @@ reflection — all paths are AOT-safe.
 
 ## 5. DI extensions — no change
 
-No new DI registration methods are required. The new streams are activated automatically
-when the WebSocket client connects; the implementation subscribes to the new `tm.event`
-topics on startup. Existing `AddCometBftWebSocket` overloads are unchanged.
+No new DI registration methods are required. Existing `AddCometBftWebSocket` overloads
+are unchanged. Consumers activate the new streams by calling the corresponding explicit
+`SubscribeXAsync` method (e.g. `SubscribeNewBlockEventsAsync`, `SubscribeConsensusInternalAsync`)
+after `ConnectAsync`. The client does not auto-subscribe — each topic is opt-in to keep
+per-connection rate-limit budgets predictable.
 
 ---
 
