@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using CometBFT.Client.Core.Codecs;
+using CometBFT.Client.Core.Exceptions;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Core.Options;
 using CometBFT.Client.WebSocket;
@@ -115,6 +116,107 @@ public sealed class CometBftWebSocketClientCoverageTests
         Assert.IsAssignableFrom<Exception>(captured);
     }
 
+    // ── OnMessageReceived — JSON-RPC error envelope ─────────────────────────
+
+    [Fact]
+    public async Task OnMessageReceived_ErrorEnvelope_FaultsPendingAckAndFiresErrorOccurred()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client._pendingAcks[7] = tcs;
+        Exception? captured = null;
+        client.ErrorOccurred += (_, e) => captured = e.Value;
+
+        const string error = """{"jsonrpc":"2.0","id":7,"error":{"code":-32603,"message":"subscribe failed","data":"provider rejected query"}}""";
+        client.OnMessageReceived(ResponseMessage.TextMessage(error));
+
+        var ex = await Assert.ThrowsAsync<CometBftWebSocketException>(async () => await tcs.Task);
+        Assert.Equal("JSON-RPC error -32603: subscribe failed Data: provider rejected query", ex.Message);
+        Assert.NotNull(captured);
+        Assert.Equal(ex.Message, captured!.Message);
+    }
+
+    [Fact]
+    public async Task OnMessageReceived_ErrorEnvelopeWithoutData_FaultsPendingAck()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client._pendingAcks[8] = tcs;
+
+        const string error = """{"jsonrpc":"2.0","id":8,"error":{"code":429,"message":"Too Many Requests"}}""";
+        client.OnMessageReceived(ResponseMessage.TextMessage(error));
+
+        var ex = await Assert.ThrowsAsync<CometBftWebSocketException>(async () => await tcs.Task);
+        Assert.Equal("JSON-RPC error 429: Too Many Requests", ex.Message);
+    }
+
+    [Fact]
+    public void OnMessageReceived_ErrorEnvelopeWithoutPendingAck_FiresErrorOccurred()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        Exception? captured = null;
+        client.ErrorOccurred += (_, e) => captured = e.Value;
+
+        // id=0 means event-style frame; error carried at envelope level without an ack match
+        const string error = """{"jsonrpc":"2.0","id":0,"error":{"code":-32600,"message":"invalid request"}}""";
+        client.OnMessageReceived(ResponseMessage.TextMessage(error));
+
+        Assert.NotNull(captured);
+        Assert.Contains("-32600", captured!.Message, StringComparison.Ordinal);
+    }
+
+    // ── OnMessageReceived — Lava provider-relay error envelope ──────────────
+
+    [Fact]
+    public async Task OnMessageReceived_ProviderErrorEnvelope_FaultsAllPendingAcksAndFiresErrorOccurred()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        var ack1 = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ack2 = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client._pendingAcks[11] = ack1;
+        client._pendingAcks[12] = ack2;
+        Exception? captured = null;
+        client.ErrorOccurred += (_, e) => captured = e.Value;
+
+        const string error = """{"Error_Received":"{\"Error_GUID\":\"guid-2\",\"Error\":\"failed relay, insufficient results\"}"}""";
+        client.OnMessageReceived(ResponseMessage.TextMessage(error));
+
+        var ex1 = await Assert.ThrowsAsync<CometBftWebSocketException>(async () => await ack1.Task);
+        var ex2 = await Assert.ThrowsAsync<CometBftWebSocketException>(async () => await ack2.Task);
+        Assert.Equal("Provider relay error (guid-2): failed relay, insufficient results", ex1.Message);
+        Assert.Equal(ex1.Message, ex2.Message);
+        Assert.NotNull(captured);
+        Assert.Equal(ex1.Message, captured!.Message);
+    }
+
+    [Fact]
+    public async Task OnMessageReceived_ProviderErrorEnvelopeWithoutGuid_OmitsGuidSuffix()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        var ack = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client._pendingAcks[14] = ack;
+
+        const string error = """{"Error_Received":"{\"Error\":\"transport failed\"}"}""";
+        client.OnMessageReceived(ResponseMessage.TextMessage(error));
+
+        var ex = await Assert.ThrowsAsync<CometBftWebSocketException>(async () => await ack.Task);
+        Assert.Equal("Provider relay error: transport failed", ex.Message);
+    }
+
+    [Fact]
+    public async Task OnMessageReceived_ProviderErrorEnvelopeWithInvalidPayload_UsesRawMessage()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        var ack = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client._pendingAcks[13] = ack;
+
+        const string error = """{"Error_Received":"not-json"}""";
+        client.OnMessageReceived(ResponseMessage.TextMessage(error));
+
+        var ex = await Assert.ThrowsAsync<CometBftWebSocketException>(async () => await ack.Task);
+        Assert.Equal("Provider relay error: not-json", ex.Message);
+    }
+
     // ── OnMessageReceived — ACK (id > 0, no data) ───────────────────────────
 
     [Fact]
@@ -227,6 +329,104 @@ public sealed class CometBftWebSocketClientCoverageTests
         await client.DisposeAsync();
 
         Assert.True(tcs.Task.IsCanceled);
+    }
+
+    // ── Sync Dispose() covers the IDisposable companion ──────────────────────
+
+    [Fact]
+    public void Dispose_Sync_DoesNotThrow()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        var ex = Record.Exception(() => client.Dispose());
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void Dispose_Sync_CalledTwice_IsIdempotent()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        client.Dispose();
+        var ex = Record.Exception(() => client.Dispose());
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void Dispose_Sync_CancelsPendingAcks()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client._pendingAcks[42] = tcs;
+
+        client.Dispose();
+
+        Assert.True(tcs.Task.IsCanceled);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_WhenNeverConnected_IsNoOpAndFast()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        var start = DateTime.UtcNow;
+        await client.DisposeAsync();
+        var elapsed = DateTime.UtcNow - start;
+        Assert.True(elapsed < TimeSpan.FromSeconds(1), $"DisposeAsync took {elapsed.TotalSeconds:F2}s when it should be instantaneous without _client");
+    }
+
+    [Fact]
+    public async Task DisposeAsync_AfterSyncDispose_IsNoOp()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        client.Dispose();
+        var ex = await Record.ExceptionAsync(async () => await client.DisposeAsync());
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public async Task Dispose_Sync_AfterConnect_FiresAndForgetsClose()
+    {
+        await using var server = new PassiveWebSocketServer(sendAck: true);
+        await server.StartAsync();
+
+        var options = Options.Create(new CometBftWebSocketOptions
+        {
+            BaseUrl = server.Url,
+            SubscribeAckTimeout = TimeSpan.FromMilliseconds(500),
+            ReconnectTimeout = TimeSpan.FromSeconds(1),
+            ErrorReconnectTimeout = TimeSpan.FromSeconds(1),
+        });
+        var client = new CometBftWebSocketClient(options);
+        await client.ConnectAsync();
+
+        // Sync Dispose must return promptly (no bounded await on the network close).
+        var start = DateTime.UtcNow;
+        client.Dispose();
+        var elapsed = DateTime.UtcNow - start;
+
+        Assert.True(elapsed < TimeSpan.FromSeconds(2), $"Sync Dispose took {elapsed.TotalSeconds:F2}s");
+    }
+
+    [Fact]
+    public async Task DisposeAsync_AfterConnect_ClosesSocketWithinBoundedTimeout()
+    {
+        await using var server = new PassiveWebSocketServer(sendAck: true);
+        await server.StartAsync();
+
+        var options = Options.Create(new CometBftWebSocketOptions
+        {
+            BaseUrl = server.Url,
+            SubscribeAckTimeout = TimeSpan.FromMilliseconds(500),
+            ReconnectTimeout = TimeSpan.FromSeconds(1),
+            ErrorReconnectTimeout = TimeSpan.FromSeconds(1),
+        });
+        var client = new CometBftWebSocketClient(options);
+        await client.ConnectAsync();
+
+        var start = DateTime.UtcNow;
+        await client.DisposeAsync();
+        var elapsed = DateTime.UtcNow - start;
+
+        // DisposeAsyncCore awaits _client.Stop().WaitAsync(5s); localhost closes sub-second.
+        Assert.True(elapsed < TimeSpan.FromSeconds(6), $"DisposeAsync took {elapsed.TotalSeconds:F2}s");
     }
 
     // ── OnReconnected re-sends active subscriptions ──────────────────────────
