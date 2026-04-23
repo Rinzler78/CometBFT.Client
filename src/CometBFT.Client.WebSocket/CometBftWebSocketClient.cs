@@ -284,9 +284,11 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisp
     }
 
     /// <summary>
-    /// Releases managed state. When <paramref name="disposing"/> is <c>true</c> (sync
-    /// entry point), fires-and-forgets <c>_client.Stop()</c>; when <c>false</c> the
-    /// async path in <see cref="DisposeAsyncCore"/> has already awaited a bounded stop.
+    /// Releases managed state. The <paramref name="disposing"/> flag splits the WebSocket
+    /// teardown: <c>true</c> (sync path) schedules <c>Stop()</c>+<c>Dispose()</c> on a
+    /// continuation so the caller never blocks on network I/O; <c>false</c> (called by
+    /// <see cref="DisposeAsync"/> after <see cref="DisposeAsyncCore"/> has already awaited
+    /// Stop) disposes the client inline.
     /// </summary>
     protected virtual void Dispose(bool disposing)
     {
@@ -317,15 +319,40 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisp
         _consensusInternalSubject.OnCompleted();
         _consensusInternalSubject.Dispose();
 
-        if (disposing && _client is not null)
+        var clientToDispose = _client;
+        _client = null;
+
+        if (clientToDispose is not null)
         {
-            _ = _client.Stop(
-                System.Net.WebSockets.WebSocketCloseStatus.NormalClosure,
-                "Disposing");
+            if (disposing)
+            {
+                // Sync path: schedule Stop + Dispose on a continuation so neither
+                // blocks the caller and so we never call Dispose() while Stop() is
+                // still running (which would cancel the close handshake). The
+                // ContinueWith observes the task exception so UnobservedTaskException
+                // is never raised.
+                clientToDispose.Stop(
+                        System.Net.WebSockets.WebSocketCloseStatus.NormalClosure,
+                        "Disposing")
+                    .ContinueWith(
+                        t =>
+                        {
+                            _ = t.Exception; // observe any fault
+                            try { clientToDispose.Dispose(); }
+                            catch { /* best-effort */ }
+                        },
+                        CancellationToken.None,
+                        TaskContinuationOptions.ExecuteSynchronously,
+                        TaskScheduler.Default);
+            }
+            else
+            {
+                // Async path: DisposeAsyncCore has already awaited Stop; safe to
+                // dispose inline.
+                clientToDispose.Dispose();
+            }
         }
 
-        _client?.Dispose();
-        _client = null;
         _connectLock.Dispose();
     }
 
@@ -362,17 +389,28 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisp
     private async Task SendSubscribeAsync(string query, CancellationToken cancellationToken)
     {
         EnsureConnected();
-        if (!_activeSubscriptions.TryAdd(query, 0))
+
+        int id;
+        TaskCompletionSource<bool> tcs;
+        // Serialize with UnsubscribeAllAsync so the wire order matches local state.
+        // Without this lock a concurrent Clear() could slip between TryAdd and Send,
+        // producing `unsubscribe_all`→`subscribe` on the wire while _activeSubscriptions
+        // still shows the query as registered.
+        lock (_unsubscribeLock)
         {
-            return;
+            if (!_activeSubscriptions.TryAdd(query, 0))
+            {
+                return;
+            }
+
+            id = Interlocked.Increment(ref _requestId);
+            tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _pendingAcks[id] = tcs;
+
+            var request = new WsSubscribeRequest { Id = id, Params = new WsSubscribeParams { Query = query } };
+            var payload = JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsSubscribeRequest);
+            _client!.Send(payload);
         }
-
-        var id = Interlocked.Increment(ref _requestId);
-        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pendingAcks[id] = tcs;
-
-        var request = new WsSubscribeRequest { Id = id, Params = new WsSubscribeParams { Query = query } };
-        _client!.Send(JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsSubscribeRequest));
 
         using var ackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         ackCts.CancelAfter(_options.SubscribeAckTimeout);
@@ -435,8 +473,15 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisp
             if (providerErrorEnvelope is not null && !string.IsNullOrWhiteSpace(providerErrorEnvelope.ErrorReceived))
             {
                 var providerError = CreateProviderErrorException(providerErrorEnvelope);
+                var hadPending = !_pendingAcks.IsEmpty;
                 FailPendingAcks(providerError);
-                ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(providerError));
+                // If pending subscribes will each fire ErrorOccurred via their catch
+                // block, firing at transport level too would duplicate every report.
+                // Only fire here for orphan errors with no caller to observe the TCS.
+                if (!hadPending)
+                {
+                    ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(providerError));
+                }
                 return;
             }
 
@@ -450,9 +495,11 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisp
             {
                 if (envelope.Error is not null)
                 {
-                    var serverError = CreateJsonRpcErrorException(envelope);
-                    ackTcs.TrySetException(serverError);
-                    ErrorOccurred?.Invoke(this, new CometBftEventArgs<Exception>(serverError));
+                    // Hand the error to the waiting SendSubscribeAsync via the TCS.
+                    // SendSubscribeAsync's catch block will fire ErrorOccurred exactly once
+                    // after rolling back _activeSubscriptions — firing it here too would
+                    // double-report the same failure.
+                    ackTcs.TrySetException(CreateJsonRpcErrorException(envelope));
                     return;
                 }
 

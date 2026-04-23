@@ -119,21 +119,23 @@ public sealed class CometBftWebSocketClientCoverageTests
     // ── OnMessageReceived — JSON-RPC error envelope ─────────────────────────
 
     [Fact]
-    public async Task OnMessageReceived_ErrorEnvelope_FaultsPendingAckAndFiresErrorOccurred()
+    public async Task OnMessageReceived_ErrorEnvelope_FaultsPendingAckWithoutDoubleFiringErrorOccurred()
     {
-        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        using var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         client._pendingAcks[7] = tcs;
-        Exception? captured = null;
-        client.ErrorOccurred += (_, e) => captured = e.Value;
+        var errorCount = 0;
+        client.ErrorOccurred += (_, _) => errorCount++;
 
         const string error = """{"jsonrpc":"2.0","id":7,"error":{"code":-32603,"message":"subscribe failed","data":"provider rejected query"}}""";
         client.OnMessageReceived(ResponseMessage.TextMessage(error));
 
+        // The TCS carries the typed exception — SendSubscribeAsync's catch will fire
+        // ErrorOccurred exactly once after it rolls back local state. OnMessageReceived
+        // must NOT fire it too: doing so double-reports the same failure.
         var ex = await Assert.ThrowsAsync<CometBftWebSocketException>(async () => await tcs.Task);
         Assert.Equal("JSON-RPC error -32603: subscribe failed Data: provider rejected query", ex.Message);
-        Assert.NotNull(captured);
-        Assert.Equal(ex.Message, captured!.Message);
+        Assert.Equal(0, errorCount);
     }
 
     [Fact]
@@ -168,15 +170,15 @@ public sealed class CometBftWebSocketClientCoverageTests
     // ── OnMessageReceived — Lava provider-relay error envelope ──────────────
 
     [Fact]
-    public async Task OnMessageReceived_ProviderErrorEnvelope_FaultsAllPendingAcksAndFiresErrorOccurred()
+    public async Task OnMessageReceived_ProviderErrorEnvelope_FaultsAllPendingAcksWithoutTransportDuplicate()
     {
-        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        using var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
         var ack1 = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var ack2 = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         client._pendingAcks[11] = ack1;
         client._pendingAcks[12] = ack2;
-        Exception? captured = null;
-        client.ErrorOccurred += (_, e) => captured = e.Value;
+        var errorCount = 0;
+        client.ErrorOccurred += (_, _) => errorCount++;
 
         const string error = """{"Error_Received":"{\"Error_GUID\":\"guid-2\",\"Error\":\"failed relay, insufficient results\"}"}""";
         client.OnMessageReceived(ResponseMessage.TextMessage(error));
@@ -185,8 +187,28 @@ public sealed class CometBftWebSocketClientCoverageTests
         var ex2 = await Assert.ThrowsAsync<CometBftWebSocketException>(async () => await ack2.Task);
         Assert.Equal("Provider relay error (guid-2): failed relay, insufficient results", ex1.Message);
         Assert.Equal(ex1.Message, ex2.Message);
+        // With pending acks, each SendSubscribeAsync catch block will fire ErrorOccurred
+        // after rolling back its own state. The transport layer must NOT fire again
+        // because it has no per-subscribe context to report.
+        Assert.Equal(0, errorCount);
+    }
+
+    [Fact]
+    public void OnMessageReceived_ProviderErrorEnvelope_WithoutPendingAcks_FiresErrorOccurredOnce()
+    {
+        using var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        var errorCount = 0;
+        Exception? captured = null;
+        client.ErrorOccurred += (_, e) => { errorCount++; captured = e.Value; };
+
+        const string error = """{"Error_Received":"{\"Error_GUID\":\"guid-orphan\",\"Error\":\"upstream unavailable\"}"}""";
+        client.OnMessageReceived(ResponseMessage.TextMessage(error));
+
+        // Orphan provider error (no pending ack to observe the TCS) must still surface
+        // via ErrorOccurred so apps can react to transport-level failures.
+        Assert.Equal(1, errorCount);
         Assert.NotNull(captured);
-        Assert.Equal(ex1.Message, captured!.Message);
+        Assert.Contains("guid-orphan", captured!.Message, StringComparison.Ordinal);
     }
 
     [Fact]

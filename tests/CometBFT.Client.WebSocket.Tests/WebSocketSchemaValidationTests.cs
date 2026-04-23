@@ -130,7 +130,7 @@ public sealed class WebSocketSchemaValidationTests
     [MemberData(nameof(MalformedEnvelopes))]
     public void OnMessageReceived_WhenSchemaIsInvalid_FiresErrorOccurredWithJsonException(string _, string payload)
     {
-        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
+        using var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
         Exception? captured = null;
         client.ErrorOccurred += (_, args) => captured = args.Value;
 
@@ -144,7 +144,7 @@ public sealed class WebSocketSchemaValidationTests
     [MemberData(nameof(MalformedEnvelopes))]
     public void OnMessageReceived_WhenSchemaIsInvalidWithoutErrorSubscriber_DoesNotThrow(string _, string payload)
     {
-        var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
+        using var client = new CometBftWebSocketClient(Options.Create(new CometBftWebSocketOptions()));
 
         var ex = Record.Exception(() => client.OnMessageReceived(ResponseMessage.TextMessage(payload)));
 

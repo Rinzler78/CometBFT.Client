@@ -203,6 +203,21 @@ public sealed class WebSocketSubscriptionLifecycleTests
     }
 
     [Fact]
+    public async Task Subscribe_WithAlreadyCancelledToken_PropagatesOperationCanceled()
+    {
+        await using var server = new PassiveWebSocketServer(sendAck: false);
+        await server.StartAsync();
+
+        await using var client = new CometBftWebSocketClient(FastAckOptions(server.Url));
+        await client.ConnectAsync();
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAsync<TaskCanceledException>(() => client.SubscribeNewBlockAsync(cts.Token));
+    }
+
+    [Fact]
     public async Task Subscribe_DistinctQueries_EachEmitsSingleFrame()
     {
         await using var server = new PassiveWebSocketServer(sendAck: true);
