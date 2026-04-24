@@ -13,6 +13,12 @@ namespace CometBFT.Client.Demo.Dashboard.Services;
 /// nothing about Avalonia threading or UI row records; all of that lives in
 /// <see cref="MainWindowViewModel"/>.
 /// </summary>
+/// <remarks>
+/// Subscribes are issued as a concurrent burst (<c>Task.WhenAll</c>). The ACK
+/// pattern documented in <c>openspec/changes/websocket-events-protocol-v0.39.1/</c>
+/// shows relays batch-flush ACKs only when multiple subscribes arrive on the wire;
+/// serial subscribes stall the first ACK for 30–45 s.
+/// </remarks>
 internal sealed class DashboardBackgroundService : BackgroundService
 {
     private static readonly TimeSpan PeriodicRefreshInterval = TimeSpan.FromSeconds(30);
