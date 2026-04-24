@@ -95,6 +95,24 @@ public interface ICometBftWebSocketClient<TTx, TBlock, TTxResult, TValidator> : 
     /// <summary>
     /// Connects to the WebSocket endpoint and begins receiving messages.
     /// </summary>
+    /// <remarks>
+    /// <b>Subscribe concurrently for best relay performance.</b>
+    /// Relays batch-flush ACKs only when multiple subscribe frames arrive simultaneously;
+    /// serial awaits stall each ACK for 30–45 s per topic. Use <c>Task.WhenAll</c>:
+    /// <code>
+    /// await ws.ConnectAsync();
+    /// await Task.WhenAll(
+    ///     ws.SubscribeNewBlockAsync(),
+    ///     ws.SubscribeNewBlockEventsAsync());
+    /// </code>
+    /// <b>Rate limit:</b> CometBFT's default <c>max_subscriptions_per_client = 5</c>.
+    /// Exceeding this limit causes the relay to reject the excess subscribe with a JSON-RPC
+    /// error. The returned <see cref="Task"/> still completes successfully; the rejection is
+    /// delivered via <see cref="ErrorOccurred"/>. Attach an <c>ErrorOccurred</c> handler
+    /// before calling any Subscribe method to observe relay-side rejections.
+    /// All <c>*Stream</c> properties are initialized at construction time and safe to
+    /// subscribe before this method is called.
+    /// </remarks>
     Task ConnectAsync(CancellationToken cancellationToken = default);
 
     /// <summary>

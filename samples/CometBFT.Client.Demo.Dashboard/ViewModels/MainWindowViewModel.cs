@@ -96,7 +96,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         Post(() =>
         {
-            if (Blocks.Any(b => b.Height == block.Height))
+            if (Blocks.Count > 0 && Blocks[0].Height == block.Height)
             {
                 return;
             }
@@ -177,7 +177,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static string Abbreviate(string value, int max) =>
+    internal static string Abbreviate(string value, int max) =>
         value.Length <= max ? value : string.Concat(value.AsSpan(0, max), "…");
 
     private static void Post(Action action)

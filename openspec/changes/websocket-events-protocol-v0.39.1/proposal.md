@@ -47,15 +47,16 @@ subscribable events not implemented in the current client.
 ### New domain type: `NewBlockEventsData`
 
 `NewBlockEvents` delivers a payload distinct from `NewBlock`. It carries the full block
-header + a flat list of `AbciEventEntry` items collected from all transactions and
-`BeginBlock`/`EndBlock` (resp. `FinalizeBlock` in CometBFT ≥ 0.38). A dedicated record
-is required (typed JSON schema rule — no `JsonElement`).
+header + a list of `CometBftEvent` items collected from all transactions and
+`FinalizeBlock` (formerly `BeginBlock`/`EndBlock` in CometBFT < 0.38). Each `CometBftEvent`
+has a `Type` string (e.g. `"ibc_transfer"`) and `Attributes: IReadOnlyList<AbciEventEntry>`
+(key-value pairs). A dedicated record is required (typed JSON schema rule — no `JsonElement`).
 
 ```csharp
 public sealed record NewBlockEventsData(
     BlockHeader Header,
     long Height,
-    IReadOnlyList<AbciEventEntry> Events
+    IReadOnlyList<CometBftEvent> Events   // CometBftEvent = (Type: string, Attributes: IReadOnlyList<AbciEventEntry>)
 );
 ```
 
@@ -86,6 +87,20 @@ Non-generic shims inherit via the existing `ICometBftWebSocketClient : ICometBft
 - `NewBlockEventsData` is a new `sealed record` (no inheritance impact).
 - `CompleteProposalData`, `ValidatorSetUpdatesData`, `NewEvidenceData` are new `sealed record`
   types (protocol-pure).
+
+## Relay Rate-Limit Constraint
+
+CometBFT's default configuration caps subscriptions at **5 per connection**
+(`rpc.max_subscriptions_per_client`, defined in `config/config.go`). The demo dashboard
+subscribes to 7 topics in a single burst; on a standard node the 6th and 7th subscribes
+are rejected with a JSON-RPC error (`"max_subscriptions_per_client 5 reached"`), which
+is surfaced via `ErrorOccurred`. The dashboard's `Resilient()` helper handles this
+gracefully: surviving topics continue to stream, and the UI status shows
+`"Degraded (n/7 topics)"` instead of `"Connected"`.
+
+**Production guidance:** raise `rpc.max_subscriptions_per_client` to at least 8 (7 dashboard
+topics + headroom), or drop low-priority topics (e.g. `NewEvidence`, `ValidatorSetUpdates`)
+to stay within the default budget.
 
 ## Version
 

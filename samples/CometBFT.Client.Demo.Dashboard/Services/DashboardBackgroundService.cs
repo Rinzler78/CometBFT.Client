@@ -18,15 +18,24 @@ namespace CometBFT.Client.Demo.Dashboard.Services;
 /// pattern documented in <c>openspec/changes/websocket-events-protocol-v0.39.1/</c>
 /// shows relays batch-flush ACKs only when multiple subscribes arrive on the wire;
 /// serial subscribes stall the first ACK for 30–45 s.
+///
+/// CometBFT's default <c>max_subscriptions_per_client = 5</c>; the dashboard requests
+/// 7 topics so the last 2 may be rejected on a standard node. <see cref="Resilient"/>
+/// handles this gracefully — surviving topics continue streaming and the UI shows
+/// <c>"Degraded (n/7 topics)"</c> instead of <c>"Connected"</c>.
 /// </remarks>
 internal sealed class DashboardBackgroundService : BackgroundService
 {
     private static readonly TimeSpan PeriodicRefreshInterval = TimeSpan.FromSeconds(30);
+    private const int SubscribeCount = 7;
 
     private readonly ICometBftWebSocketClient _ws;
     private readonly ICometBftRestClient _rest;
     private readonly MainWindowViewModel _vm;
     private readonly ILogger<DashboardBackgroundService> _logger;
+
+    // Stored so event handlers fired after shutdown still pass a valid token.
+    private CancellationToken _stoppingToken;
 
     public DashboardBackgroundService(
         ICometBftWebSocketClient ws,
@@ -42,46 +51,56 @@ internal sealed class DashboardBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _ws.NewBlockReceived += OnNewBlock;
-        _ws.NewBlockHeaderReceived += OnNewBlockHeader;
-        _ws.TxExecuted += OnTxExecuted;
-        _ws.VoteReceived += OnVote;
-        _ws.ValidatorSetUpdated += OnValidatorSetUpdated;
-        _ws.ErrorOccurred += OnError;
-
-        using var evidenceSub = _ws.NewEvidenceStream.Subscribe(e =>
-            _vm.AppendEventLog("evidence", $"Evidence at h={e.Height} type={e.EvidenceType}"));
+        _stoppingToken = stoppingToken;
 
         try
         {
+            _ws.NewBlockReceived += OnNewBlock;
+            _ws.NewBlockHeaderReceived += OnNewBlockHeader;
+            _ws.TxExecuted += OnTxExecuted;
+            _ws.VoteReceived += OnVote;
+            _ws.ValidatorSetUpdated += OnValidatorSetUpdated;
+            _ws.ErrorOccurred += OnError;
+
+            // Safe to subscribe before ConnectAsync — *Stream observables are pre-initialized.
+            using var evidenceSub = _ws.NewEvidenceStream.Subscribe(e =>
+                _vm.AppendEventLog("evidence", $"Evidence at h={e.Height} type={e.EvidenceType}"));
+
             _logger.LogInformation("Connecting to WebSocket…");
             await _ws.ConnectAsync(stoppingToken);
             _vm.SetConnectionStatus("Subscribing…", isConnected: true);
 
-            // Burst all subscribes + initial REST loads concurrently. On the relay the
-            // subscribe batch completes in ~12 s and REST completes in ~1 s. Each task
-            // is wrapped in Resilient so a single topic failure (e.g. relay rate-limits
-            // NewEvidence) does not fail-fast Task.WhenAll and abort the whole dashboard.
-            await Task.WhenAll(
+            // Start both groups before awaiting either — full parallelism preserved.
+            // Subscribes are split from REST so we can count subscribe successes.
+            var subscribeTask = Task.WhenAll(
                 Resilient("subscribe NewBlock", _ws.SubscribeNewBlockAsync(stoppingToken)),
                 Resilient("subscribe NewBlockHeader", _ws.SubscribeNewBlockHeaderAsync(stoppingToken)),
                 Resilient("subscribe Tx", _ws.SubscribeTxAsync(stoppingToken)),
                 Resilient("subscribe Vote", _ws.SubscribeVoteAsync(stoppingToken)),
                 Resilient("subscribe ValidatorSetUpdates", _ws.SubscribeValidatorSetUpdatesAsync(stoppingToken)),
                 Resilient("subscribe NewBlockEvents", _ws.SubscribeNewBlockEventsAsync(stoppingToken)),
-                Resilient("subscribe NewEvidence", _ws.SubscribeNewEvidenceAsync(stoppingToken)),
+                Resilient("subscribe NewEvidence", _ws.SubscribeNewEvidenceAsync(stoppingToken)));
+
+            var restTask = Task.WhenAll(
                 RefreshNodeInfoAsync(stoppingToken),
                 RefreshValidatorsAsync(stoppingToken),
                 RefreshNetInfoAsync(stoppingToken));
 
-            _vm.SetConnectionStatus("Connected", isConnected: true);
-            _logger.LogInformation("Dashboard live.");
+            var results = await subscribeTask;
+            await restTask;
+
+            var ok = results.Count(r => r);
+            _vm.SetConnectionStatus(
+                ok == SubscribeCount ? "Connected" : $"Degraded ({ok}/{SubscribeCount} topics)",
+                isConnected: ok > 0);
+            _logger.LogInformation("Dashboard live ({Ok}/{Total} topics active).", ok, SubscribeCount);
 
             using var timer = new PeriodicTimer(PeriodicRefreshInterval);
             while (await timer.WaitForNextTickAsync(stoppingToken))
             {
-                await RefreshNodeInfoAsync(stoppingToken);
-                await RefreshNetInfoAsync(stoppingToken);
+                await Task.WhenAll(
+                    RefreshNodeInfoAsync(stoppingToken),
+                    RefreshNetInfoAsync(stoppingToken));
             }
         }
         catch (OperationCanceledException)
@@ -91,6 +110,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogCritical(ex, "Dashboard service failure");
+            _vm.AppendEventLog("fatal", $"Service crashed: {ex.Message}");
         }
         finally
         {
@@ -120,7 +140,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
         _vm.AppendEventLog("vote", $"Vote h={e.Value.Height} r={e.Value.Round} type={e.Value.Type}");
 
     private void OnValidatorSetUpdated(object? sender, CometBftEventArgs<IReadOnlyList<Validator>> e) =>
-        _ = RefreshValidatorsAsync(CancellationToken.None);
+        _ = RefreshValidatorsAsync(_stoppingToken);
 
     private void OnError(object? sender, CometBftEventArgs<Exception> e)
     {
@@ -139,7 +159,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
             var fullBlock = await _rest.GetBlockAsync(wsBlock.Height).ConfigureAwait(false);
             _vm.AppendEventLog(
                 "block",
-                $"Block #{fullBlock.Height} enriched via REST. Hash: {Safe(fullBlock.Hash, 8)}…");
+                $"Block #{fullBlock.Height} enriched via REST. Hash: {MainWindowViewModel.Abbreviate(fullBlock.Hash, 8)}");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -206,16 +226,17 @@ internal sealed class DashboardBackgroundService : BackgroundService
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Awaits <paramref name="task"/> and swallows non-cancellation exceptions so that
-    /// <c>Task.WhenAll</c> does not fail-fast when a single startup step fails (e.g. the
-    /// relay 429s one of the parallel subscribes). Cancellation propagates normally so
-    /// shutdown works as expected.
+    /// Awaits <paramref name="task"/> and returns <c>true</c> on success or <c>false</c>
+    /// on non-cancellation failure. Used in the startup burst so one failing topic (e.g.
+    /// relay rate-limits the 6th subscribe) does not fail-fast <c>Task.WhenAll</c> and
+    /// does not block the UI from reflecting partial connectivity.
     /// </summary>
-    private async Task Resilient(string step, Task task)
+    internal async Task<bool> Resilient(string step, Task task)
     {
         try
         {
             await task.ConfigureAwait(false);
+            return true;
         }
         catch (OperationCanceledException)
         {
@@ -225,9 +246,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
         {
             _logger.LogWarning(ex, "Startup step '{Step}' failed (dashboard continues with other topics).", step);
             _vm.AppendEventLog("startup", $"{step} failed: {ex.Message}");
+            return false;
         }
     }
-
-    private static string Safe(string value, int max) =>
-        value.Length <= max ? value : value[..max];
 }
