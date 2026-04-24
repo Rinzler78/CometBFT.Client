@@ -29,18 +29,20 @@ exist between v0.38.x and v0.39.x on the WebSocket or REST surface.
 ### `NewBlockEventsData`
 
 Payload for the `NewBlockEvents` WebSocket event. Carries the committed block header and
-the flat list of all ABCI events from `FinalizeBlock` (formerly `BeginBlock`/`EndBlock`).
+all ABCI events from `FinalizeBlock` (formerly `BeginBlock`/`EndBlock`).
 The `Events` list is the primary source for indexing on-chain activity without per-block REST polling.
 
 ```csharp
 public sealed record NewBlockEventsData(
     BlockHeader Header,
     long Height,
-    IReadOnlyList<AbciEventEntry> Events
+    IReadOnlyList<CometBftEvent> Events   // CometBftEvent = (Type: string, Attributes: IReadOnlyList<AbciEventEntry>)
 );
 ```
 
-Reuses existing `BlockHeader` and `AbciEventEntry` from v1/v2 — no new sub-types required.
+Each `CometBftEvent` in `Events` has a `Type` string (e.g. `"ibc_transfer"`, `"coin_received"`)
+and an `Attributes` list of `AbciEventEntry` key-value pairs. Reuses existing `BlockHeader`,
+`CometBftEvent`, and `AbciEventEntry` — no new sub-types required.
 
 ### `CompleteProposalData`
 
@@ -102,6 +104,15 @@ IObservable<NewEvidenceData> NewEvidenceStream { get; }
 //         PolkaAny, PolkaNil, PolkaAgain, MissingProposalBlock
 IObservable<CometBftEvent> ConsensusInternalStream { get; }
 ```
+
+All `*Stream` properties are initialized at construction time and safe to subscribe
+before `ConnectAsync` is called.
+
+**Relay rate-limit:** CometBFT's default `max_subscriptions_per_client = 5`. Subscribing
+to more than 5 topics per connection causes the relay to reject the excess with a JSON-RPC
+error delivered via `ErrorOccurred` (the `Task` still completes). Low-priority streams
+(`ConsensusInternalStream`) should be activated last and are the first to drop under
+a constrained budget.
 
 **Subscription topic strings** (passed verbatim to `tm.event` query filter):
 
