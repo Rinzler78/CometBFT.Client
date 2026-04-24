@@ -112,9 +112,11 @@ ws.TxExecuted += (_, e) =>
 try
 {
     await ws.ConnectAsync();
-    await ws.SubscribeNewBlockAsync();
-    await ws.SubscribeTxAsync();
-    await ws.SubscribeNewBlockEventsAsync();
+    // Subscribe concurrently — relays batch-flush ACKs, serial awaits stall 30–45 s each.
+    await Task.WhenAll(
+        ws.SubscribeNewBlockAsync(),
+        ws.SubscribeTxAsync(),
+        ws.SubscribeNewBlockEventsAsync());
 
     using var newBlockEventsSub = ws.NewBlockEventsStream
         .Subscribe(d => logger.LogInformation(
