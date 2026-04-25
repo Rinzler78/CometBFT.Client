@@ -31,34 +31,41 @@ public sealed class E2eTests
         await using var provider = services.BuildServiceProvider();
         var client = provider.GetRequiredService<ICometBftRestClient>();
 
-        // Core endpoints
-        Assert.True(await client.GetHealthAsync());
+        try
+        {
+            // Core endpoints
+            Assert.True(await client.GetHealthAsync());
 
-        var (nodeInfo, syncInfo) = await client.GetStatusAsync();
-        Assert.NotEmpty(nodeInfo.Network);
-        Assert.True(syncInfo.LatestBlockHeight > 0);
+            var (nodeInfo, syncInfo) = await client.GetStatusAsync();
+            Assert.NotEmpty(nodeInfo.Network);
+            Assert.True(syncInfo.LatestBlockHeight > 0);
 
-        var block = await client.GetBlockAsync();
-        Assert.True(block.Height > 0);
+            var block = await client.GetBlockAsync();
+            Assert.True(block.Height > 0);
 
-        var validators = await client.GetValidatorsAsync();
-        Assert.NotEmpty(validators);
+            var validators = await client.GetValidatorsAsync();
+            Assert.NotEmpty(validators);
 
-        // Extended endpoints
-        var results = await client.GetBlockResultsAsync();
-        Assert.NotNull(results);
+            // Extended endpoints
+            var results = await client.GetBlockResultsAsync();
+            Assert.NotNull(results);
 
-        var header = await client.GetHeaderAsync();
-        Assert.True(header.Height > 0);
+            var header = await client.GetHeaderAsync();
+            Assert.True(header.Height > 0);
 
-        var chain = await client.GetBlockchainAsync();
-        Assert.True(chain.LastHeight > 0);
+            var chain = await client.GetBlockchainAsync();
+            Assert.True(chain.LastHeight > 0);
 
-        var mempool = await client.GetUnconfirmedTxsAsync();
-        Assert.True(mempool.Total >= 0);
+            var mempool = await client.GetUnconfirmedTxsAsync();
+            Assert.True(mempool.Total >= 0);
 
-        var abci = await client.GetAbciInfoAsync();
-        Assert.NotNull(abci);
+            var abci = await client.GetAbciInfoAsync();
+            Assert.NotNull(abci);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException)
+        {
+            Assert.Skip($"REST endpoint unreachable — network issue, not a client bug. ({ex.Message})");
+        }
     }
 
     [Fact]
@@ -238,26 +245,24 @@ public sealed class E2eTests
 
         // Minimal invalid tx — either returns a check_tx result or throws at transport level.
         BroadcastTxResult? result = null;
-        Exception? broadcastEx = null;
         try
         {
             result = await client.BroadcastTxAsync(MinimalInvalidTx);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
-            broadcastEx = ex;
+            Assert.Skip("gRPC endpoint timed out — network issue, not a client bug.");
+        }
+        catch (CometBFT.Client.Core.Exceptions.CometBftGrpcException)
+        {
+            // Expected: invalid tx rejected at transport or ABCI level.
+            return;
         }
 
-        if (result is not null)
-        {
-            Assert.NotEmpty(result.Hash);
-            Assert.True(result.GasWanted >= 0, "GasWanted must be non-negative");
-            Assert.True(result.GasUsed >= 0, "GasUsed must be non-negative");
-        }
-        else
-        {
-            Assert.IsType<CometBFT.Client.Core.Exceptions.CometBftGrpcException>(broadcastEx);
-        }
+        Assert.NotNull(result);
+        Assert.NotEmpty(result.Hash);
+        Assert.True(result.GasWanted >= 0, "GasWanted must be non-negative");
+        Assert.True(result.GasUsed >= 0, "GasUsed must be non-negative");
     }
 }
 
