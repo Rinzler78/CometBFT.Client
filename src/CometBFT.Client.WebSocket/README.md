@@ -32,7 +32,7 @@ client.TxExecuted += (_, args) =>
     Console.WriteLine($"Tx {args.Value.Hash}: code={args.Value.Code}");
 ```
 
-## Event subscriptions (legacy event handlers)
+## Event subscriptions (domain events)
 
 | `tm.event` | Subscribe method | Event handler |
 |-----------|------------------|---------------|
@@ -41,6 +41,32 @@ client.TxExecuted += (_, args) =>
 | `Tx` | `SubscribeTxAsync` | `TxExecuted` |
 | `Vote` | `SubscribeVoteAsync` | `VoteReceived` |
 | `ValidatorSetUpdates` | `SubscribeValidatorSetUpdatesAsync` | `ValidatorSetUpdated` |
+
+## Connection lifecycle events
+
+| Event | When it fires |
+|-------|---------------|
+| `Disconnected` | TCP connection drops; a reconnection attempt is already in progress |
+| `Reconnected` | Connection restored and all active subscriptions replayed. Does **not** fire on the initial connection. |
+| `ErrorOccurred` | A message-processing error occurred; the connection loop is kept alive |
+
+```csharp
+ws.Disconnected += (_, _) =>
+{
+    Console.WriteLine("Disconnected — reconnecting…");
+    UpdateStatusBadge("Reconnecting…");
+};
+ws.Reconnected += (_, _) =>
+{
+    Console.WriteLine("Reconnected — subscriptions replayed");
+    UpdateStatusBadge("Reconnected");
+};
+ws.ErrorOccurred += (_, e) => Console.WriteLine($"[ERR] {e.Value.Message}");
+```
+
+When `Disconnected` fires, the underlying `Websocket.Client` has already started its
+reconnect loop using `ErrorReconnectTimeout` (default 10 s). Active subscriptions tracked
+in `_activeSubscriptions` are replayed automatically on the next successful connection.
 
 ## Observable streams (v2.1.0+)
 
@@ -69,6 +95,8 @@ client.NewBlockEventsStream
 ## Features
 
 - Automatic reconnection with configurable backoff
+- `Disconnected` / `Reconnected` lifecycle events for UI and monitoring integration
+- Active subscriptions replayed automatically on reconnect
 - Typed event handlers — no raw JSON
 - `IObservable<T>` streams for reactive composition
 - Thread-safe subscribe/unsubscribe

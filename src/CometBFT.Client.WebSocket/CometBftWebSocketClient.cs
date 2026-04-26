@@ -48,6 +48,7 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisp
     private WebsocketClient? _client;
     private IDisposable? _messageSubscription;
     private IDisposable? _reconnectionSubscription;
+    private IDisposable? _disconnectionSubscription;
     private int _requestId;
     private bool _disposed;
 
@@ -68,6 +69,12 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisp
 
     /// <inheritdoc />
     public event EventHandler<CometBftEventArgs<Exception>>? ErrorOccurred;
+
+    /// <inheritdoc />
+    public event EventHandler? Disconnected;
+
+    /// <inheritdoc />
+    public event EventHandler? Reconnected;
 
     /// <inheritdoc />
     public IObservable<NewBlockEventsData> NewBlockEventsStream => _newBlockEventsSubject.AsObservable();
@@ -148,12 +155,14 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisp
 
                 newMessageSub = newClient.MessageReceived.Subscribe(OnMessageReceived);
                 newReconnectSub = newClient.ReconnectionHappened.Subscribe(OnReconnected);
+                var newDisconnectSub = newClient.DisconnectionHappened.Subscribe(OnDisconnected);
 
                 await newClient.StartOrFail().ConfigureAwait(false);
 
                 _client = newClient;
                 _messageSubscription = newMessageSub;
                 _reconnectionSubscription = newReconnectSub;
+                _disconnectionSubscription = newDisconnectSub;
             }
             catch (Exception ex) when (ex is not CometBftWebSocketException)
             {
@@ -189,6 +198,8 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisp
 
             _reconnectionSubscription?.Dispose();
             _reconnectionSubscription = null;
+            _disconnectionSubscription?.Dispose();
+            _disconnectionSubscription = null;
             _messageSubscription?.Dispose();
             _messageSubscription = null;
             _client.Dispose();
@@ -306,6 +317,7 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisp
 
         _pendingAcks.Clear();
         _reconnectionSubscription?.Dispose();
+        _disconnectionSubscription?.Dispose();
         _messageSubscription?.Dispose();
 
         _newBlockEventsSubject.OnCompleted();
@@ -447,13 +459,23 @@ public class CometBftWebSocketClient<TTx> : ICometBftWebSocketClient<TTx>, IDisp
         }
     }
 
-    internal void OnReconnected(ReconnectionInfo _)
+    internal void OnDisconnected(DisconnectionInfo _)
+    {
+        Disconnected?.Invoke(this, EventArgs.Empty);
+    }
+
+    internal void OnReconnected(ReconnectionInfo info)
     {
         foreach (var query in _activeSubscriptions.Keys)
         {
             var id = Interlocked.Increment(ref _requestId);
             var request = new WsSubscribeRequest { Id = id, Params = new WsSubscribeParams { Query = query } };
             _client?.Send(JsonSerializer.Serialize(request, CometBftWebSocketJsonContext.Default.WsSubscribeRequest));
+        }
+
+        if (info.Type != ReconnectionType.Initial)
+        {
+            Reconnected?.Invoke(this, EventArgs.Empty);
         }
     }
 

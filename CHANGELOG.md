@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **WebSocket — `Disconnected` / `Reconnected` events** (`ICometBftWebSocketClient`,
+  `CometBftWebSocketClient`): two new lifecycle events on the WebSocket interface.
+  `Disconnected` fires when the underlying TCP connection drops (a reconnection attempt is
+  already in progress); `Reconnected` fires after the connection is restored and all active
+  subscriptions have been replayed. Neither fires on the initial connection.
+- **Demo Dashboard — disconnect/reconnect status feedback** (`DashboardBackgroundService`):
+  `OnDisconnected` handler sets the UI badge to `"Reconnecting…"` (`isConnected: false`) and
+  appends an event-log entry; `OnWsReconnected` restores it to `"Reconnected"` (`isConnected: true`)
+  with a corresponding log entry. The UI now reflects the full connection lifecycle instead of
+  remaining stuck on `"Connected"`.
+
 ### Fixed
 - **Demo Dashboard — handler leak** (`DashboardBackgroundService`): event handler registrations
   moved inside the `try` block so the `finally` clause always deregisters them, even if an
@@ -14,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Demo Dashboard — degraded status**: connection status now reflects actual subscribe success
   count — `"Connected"` (7/7) or `"Degraded (n/7 topics)"` when the relay rejects some topics
   due to the `max_subscriptions_per_client = 5` rate limit.
+- **Demo Dashboard — time format**: all timestamps now use the local timezone with a full date
+  (`yyyy-MM-dd HH:mm:ss`). Previously block times were displayed in UTC without a date
+  (`HH:mm:ss`), which made events ambiguous after a reconnection that crosses a day boundary.
+  Affected: `BlockRow.Time`, `LatestBlockTime`, `EventLogRow.Timestamp`, and the header
+  description in `OnNewBlockHeader`.
 - **Demo Dashboard — fatal error visibility**: unhandled exceptions in `ExecuteAsync` are now
   surfaced in the UI event log (`AppendEventLog("fatal", …)`) instead of being silently swallowed
   and showing `"Disconnected"` identically to a clean shutdown.

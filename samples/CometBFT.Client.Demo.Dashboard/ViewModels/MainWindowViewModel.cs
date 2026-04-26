@@ -71,7 +71,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Appends a line to the event log (timestamp added). Safe from any thread.</summary>
     public void AppendEventLog(string category, string description)
     {
-        var row = new EventLogRow(DateTime.UtcNow.ToString("HH:mm:ss"), category, description);
+        var row = new EventLogRow(DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss"), category, description);
         Post(() =>
         {
             EventLog.Insert(0, row);
@@ -90,7 +90,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         var row = new BlockRow(
             block.Height,
-            block.Time.ToString("HH:mm:ss"),
+            block.Time.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"),
             block.Txs.Count,
             Abbreviate(block.Proposer, ProposerDisplayLength));
 
@@ -103,7 +103,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
             Blocks.Insert(0, row);
             LatestHeight = block.Height;
-            LatestBlockTime = block.Time.ToString("yyyy-MM-dd HH:mm:ss UTC");
+            LatestBlockTime = block.Time.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
             LatestBlockTxCount = block.Txs.Count;
             while (Blocks.Count > MaxBlocks)
             {

@@ -31,7 +31,7 @@ Or use the launcher script:
 | Node info (moniker, version, network) | REST | Every 30 s |
 | Net info (peer count) | REST | Every 30 s |
 | Event log (color-coded by category) | All sources | Live |
-| Connection status badge | Internal | On connect / subscribe result |
+| Connection status badge | Internal | On connect / subscribe result / disconnect / reconnect |
 
 ## Burst-Subscribe Pattern
 
@@ -49,6 +49,20 @@ await Task.WhenAll(
     Resilient("subscribe NewEvidence",        ws.SubscribeNewEvidenceAsync(ct)));
 ```
 
+## Connection Status Lifecycle
+
+The connection badge cycles through these states:
+
+| Badge | Meaning |
+|-------|---------|
+| `Connecting…` | `ConnectAsync` in progress |
+| `Subscribing…` | connected; 7 burst-subscribes in flight |
+| `Connected` | all 7 topics accepted and active |
+| `Degraded (n/7 topics)` | some topics rejected (relay rate-limit) |
+| `Reconnecting…` | TCP dropped; `Disconnected` event fired |
+| `Reconnected` | TCP restored; subscriptions replayed |
+| `Disconnected` | service stopped or fatal error |
+
 ## Rate-Limit Handling
 
 Public relays typically enforce `max_subscriptions_per_client = 5`. The dashboard
@@ -59,6 +73,26 @@ event log and counted. After all 7 settle, the connection badge shows:
 
 - `Connected` — all 7 topics accepted
 - `Degraded (n/7 topics)` — some topics rejected by the relay
+
+## Time Format
+
+All timestamps use the **local timezone with a full date** (`yyyy-MM-dd HH:mm:ss`).
+Block timestamps from CometBFT are UTC `DateTimeOffset` values; the dashboard converts
+them via `.ToLocalTime()` before display. Including the date prevents ambiguity when a
+reconnection crosses midnight.
+
+## Relay Reliability Note
+
+The default endpoint (`cosmoshub.tendermintrpc.lava.build`) is a Lava Network public relay.
+It ACKs `subscribe` requests optimistically but may fail the backend subscription shortly
+after a session rotation, producing continuous `Provider relay error` frames in the event log.
+For sustained streaming, override the endpoint with a direct CometBFT node:
+
+```bash
+COMETBFT_RPC_URL=https://rpc.cosmos.directory/cosmoshub \
+COMETBFT_WS_URL=wss://rpc.cosmos.directory:443/cosmoshub/websocket \
+./scripts/demo.sh
+```
 
 ## Architecture
 
@@ -71,7 +105,12 @@ DashboardBackgroundService          MainWindowViewModel
         │     └── Task.WhenAll(       └── ConnectionStatus / IsConnected
         │           RefreshNodeInfo,
         │           RefreshNetInfo)
-        └── event handlers → vm.Post(…)
+        ├── domain event handlers → vm.Post(…)
+        │     NewBlockReceived, NewBlockHeaderReceived, TxExecuted,
+        │     VoteReceived, ValidatorSetUpdated, ErrorOccurred
+        └── lifecycle event handlers → vm.Post(…)
+              Disconnected → SetConnectionStatus("Reconnecting…")
+              Reconnected  → SetConnectionStatus("Reconnected")
 ```
 
 `MainWindowViewModel.Post(action)` marshals all mutations to the Avalonia UI thread via

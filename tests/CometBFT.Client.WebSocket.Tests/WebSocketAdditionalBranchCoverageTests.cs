@@ -85,6 +85,36 @@ public sealed class WebSocketAdditionalBranchCoverageTests
     }
 
     [Fact]
+    public async Task DisconnectAsync_WhenDisposed_ThrowsObjectDisposedException()
+    {
+        var client = new CometBftWebSocketClient(Options.Create(new Core.Options.CometBftWebSocketOptions()));
+        await client.DisposeAsync();
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => client.DisconnectAsync());
+    }
+
+    [Fact]
+    public async Task DisconnectAsync_WithNullDisconnectionSubscription_DoesNotThrow()
+    {
+        await using var server = new PassiveWebSocketServer(sendAck: true);
+        await server.StartAsync();
+        var client = new CometBftWebSocketClient(Options.Create(new Core.Options.CometBftWebSocketOptions
+        {
+            BaseUrl = server.Url,
+            SubscribeAckTimeout = TimeSpan.FromMilliseconds(200),
+            ReconnectTimeout = TimeSpan.FromSeconds(1),
+            ErrorReconnectTimeout = TimeSpan.FromSeconds(1),
+        }));
+
+        await client.ConnectAsync();
+
+        typeof(CometBftWebSocketClient<string>).GetField("_disconnectionSubscription", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(client, null);
+
+        var ex = await Record.ExceptionAsync(() => client.DisconnectAsync());
+        Assert.Null(ex);
+        await client.DisposeAsync();
+    }
+
+    [Fact]
     public async Task SubscribeNewBlockAsync_WithPreCanceledToken_PropagatesOperationCanceledException()
     {
         await using var server = new PassiveWebSocketServer(sendAck: false);
