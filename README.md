@@ -247,6 +247,28 @@ NUGET_API_KEY=<key> ./scripts/docker/publish.sh
 
 > `NUGET_API_KEY` is always read from the environment — never pass it as a command-line argument.
 
+## Quality Gates (pre-commit)
+
+Pre-commit hooks run automatically on every commit. Install once with:
+
+```bash
+pre-commit install
+```
+
+Active gates:
+
+| Hook | Trigger | What it checks |
+|------|---------|----------------|
+| `cspell` | any `.cs` / `.md` / `.yml` | English-only spelling |
+| `branch-guard` | always | no direct commits to `master` / `develop` |
+| `dotnet-restore-lock` | `.csproj` change | NuGet lock files up to date |
+| `dotnet-outdated` | `.csproj` change | no outdated direct dependencies |
+| `dotnet-vulnerable` | `.csproj` / `packages.lock.json` change | no known CVEs (including transitive) |
+| `dotnet-format` | any file | lint and style |
+| `dotnet-build` | any file | Release build succeeds |
+| `dotnet-test` | any file | unit tests pass, coverage ≥ 90 % |
+| `detect-secrets` | any file | no secrets committed |
+
 ## CometBFT Reference
 
 - [CometBFT v0.39.1 Release](https://github.com/cometbft/cometbft/releases/tag/v0.39.1)
