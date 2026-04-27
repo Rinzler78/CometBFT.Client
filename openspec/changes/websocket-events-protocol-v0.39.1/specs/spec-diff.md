@@ -128,13 +128,9 @@ a constrained budget.
 
 ## 4. JSON deserialization
 
-The four new domain types (`NewBlockEventsData`, `CompleteProposalData`,
-`ValidatorSetUpdatesData`, `NewEvidenceData`) are **output-only**: they are never passed
-to `JsonSerializer.Deserialize` and are not registered in the source-generated
-`JsonSerializerContext`. The parser methods construct them directly from the already-
-deserialized wire types (`WsNewBlockEventsData`, `WsCompleteProposalData`, etc.) and push
-them via `Subject<T>.OnNext`. No `[JsonSerializable]` attribute is required — all
-deserialization paths remain AOT-safe through the existing wire-type registrations.
+`NewBlockEventsData`, `CompleteProposalData`, `ValidatorSetUpdatesData`, `NewEvidenceData`
+are added to the source-generated `JsonSerializerContext` (`[JsonSerializable]`). No runtime
+reflection — all paths are AOT-safe.
 
 ---
 
@@ -148,11 +144,13 @@ per-connection rate-limit budgets predictable.
 
 ---
 
-## 6. Existing subscriptions — unchanged
+## 6. Existing streams — unchanged
 
-| Subscription | `tm.event` | API surface | Status |
-|--------|-----------|--------|--------|
-| `NewBlock` | `NewBlock` | `NewBlockReceived` (event) | Unchanged |
-| `NewBlockHeader` | `NewBlockHeader` | `NewBlockHeaderReceived` (event) | Unchanged |
-| `Tx` | `Tx` | `TxExecuted` (event) | Unchanged |
-| `Vote` | `Vote` | `VoteReceived` (event) | Unchanged |
+| Stream | `tm.event` | Status |
+|--------|-----------|--------|
+| `NewBlockStream` | `NewBlock` | Unchanged |
+| `NewBlockHeaderStream` | `NewBlockHeader` | Unchanged |
+| `TxStream` | `Tx` | Unchanged |
+| `NewRoundStream` | `NewRound` | Unchanged |
+| `NewRoundStepStream` | `NewRoundStep` | Unchanged |
+| `VoteStream` | `Vote` | Unchanged |
