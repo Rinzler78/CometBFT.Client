@@ -88,7 +88,7 @@ All serialization and deserialization code SHALL be optimized to minimize CPU ov
 | Hot-path strings | Avoid `string` allocations in message parsing; prefer `ReadOnlySpan<byte>` / `Utf8JsonReader` where the framework permits |
 | Newtonsoft.Json | **Forbidden on hot paths.** May only be used for one-off tooling or edge cases explicitly justified in code comments |
 | **Typed JSON schemas** | **Every JSON shape — top-level and nested — SHALL be represented as an immutable `record`.** `JsonElement`, `JsonDocument`, `Dictionary<string, object>`, `dynamic`, `object`, raw JSON `string`, `JObject`, `JToken` are **forbidden** as domain type properties or method return values. Sub-objects (block header, commit sig, validator, event attributes, ABCI info…) each require their own named `record`. The `[JsonSerializable]` context must declare every such type. |
-| `decimal` for numeric fields | All amounts, fees, and monetary values use `decimal` — never `double` or `float` (IEEE-754 rounding forbidden) |
+| Numeric precision | On-chain integer amounts and fees use `System.Numerics.BigInteger` (unbounded integer, no rounding). Rates, fractions, and fixed-point values use `decimal`. `double` and `float` are **forbidden** for all monetary and count fields. Application layers (`Cosmos.Client`, `Osmosis.Client`) inherit and narrow this rule — `decimal` is used there for `DecCoin` amounts and fixed-point SDK fields. |
 
 **Additional coding conventions** (enforced via analyzers and code review):
 
@@ -153,9 +153,9 @@ The REST client SHALL implement all public CometBFT RPC HTTP endpoints as define
 - **THEN** a `ResultBlockResults` record with `TxsResults` and `FinalizeBlockEvents` is returned
 
 #### Scenario: BroadcastTxAsync accepts pre-signed transaction bytes
-- **WHEN** `BroadcastTxAsync(txBytes, BroadcastMode, CancellationToken)` is called with a pre-signed `TxRaw` (produced by `ITxSigner` from `Rinzler78.Cosmos.Client`)
+- **WHEN** `BroadcastTxAsync(txBytes, BroadcastMode, CancellationToken)` is called with pre-signed `TxRaw` bytes (produced and signed externally by the caller)
 - **THEN** a `ResultBroadcastTx` with non-empty `Hash` is returned
-- **AND** the CometBFT client does not perform any signing — it only broadcasts the bytes as-is; signing is the responsibility of the caller (e.g. `Rinzler78.Cosmos.Client.ITxSigner`)
+- **AND** the CometBFT client does not perform any signing — it only broadcasts the bytes as-is; signing is the exclusive responsibility of the caller
 
 #### Scenario: TxSearchAsync returns paginated results
 - **WHEN** `TxSearchAsync(query, prove, pageRequest, CancellationToken)` is called
@@ -177,25 +177,64 @@ The WebSocket client SHALL subscribe to all CometBFT event types defined in the 
 
 #### Event types covered
 
-| Event | JSONRPC subscription query |
-|---|---|
-| `NewBlock` | `tm.event='NewBlock'` |
-| `NewBlockHeader` | `tm.event='NewBlockHeader'` |
-| `Tx` | `tm.event='Tx'` |
-| `Vote` | `tm.event='Vote'` |
-| `ValidatorSetUpdates` | `tm.event='ValidatorSetUpdates'` |
+**Legacy subscriptions — exposed as .NET events (event handlers)**
+
+| Event | JSONRPC subscription query | API surface | Payload type |
+|---|---|---|---|
+| `NewBlock` | `tm.event='NewBlock'` | `NewBlockReceived` (event) | `Block<TTx>` |
+| `NewBlockHeader` | `tm.event='NewBlockHeader'` | `NewBlockHeaderReceived` (event) | `BlockHeader` |
+| `Tx` | `tm.event='Tx'` | `TxExecuted` (event) | `TxResult<TTx>` |
+| `Vote` | `tm.event='Vote'` | `VoteReceived` (event) | `Vote` |
+
+**New subscriptions (v2.1.0) — exposed as `IObservable<T>` stream properties**
+
+| Event | JSONRPC subscription query | Stream property | Payload type |
+|---|---|---|---|
+| `ValidatorSetUpdates` | `tm.event='ValidatorSetUpdates'` | `ValidatorSetUpdatesStream` | `ValidatorSetUpdatesData` |
+| `NewBlockEvents` | `tm.event='NewBlockEvents'` | `NewBlockEventsStream` | `NewBlockEventsData` |
+| `CompleteProposal` | `tm.event='CompleteProposal'` | `CompleteProposalStream` | `CompleteProposalData` |
+| `NewEvidence` | `tm.event='NewEvidence'` | `NewEvidenceStream` | `NewEvidenceData` |
+| `ConsensusInternal` (9 topics merged) | see `WebSocketQueries.ConsensusInternalTopics` | `ConsensusInternalStream` | `CometBftEvent` |
+
+All `IObservable<T>` stream properties are initialized at construction and safe to subscribe before `ConnectAsync`.
+Each topic is opt-in (`SubscribeXAsync` after `ConnectAsync`). The relay default
+`max_subscriptions_per_client = 5` limits concurrent active subscriptions per connection.
 
 #### Scenario: NewBlock subscription delivers typed events
 - **WHEN** `SubscribeNewBlockAsync(CancellationToken)` is called
-- **THEN** a `NewBlockEvent` record is received for each new block finalized
+- **THEN** a `Block<TTx>` record is received for each new block finalized
 
 #### Scenario: NewBlockHeader subscription delivers typed events
 - **WHEN** `SubscribeNewBlockHeaderAsync(CancellationToken)` is called
-- **THEN** a `NewBlockHeaderEvent` record is received with `Header` only (no full block)
+- **THEN** a `BlockHeader` is received with header metadata only (no full block data)
 
 #### Scenario: Tx subscription delivers typed events
 - **WHEN** `SubscribeTxAsync(CancellationToken)` is called
-- **THEN** a `TxEvent` record is received for each transaction processed
+- **THEN** a `TxResult<TTx>` record is received for each transaction processed
+
+#### Scenario: Vote subscription delivers typed events
+- **WHEN** `SubscribeVoteAsync(CancellationToken)` is called
+- **THEN** a `Vote` record is received for each consensus vote
+
+#### Scenario: NewBlockEvents subscription delivers ABCI events
+- **WHEN** `SubscribeNewBlockEventsAsync(CancellationToken)` is called
+- **THEN** a `NewBlockEventsData` record is received for each finalized block, carrying all ABCI events from `FinalizeBlock`
+
+#### Scenario: ValidatorSetUpdates subscription delivers typed updates
+- **WHEN** `SubscribeValidatorSetUpdatesAsync(CancellationToken)` is called
+- **THEN** a `ValidatorSetUpdatesData` record is received whenever the active validator set changes
+
+#### Scenario: CompleteProposal subscription delivers typed events
+- **WHEN** `SubscribeCompleteProposalAsync(CancellationToken)` is called
+- **THEN** a `CompleteProposalData` record is received for each completed proposal
+
+#### Scenario: NewEvidence subscription delivers typed events
+- **WHEN** `SubscribeNewEvidenceAsync(CancellationToken)` is called
+- **THEN** a `NewEvidenceData` record is received for each new evidence item
+
+#### Scenario: ConsensusInternal subscription merges nine topics into one stream
+- **WHEN** `SubscribeConsensusInternalAsync(CancellationToken)` is called
+- **THEN** all nine consensus-internal topics dispatch into `ConsensusInternalStream` as `CometBftEvent` records
 
 #### Scenario: WebSocket client throws CometBftWebSocketException on connection failure
 - **WHEN** the WebSocket endpoint is unreachable
@@ -848,13 +887,13 @@ Sub-label for LATEST BLOCK: `LatestBlockTime`.
 - Header band: "Event Log" (lavender left-accent strip) + entry count badge
 - `ListBox` with `x:DataType="vm:EventLogRow"`:
   - Row: `Grid ColumnDefinitions="10,*"` — category dot (`Ellipse` 6 px, `#455a64`) + stacked content (timestamp 9 px monospace `#37474f` / description 10 px `#78909c`, wrapping)
-- `EventLogRow(string Timestamp, string Category, string Description)` — `Category` values: `"block"`, `"tx"`, `"vote"`, `"validator"`, `"header"`, `"error"`
+- `EventLogRow(string Timestamp, string Category, string Description)` — `Category` values: `"block"`, `"tx"`, `"vote"`, `"validator"`, `"header"`, `"events"`, `"consensus"`, `"error"`
 - `AppendEventLog(string category, string message)` — inserts at index 0, caps at 100 entries
 
 #### Background service
 
 `DashboardBackgroundService` implements `BackgroundService` and:
-- Subscribes to WS events: `NewBlock`, `NewBlockHeader`, `Tx`, `Vote`, `ValidatorSetUpdates`
+- Subscribes to WS via legacy event handlers: `NewBlockReceived`, `NewBlockHeaderReceived`, `TxExecuted`, `VoteReceived`; and via `IObservable<T>` stream properties: `ValidatorSetUpdatesStream` (returns `ValidatorSetUpdatesData`); optionally `NewBlockEventsStream` (returns `NewBlockEventsData`, category `"events"`) and `ConsensusInternalStream` (category `"consensus"`) when subscription budget allows
 - On `NewBlock`: calls `ICometBftRestClient.GetBlockAsync()` to enrich the block row, then `ICometBftRestClient.GetNumUnconfirmedTxsAsync()` for mempool count
 - On startup: calls `ICometBftRestClient.GetStatusAsync()` (chain meta), `ICometBftRestClient.GetValidatorsAsync()` (validators), `ICometBftRestClient.GetNetInfoAsync()` (peers)
 - Periodic timer every 30 s: refreshes node info and peer count
