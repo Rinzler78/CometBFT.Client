@@ -149,6 +149,7 @@ per-connection rate-limit budgets predictable.
 | Stream | `tm.event` | Status |
 |--------|-----------|--------|
 | `NewBlockStream` | `NewBlock` | Unchanged |
+| `NewBlockHeaderStream` | `NewBlockHeader` | Unchanged |
 | `TxStream` | `Tx` | Unchanged |
 | `NewRoundStream` | `NewRound` | Unchanged |
 | `NewRoundStepStream` | `NewRoundStep` | Unchanged |

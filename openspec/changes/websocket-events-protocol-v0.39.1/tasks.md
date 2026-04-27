@@ -3,9 +3,9 @@
 ## Phase 0 — Branch and OpenSpec
 
 ### 0.1 Solution structure (verify or create)
-- [ ] 0.1.1 Verify `CometBFT.Client.sln` exists and contains **all** projects (src + tests + samples) — create if absent
-- [ ] 0.1.2 Verify `CometBFT.Client.src.slnf` exists as a solution filter including **only** source projects (`src/**`) — create if absent
-- [ ] 0.1.3 Verify `CometBFT.Client.src-tests.slnf` exists as a solution filter including source projects (`src/**`) and test projects (`tests/**`) — excludes samples — create if absent
+- [x] 0.1.1 Verify `CometBFT.Client.sln` exists and contains **all** projects (src + tests + samples) — create if absent
+- [x] 0.1.2 Verify `CometBFT.Client.src.slnf` exists as a solution filter including **only** source projects (`src/**`) — create if absent
+- [x] 0.1.3 Verify `CometBFT.Client.src-tests.slnf` exists as a solution filter including source projects (`src/**`) and test projects (`tests/**`) — excludes samples — create if absent
 
 ### 0.2 Branch and OpenSpec files
 - [x] Create `release/v2.1.0` from `develop`
@@ -60,6 +60,6 @@
 - [x] `samples/CometBFT.Client.Demo.Dashboard/Services/DashboardBackgroundService.cs` — added NewBlockEvents subscription
 
 ## Phase 8 — Release
-- [ ] PR `release/v2.1.0` → `develop`
-- [ ] Merge `develop` → `master`
-- [ ] Tag `v2.1.0`
+- [x] PR `release/v2.1.0` → `develop`
+- [x] Merge `develop` → `master`
+- [x] Tag `v2.1.0`
