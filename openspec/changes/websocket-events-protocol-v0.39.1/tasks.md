@@ -48,7 +48,7 @@
 - [x] `WebSocket.Tests/ValidatorSetUpdatesDataParserTests.cs`
 - [x] `WebSocket.Tests/NewEvidenceParserTests.cs`
 - [x] `WebSocket.Tests/NewStreamDispatchTests.cs` — dispatch + ConsensusInternalStream (9 Theory cases)
-- [x] `WebSocket.Tests/CometBftWebSocketClientConnectedTests.cs` — 5 new Subscribe ACK tests
+- [x] `WebSocket.Tests/CometBftWebSocketClientConnectedTests.cs` — 4 new Subscribe ACK tests
 - [x] `dotnet test` — 712 tests passed, 0 failed
 
 ## Phase 7 — Docs and Samples

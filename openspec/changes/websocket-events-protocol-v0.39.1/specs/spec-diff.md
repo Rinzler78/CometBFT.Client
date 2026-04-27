@@ -128,9 +128,13 @@ a constrained budget.
 
 ## 4. JSON deserialization
 
-`NewBlockEventsData`, `CompleteProposalData`, `ValidatorSetUpdatesData`, `NewEvidenceData`
-are added to the source-generated `JsonSerializerContext` (`[JsonSerializable]`). No runtime
-reflection — all paths are AOT-safe.
+The four new domain types (`NewBlockEventsData`, `CompleteProposalData`,
+`ValidatorSetUpdatesData`, `NewEvidenceData`) are **output-only**: they are never passed
+to `JsonSerializer.Deserialize` and are not registered in the source-generated
+`JsonSerializerContext`. The parser methods construct them directly from the already-
+deserialized wire types (`WsNewBlockEventsData`, `WsCompleteProposalData`, etc.) and push
+them via `Subject<T>.OnNext`. No `[JsonSerializable]` attribute is required — all
+deserialization paths remain AOT-safe through the existing wire-type registrations.
 
 ---
 
