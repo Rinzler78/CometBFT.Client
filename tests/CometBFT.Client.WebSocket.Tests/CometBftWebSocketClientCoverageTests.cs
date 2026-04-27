@@ -470,6 +470,54 @@ public sealed class CometBftWebSocketClientCoverageTests
         Assert.Null(ex);
     }
 
+    [Fact]
+    public void OnReconnected_NonInitialType_FiresReconnectedEvent()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        var fired = false;
+        client.Reconnected += (_, _) => fired = true;
+
+        client.OnReconnected(new ReconnectionInfo(ReconnectionType.NoMessageReceived));
+
+        Assert.True(fired);
+    }
+
+    [Fact]
+    public void OnReconnected_InitialType_DoesNotFireReconnectedEvent()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        var fired = false;
+        client.Reconnected += (_, _) => fired = true;
+
+        client.OnReconnected(new ReconnectionInfo(ReconnectionType.Initial));
+
+        Assert.False(fired);
+    }
+
+    // ── OnDisconnected fires Disconnected event ───────────────────────────────
+
+    [Fact]
+    public void OnDisconnected_WithSubscriber_FiresDisconnectedEvent()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+        var fired = false;
+        client.Disconnected += (_, _) => fired = true;
+
+        client.OnDisconnected(null!);
+
+        Assert.True(fired);
+    }
+
+    [Fact]
+    public void OnDisconnected_WithoutSubscriber_DoesNotThrow()
+    {
+        var client = new CometBftWebSocketClient(DefaultOptions(), StubFactory());
+
+        var ex = Record.Exception(() => client.OnDisconnected(null!));
+
+        Assert.Null(ex);
+    }
+
     // ── SubscribeAckTimeout validation ──────────────────────────────────────
 
     [Fact]

@@ -103,13 +103,17 @@ services.AddCometBftWebSocket(options =>
 
 var ws = provider.GetRequiredService<ICometBftWebSocketClient>();
 
-// Legacy event handlers
+// Domain event handlers
 ws.NewBlockReceived       += (_, e) => Console.WriteLine($"Block  #{e.Value.Height}");
 ws.NewBlockHeaderReceived += (_, e) => Console.WriteLine($"Header #{e.Value.Height}");
 ws.TxExecuted             += (_, e) => Console.WriteLine($"Tx {e.Value.Hash}");
 ws.VoteReceived           += (_, e) => Console.WriteLine($"Vote h={e.Value.Height} r={e.Value.Round}");
 ws.ValidatorSetUpdated    += (_, e) => Console.WriteLine($"ValidatorSet: {e.Value.Count} validators");
 ws.ErrorOccurred          += (_, e) => Console.WriteLine($"[ERR] {e.Value.Message}");
+
+// Connection lifecycle events
+ws.Disconnected += (_, _) => Console.WriteLine("Disconnected — reconnecting…");
+ws.Reconnected  += (_, _) => Console.WriteLine("Reconnected — subscriptions replayed");
 
 // Observable streams (v2.1.0+)
 using var newBlockEventsSub = ws.NewBlockEventsStream
@@ -276,11 +280,17 @@ Active gates:
 
 ## Validated Public Endpoints
 
-| Transport | URL |
-|---|---|
-| REST / RPC | `https://cosmoshub.tendermintrpc.lava.build:443` |
-| WebSocket | `wss://cosmoshub.tendermintrpc.lava.build:443/websocket` |
-| gRPC | `https://cosmoshub.grpc.lava.build:443` |
+| Transport | URL | Notes |
+|---|---|---|
+| REST / RPC | `https://cosmoshub.tendermintrpc.lava.build:443` | Lava relay — occasional timeouts |
+| WebSocket | `wss://cosmoshub.tendermintrpc.lava.build:443/websocket` | Lava relay — ACKs subscriptions optimistically, then may fail the backend subscription with `Internal error` after a session rotation. Use a direct node for reliable streaming. |
+| gRPC | `https://cosmoshub.grpc.lava.build:443` | Lava relay |
+
+> **Relay instability note** — `cosmoshub.tendermintrpc.lava.build` is a Lava Network public
+> relay. It ACKs WebSocket `subscribe` requests immediately but may fail to establish the
+> subscription on the backing CometBFT node, returning a `Provider relay error` shortly after
+> connection. For production or sustained streaming use a direct CometBFT endpoint, for example
+> `rpc.cosmos.directory/cosmoshub`.
 
 ## Contributing
 

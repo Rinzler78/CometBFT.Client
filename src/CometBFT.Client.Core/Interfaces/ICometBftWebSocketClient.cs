@@ -62,6 +62,19 @@ public interface ICometBftWebSocketClient<TTx, TBlock, TTxResult, TValidator> : 
     event EventHandler<CometBftEventArgs<Exception>>? ErrorOccurred;
 
     /// <summary>
+    /// Raised when the underlying WebSocket connection drops. A reconnection attempt
+    /// is already in progress when this fires. Active subscriptions will be replayed
+    /// automatically once the connection is restored.
+    /// </summary>
+    event EventHandler? Disconnected;
+
+    /// <summary>
+    /// Raised after a successful reconnection, once all active subscriptions have
+    /// been replayed to the server. Does not fire for the initial connection.
+    /// </summary>
+    event EventHandler? Reconnected;
+
+    /// <summary>
     /// Emits on every committed block with the full ABCI event list
     /// (tm.event='NewBlockEvents'). Primary source for on-chain activity indexing
     /// without per-block REST polling.

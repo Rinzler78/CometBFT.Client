@@ -61,6 +61,8 @@ internal sealed class DashboardBackgroundService : BackgroundService
             _ws.VoteReceived += OnVote;
             _ws.ValidatorSetUpdated += OnValidatorSetUpdated;
             _ws.ErrorOccurred += OnError;
+            _ws.Disconnected += OnDisconnected;
+            _ws.Reconnected += OnWsReconnected;
 
             // Safe to subscribe before ConnectAsync — *Stream observables are pre-initialized.
             using var evidenceSub = _ws.NewEvidenceStream.Subscribe(e =>
@@ -120,6 +122,8 @@ internal sealed class DashboardBackgroundService : BackgroundService
             _ws.VoteReceived -= OnVote;
             _ws.ValidatorSetUpdated -= OnValidatorSetUpdated;
             _ws.ErrorOccurred -= OnError;
+            _ws.Disconnected -= OnDisconnected;
+            _ws.Reconnected -= OnWsReconnected;
 
             _vm.SetConnectionStatus("Disconnected", isConnected: false);
         }
@@ -131,7 +135,7 @@ internal sealed class DashboardBackgroundService : BackgroundService
         _ = HandleNewBlockEnrichmentAsync(e.Value);
 
     private void OnNewBlockHeader(object? sender, CometBftEventArgs<BlockHeader> e) =>
-        _vm.AppendEventLog("header", $"Header #{e.Value.Height} — {e.Value.Time:HH:mm:ss}");
+        _vm.AppendEventLog("header", $"Header #{e.Value.Height} — {e.Value.Time.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
 
     private void OnTxExecuted(object? sender, CometBftEventArgs<TxResult<string>> e) =>
         _ = HandleTxEnrichmentAsync(e.Value);
@@ -141,6 +145,20 @@ internal sealed class DashboardBackgroundService : BackgroundService
 
     private void OnValidatorSetUpdated(object? sender, CometBftEventArgs<IReadOnlyList<Validator>> e) =>
         _ = RefreshValidatorsAsync(_stoppingToken);
+
+    private void OnDisconnected(object? sender, EventArgs e)
+    {
+        _logger.LogWarning("WebSocket disconnected — reconnecting…");
+        _vm.SetConnectionStatus("Reconnecting…", isConnected: false);
+        _vm.AppendEventLog("connect", "WebSocket disconnected — reconnecting…");
+    }
+
+    private void OnWsReconnected(object? sender, EventArgs e)
+    {
+        _logger.LogInformation("WebSocket reconnected.");
+        _vm.SetConnectionStatus("Reconnected", isConnected: true);
+        _vm.AppendEventLog("connect", "WebSocket reconnected — subscriptions replayed");
+    }
 
     private void OnError(object? sender, CometBftEventArgs<Exception> e)
     {
