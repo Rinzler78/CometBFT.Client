@@ -177,21 +177,26 @@ The WebSocket client SHALL subscribe to all CometBFT event types defined in the 
 
 #### Event types covered
 
+**Legacy subscriptions — exposed as .NET events (event handlers)**
+
+| Event | JSONRPC subscription query | API surface | Payload type |
+|---|---|---|---|
+| `NewBlock` | `tm.event='NewBlock'` | `NewBlockReceived` (event) | `Block<TTx>` |
+| `NewBlockHeader` | `tm.event='NewBlockHeader'` | `NewBlockHeaderReceived` (event) | `BlockHeader` |
+| `Tx` | `tm.event='Tx'` | `TxExecuted` (event) | `TxResult<TTx>` |
+| `Vote` | `tm.event='Vote'` | `VoteReceived` (event) | `Vote` |
+
+**New subscriptions (v2.1.0) — exposed as `IObservable<T>` stream properties**
+
 | Event | JSONRPC subscription query | Stream property | Payload type |
 |---|---|---|---|
-| `NewBlock` | `tm.event='NewBlock'` | `NewBlockStream` | `Block<TTx>` |
-| `NewBlockHeader` | `tm.event='NewBlockHeader'` | `NewBlockHeaderStream` | `BlockHeader` |
-| `Tx` | `tm.event='Tx'` | `TxStream` | `TxResult<TTx>` |
-| `Vote` | `tm.event='Vote'` | `VoteStream` | `Vote` |
-| `NewRound` | `tm.event='NewRound'` | `NewRoundStream` | `CometBftEvent` |
-| `NewRoundStep` | `tm.event='NewRoundStep'` | `NewRoundStepStream` | `CometBftEvent` |
 | `ValidatorSetUpdates` | `tm.event='ValidatorSetUpdates'` | `ValidatorSetUpdatesStream` | `ValidatorSetUpdatesData` |
 | `NewBlockEvents` | `tm.event='NewBlockEvents'` | `NewBlockEventsStream` | `NewBlockEventsData` |
 | `CompleteProposal` | `tm.event='CompleteProposal'` | `CompleteProposalStream` | `CompleteProposalData` |
 | `NewEvidence` | `tm.event='NewEvidence'` | `NewEvidenceStream` | `NewEvidenceData` |
 | `ConsensusInternal` (9 topics merged) | see `WebSocketQueries.ConsensusInternalTopics` | `ConsensusInternalStream` | `CometBftEvent` |
 
-All stream properties are initialized at construction and safe to subscribe before `ConnectAsync`.
+All `IObservable<T>` stream properties are initialized at construction and safe to subscribe before `ConnectAsync`.
 Each topic is opt-in (`SubscribeXAsync` after `ConnectAsync`). The relay default
 `max_subscriptions_per_client = 5` limits concurrent active subscriptions per connection.
 
@@ -210,14 +215,6 @@ Each topic is opt-in (`SubscribeXAsync` after `ConnectAsync`). The relay default
 #### Scenario: Vote subscription delivers typed events
 - **WHEN** `SubscribeVoteAsync(CancellationToken)` is called
 - **THEN** a `Vote` record is received for each consensus vote
-
-#### Scenario: NewRound subscription delivers typed events
-- **WHEN** `SubscribeNewRoundAsync(CancellationToken)` is called
-- **THEN** a `CometBftEvent` is received for each new consensus round
-
-#### Scenario: NewRoundStep subscription delivers typed events
-- **WHEN** `SubscribeNewRoundStepAsync(CancellationToken)` is called
-- **THEN** a `CometBftEvent` is received for each consensus round-step transition
 
 #### Scenario: NewBlockEvents subscription delivers ABCI events
 - **WHEN** `SubscribeNewBlockEventsAsync(CancellationToken)` is called
@@ -896,7 +893,7 @@ Sub-label for LATEST BLOCK: `LatestBlockTime`.
 #### Background service
 
 `DashboardBackgroundService` implements `BackgroundService` and:
-- Subscribes to WS streams via typed stream properties: `NewBlockStream`, `NewBlockHeaderStream`, `TxStream`, `VoteStream`, `ValidatorSetUpdatesStream` (returns `ValidatorSetUpdatesData`); optionally `NewBlockEventsStream` (returns `NewBlockEventsData`, category `"events"`) and `ConsensusInternalStream` (category `"consensus"`) when subscription budget allows
+- Subscribes to WS via legacy event handlers: `NewBlockReceived`, `NewBlockHeaderReceived`, `TxExecuted`, `VoteReceived`; and via `IObservable<T>` stream properties: `ValidatorSetUpdatesStream` (returns `ValidatorSetUpdatesData`); optionally `NewBlockEventsStream` (returns `NewBlockEventsData`, category `"events"`) and `ConsensusInternalStream` (category `"consensus"`) when subscription budget allows
 - On `NewBlock`: calls `ICometBftRestClient.GetBlockAsync()` to enrich the block row, then `ICometBftRestClient.GetNumUnconfirmedTxsAsync()` for mempool count
 - On startup: calls `ICometBftRestClient.GetStatusAsync()` (chain meta), `ICometBftRestClient.GetValidatorsAsync()` (validators), `ICometBftRestClient.GetNetInfoAsync()` (peers)
 - Periodic timer every 30 s: refreshes node info and peer count
