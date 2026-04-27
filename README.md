@@ -103,13 +103,27 @@ services.AddCometBftWebSocket(options =>
 
 var ws = provider.GetRequiredService<ICometBftWebSocketClient>();
 
-// Subscribe to events
+// Domain event handlers
 ws.NewBlockReceived       += (_, e) => Console.WriteLine($"Block  #{e.Value.Height}");
 ws.NewBlockHeaderReceived += (_, e) => Console.WriteLine($"Header #{e.Value.Height}");
 ws.TxExecuted             += (_, e) => Console.WriteLine($"Tx {e.Value.Hash}");
 ws.VoteReceived           += (_, e) => Console.WriteLine($"Vote h={e.Value.Height} r={e.Value.Round}");
 ws.ValidatorSetUpdated    += (_, e) => Console.WriteLine($"ValidatorSet: {e.Value.Count} validators");
 ws.ErrorOccurred          += (_, e) => Console.WriteLine($"[ERR] {e.Value.Message}");
+
+// Connection lifecycle events
+ws.Disconnected += (_, _) => Console.WriteLine("Disconnected — reconnecting…");
+ws.Reconnected  += (_, _) => Console.WriteLine("Reconnected — subscriptions replayed");
+
+// Observable streams (v2.1.0+)
+using var newBlockEventsSub = ws.NewBlockEventsStream
+    .Subscribe(d => Console.WriteLine($"Block #{d.Height}: {d.Events.Count} ABCI events"));
+using var completeProposalSub = ws.CompleteProposalStream
+    .Subscribe(d => Console.WriteLine($"Proposal #{d.Height} round={d.Round}"));
+using var newEvidenceSub = ws.NewEvidenceStream
+    .Subscribe(d => Console.WriteLine($"Evidence h={d.Height} type={d.EvidenceType}"));
+using var consensusSub = ws.ConsensusInternalStream
+    .Subscribe(e => Console.WriteLine($"Consensus: {e.Type}"));
 
 await ws.ConnectAsync();
 
@@ -119,6 +133,10 @@ await ws.SubscribeNewBlockHeaderAsync();
 await ws.SubscribeTxAsync();
 await ws.SubscribeVoteAsync();
 await ws.SubscribeValidatorSetUpdatesAsync();
+await ws.SubscribeNewBlockEventsAsync();
+await ws.SubscribeCompleteProposalAsync();
+await ws.SubscribeNewEvidenceAsync();
+await ws.SubscribeConsensusInternalAsync();
 
 await Task.Delay(Timeout.Infinite);
 
@@ -233,18 +251,46 @@ NUGET_API_KEY=<key> ./scripts/docker/publish.sh
 
 > `NUGET_API_KEY` is always read from the environment — never pass it as a command-line argument.
 
+## Quality Gates (pre-commit)
+
+Pre-commit hooks run automatically on every commit. Install once with:
+
+```bash
+pre-commit install
+```
+
+Active gates:
+
+| Hook | Trigger | What it checks |
+|------|---------|----------------|
+| `cspell` | any `.cs` / `.md` / `.yml` | English-only spelling |
+| `branch-guard` | always | no direct commits to `master` / `develop` |
+| `dotnet-restore-lock` | `.csproj` change | NuGet lock files up to date |
+| `dotnet-outdated` | `.csproj` change | no outdated direct dependencies |
+| `dotnet-vulnerable` | `.csproj` / `packages.lock.json` change | no known CVEs (including transitive) |
+| `dotnet-format` | any file | lint and style |
+| `dotnet-build` | any file | Release build succeeds |
+| `dotnet-test` | any file | unit tests pass, coverage ≥ 90 % |
+| `detect-secrets` | any file | no secrets committed |
+
 ## CometBFT Reference
 
 - [CometBFT v0.39.1 Release](https://github.com/cometbft/cometbft/releases/tag/v0.39.1)
-- [CometBFT RPC Documentation](https://docs.cometbft.com/v0.38/rpc/)
+- [CometBFT RPC Documentation](https://docs.cometbft.com/v0.39/rpc/)
 
 ## Validated Public Endpoints
 
-| Transport | URL |
-|---|---|
-| REST / RPC | `https://cosmoshub.tendermintrpc.lava.build:443` |
-| WebSocket | `wss://cosmoshub.tendermintrpc.lava.build:443/websocket` |
-| gRPC | `https://cosmoshub.grpc.lava.build:443` |
+| Transport | URL | Notes |
+|---|---|---|
+| REST / RPC | `https://cosmoshub.tendermintrpc.lava.build:443` | Lava relay — occasional timeouts |
+| WebSocket | `wss://cosmoshub.tendermintrpc.lava.build:443/websocket` | Lava relay — ACKs subscriptions optimistically, then may fail the backend subscription with `Internal error` after a session rotation. Use a direct node for reliable streaming. |
+| gRPC | `https://cosmoshub.grpc.lava.build:443` | Lava relay |
+
+> **Relay instability note** — `cosmoshub.tendermintrpc.lava.build` is a Lava Network public
+> relay. It ACKs WebSocket `subscribe` requests immediately but may fail to establish the
+> subscription on the backing CometBFT node, returning a `Provider relay error` shortly after
+> connection. For production or sustained streaming use a direct CometBFT endpoint, for example
+> `rpc.cosmos.directory/cosmoshub`.
 
 ## Contributing
 

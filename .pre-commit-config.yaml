@@ -29,6 +29,13 @@ repos:
         pass_filenames: false
         files: '\.csproj$'
 
+      - id: dotnet-vulnerable
+        name: Check vulnerable NuGet packages
+        language: system
+        entry: bash -c 'dotnet list package --vulnerable --include-transitive > /tmp/vulnerable.txt 2>&1; if grep -q "has the following vulnerable" /tmp/vulnerable.txt; then cat /tmp/vulnerable.txt && exit 1; fi'
+        pass_filenames: false
+        files: '\.csproj$|packages\.lock\.json$'
+
       - id: dotnet-format
         name: dotnet format (lint + style)
         language: system
@@ -51,6 +58,12 @@ repos:
         name: Coverage gate (≥ 90 %)
         language: system
         entry: dotnet run --project tools/CometBFT.Client.CoverageGate/CometBFT.Client.CoverageGate.csproj -- TestResults
+        pass_filenames: false
+
+      - id: validate-package-restore
+        name: Validate single-package NuGet restore
+        language: system
+        entry: ./scripts/validate-package-restore.sh
         pass_filenames: false
 
       - id: detect-secrets

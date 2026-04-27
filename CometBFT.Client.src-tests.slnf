@@ -12,7 +12,8 @@
       "tests\\CometBFT.Client.WebSocket.Tests\\CometBFT.Client.WebSocket.Tests.csproj",
       "tests\\CometBFT.Client.Grpc.Tests\\CometBFT.Client.Grpc.Tests.csproj",
       "tests\\CometBFT.Client.Integration.Tests\\CometBFT.Client.Integration.Tests.csproj",
-      "tests\\CometBFT.Client.E2E.Tests\\CometBFT.Client.E2E.Tests.csproj"
+      "tests\\CometBFT.Client.E2E.Tests\\CometBFT.Client.E2E.Tests.csproj",
+      "tests\\CometBFT.Client.Demo.Dashboard.Tests\\CometBFT.Client.Demo.Dashboard.Tests.csproj"
     ]
   }
 }

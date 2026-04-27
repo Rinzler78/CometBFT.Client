@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **WebSocket — `Disconnected` / `Reconnected` events** (`ICometBftWebSocketClient`,
+  `CometBftWebSocketClient`): two new lifecycle events on the WebSocket interface.
+  `Disconnected` fires when the underlying TCP connection drops (a reconnection attempt is
+  already in progress); `Reconnected` fires after the connection is restored and all active
+  subscriptions have been replayed. Neither fires on the initial connection.
+- **Demo Dashboard — disconnect/reconnect status feedback** (`DashboardBackgroundService`):
+  `OnDisconnected` handler sets the UI badge to `"Reconnecting…"` (`isConnected: false`) and
+  appends an event-log entry; `OnWsReconnected` restores it to `"Reconnected"` (`isConnected: true`)
+  with a corresponding log entry. The UI now reflects the full connection lifecycle instead of
+  remaining stuck on `"Connected"`.
+
+### Fixed
+- **Demo Dashboard — handler leak** (`DashboardBackgroundService`): event handler registrations
+  moved inside the `try` block so the `finally` clause always deregisters them, even if an
+  exception is raised before `ConnectAsync`.
+- **Demo Dashboard — degraded status**: connection status now reflects actual subscribe success
+  count — `"Connected"` (7/7) or `"Degraded (n/7 topics)"` when the relay rejects some topics
+  due to the `max_subscriptions_per_client = 5` rate limit.
+- **Demo Dashboard — time format**: all timestamps now use the local timezone with a full date
+  (`yyyy-MM-dd HH:mm:ss`). Previously block times were displayed in UTC without a date
+  (`HH:mm:ss`), which made events ambiguous after a reconnection that crosses a day boundary.
+  Affected: `BlockRow.Time`, `LatestBlockTime`, `EventLogRow.Timestamp`, and the header
+  description in `OnNewBlockHeader`.
+- **Demo Dashboard — fatal error visibility**: unhandled exceptions in `ExecuteAsync` are now
+  surfaced in the UI event log (`AppendEventLog("fatal", …)`) instead of being silently swallowed
+  and showing `"Disconnected"` identically to a clean shutdown.
+- **Demo Dashboard — cancellation**: `OnValidatorSetUpdated` now passes `stoppingToken` to
+  `RefreshValidatorsAsync` instead of `CancellationToken.None`.
+- **Demo Dashboard — parallel refresh**: periodic refresh loop now runs `RefreshNodeInfoAsync`
+  and `RefreshNetInfoAsync` concurrently via `Task.WhenAll`.
+- **Demo Dashboard — Abbreviate**: removed private `Safe()` helper; consolidated on
+  `MainWindowViewModel.Abbreviate()` (now `internal static`) as the single truncation helper.
+- **OpenSpec — `NewBlockEventsData.Events` type**: corrected from `IReadOnlyList<AbciEventEntry>`
+  to `IReadOnlyList<CometBftEvent>` in `proposal.md` and `spec-diff.md`; added two-level
+  structure note (`CometBftEvent.Type` + `CometBftEvent.Attributes`).
+
+### Added
+- **API docs** (`ICometBftWebSocketClient`): XML `<remarks>` documenting the concurrent
+  burst-subscribe pattern (`Task.WhenAll`), `ErrorOccurred` pre-wiring requirement, relay
+  rate-limit behaviour (`max_subscriptions_per_client = 5`), and `*Stream` observable
+  lifecycle (pre-initialized at construction, safe to subscribe before `ConnectAsync`).
+- **Sample** (`CometBFT.Client.Sample`): updated to demonstrate the `Task.WhenAll`
+  burst-subscribe pattern; serial `await` replaced to avoid the 30–45 s relay ACK stall.
+- **Tests** (`CometBFT.Client.Demo.Dashboard.Tests`): new test assembly covering
+  `MainWindowViewModel` (8 tests), `Resilient` helper (4 tests), and WebSocket
+  subscribe rate-limit behaviour (3 tests — burst of 7 with limit 5 → exactly 2 rejections
+  via `ErrorOccurred`).
+- **Pre-commit hook** `dotnet-vulnerable`: detects vulnerable NuGet packages (including
+  transitive dependencies via `--include-transitive`) on every `.csproj` /
+  `packages.lock.json` change. Mirrors the `NU1902` gate in CI restore and prevents
+  vulnerable packages from reaching the remote.
+
+### Changed
+- **CI — E2E resilience**: `continue-on-error: true` removed from the `e2e-tests` job.
+  `Rest_Flow` and `Grpc_Flow` E2E tests now catch network-layer exceptions
+  (`HttpRequestException`, `OperationCanceledException`) and call `Assert.Skip` so
+  testnet instability is reported as a skip, not a false failure. Implementation bugs
+  (`JsonException`, assertion failures) still fail the job.
+
+### Dependencies
+- `WireMock.Net` 2.3.0 → 2.4.0 (test dependency): resolves `OpenTelemetry.Api` and
+  `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.14.0 moderate-severity CVEs
+  (advisory IDs: g94r-2vxg-569j, mr8r-92fq-pj8p, q834-8qmm-v933).
+
 ## [2.1.0] - 2026-04-22
 
 ### Added

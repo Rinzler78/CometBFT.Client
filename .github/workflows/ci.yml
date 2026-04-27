@@ -80,6 +80,9 @@ jobs:
             --filter "Category!=Integration&Category!=E2E"
           dotnet run --project tools/CometBFT.Client.CoverageGate/CometBFT.Client.CoverageGate.csproj -- TestResults
 
+      - name: Validate single-package NuGet restore
+        run: ./scripts/validate-package-restore.sh
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always() && !env.ACT
@@ -124,8 +127,6 @@ jobs:
     name: E2E Tests
     runs-on: ubuntu-latest
     needs: integration-tests
-    # Public WebSocket endpoints are intermittently unreliable; advisory only.
-    continue-on-error: true
     env:
       COMETBFT_RPC_URL: https://cosmoshub.tendermintrpc.lava.build:443
       COMETBFT_WS_URL: wss://cosmoshub.tendermintrpc.lava.build:443/websocket

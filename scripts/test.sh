@@ -32,6 +32,10 @@ dotnet test CometBFT.Client.sln \
 
 dotnet run --project tools/CometBFT.Client.CoverageGate/CometBFT.Client.CoverageGate.csproj -- "$RESULTS_DIR"
 
+# ── Package validation: packed NuGet restore must succeed ────────────────────
+echo "==> Package validation: single-package restore"
+./scripts/validate-package-restore.sh
+
 # ── Phase 2: integration tests ────────────────────────────────────────────────
 echo "==> Phase 2: integration tests (${COMETBFT_RPC_URL})"
 dotnet test tests/CometBFT.Client.Integration.Tests/CometBFT.Client.Integration.Tests.csproj \
