@@ -67,6 +67,8 @@ internal sealed class DashboardBackgroundService : BackgroundService
             // Safe to subscribe before ConnectAsync — *Stream observables are pre-initialized.
             using var evidenceSub = _ws.NewEvidenceStream.Subscribe(e =>
                 _vm.AppendEventLog("evidence", $"Evidence at h={e.Height} type={e.EvidenceType}"));
+            using var newBlockEventsSub = _ws.NewBlockEventsStream.Subscribe(e =>
+                _vm.AppendEventLog("events", $"Block h={e.Height} — {e.Events.Count} ABCI events"));
 
             _logger.LogInformation("Connecting to WebSocket…");
             await _ws.ConnectAsync(stoppingToken);
