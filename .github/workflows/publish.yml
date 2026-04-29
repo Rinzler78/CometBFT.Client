@@ -97,22 +97,14 @@ jobs:
 
           echo "NOTES_FILE=${NOTES_FILE}" >> "$GITHUB_OUTPUT"
 
-      - name: Pack
+      - name: Pack and publish
         env:
           PACKAGE_VERSION: ${{ steps.changelog.outputs.VERSION }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          dotnet pack CometBFT.Client.sln \
-            --configuration Release \
-            --no-build \
-            --output ./artifacts \
-            /p:PackageVersion="${PACKAGE_VERSION}"
-
-      - name: Push to NuGet.org
-        run: |
-          dotnet nuget push "./artifacts/*.nupkg" \
-            --api-key "${{ secrets.NUGET_API_KEY }}" \
-            --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
+          ./scripts/publish.sh \
+            --version "${PACKAGE_VERSION}" \
+            --api-key "${NUGET_API_KEY}"
 
       - name: Create GitHub Release and upload assets
         env:

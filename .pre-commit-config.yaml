@@ -27,7 +27,7 @@ repos:
         language: system
         entry: bash -c 'dotnet list package --outdated > /tmp/outdated.txt; if grep -q "^   >" /tmp/outdated.txt; then echo "Outdated direct dependencies detected:" && grep "^   >" /tmp/outdated.txt && exit 1; fi'
         pass_filenames: false
-        files: '\.csproj$'
+        always_run: true
 
       - id: dotnet-vulnerable
         name: Check vulnerable NuGet packages
