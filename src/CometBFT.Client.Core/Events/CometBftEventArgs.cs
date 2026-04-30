@@ -4,7 +4,7 @@ namespace CometBFT.Client.Core.Events;
 /// Provides event data for CometBFT domain events.
 /// </summary>
 /// <typeparam name="T">The type of the domain value carried by the event.</typeparam>
-public sealed class CometBftEventArgs<T> : EventArgs
+public class CometBftEventArgs<T> : EventArgs
 {
     /// <summary>
     /// Gets the domain value associated with the event.

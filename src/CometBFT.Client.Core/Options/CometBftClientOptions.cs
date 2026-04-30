@@ -5,7 +5,7 @@ namespace CometBFT.Client.Core.Options;
 /// (REST, gRPC BroadcastAPI, and WebSocket).
 /// All URL defaults target the same public Cosmos Hub mainnet operator (Lava Network).
 /// </summary>
-public sealed class CometBftClientOptions
+public class CometBftClientOptions
 {
     /// <summary>
     /// Gets or sets the CometBFT JSON-RPC / REST base URL.

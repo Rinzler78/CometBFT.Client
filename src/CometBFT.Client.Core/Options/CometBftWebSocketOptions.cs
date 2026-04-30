@@ -3,7 +3,7 @@ namespace CometBFT.Client.Core.Options;
 /// <summary>
 /// Configuration options for the CometBFT WebSocket subscription client.
 /// </summary>
-public sealed class CometBftWebSocketOptions
+public class CometBftWebSocketOptions
 {
     /// <summary>
     /// Gets or sets the WebSocket endpoint URL of the CometBFT node.

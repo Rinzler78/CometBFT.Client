@@ -11,7 +11,7 @@ namespace CometBFT.Client.Core.Domain;
 /// All ABCI events emitted during block processing. Each item has a <see cref="CometBftEvent.Type"/>
 /// (e.g. <c>"ibc_transfer"</c>) and typed attributes.
 /// </param>
-public sealed record NewBlockEventsData(
+public record NewBlockEventsData(
     BlockHeader Header,
     long Height,
     IReadOnlyList<CometBftEvent> Events);

@@ -5,14 +5,15 @@ namespace CometBFT.Client.Core.Codecs;
 /// Used automatically when no application-specific codec is provided,
 /// preserving full backward compatibility with the untyped API.
 /// </summary>
-public sealed class RawTxCodec : ITxCodec<string>
+public class RawTxCodec : ITxCodec<string>
 {
     /// <summary>
     /// Shared singleton instance. Thread-safe — the codec is stateless.
     /// </summary>
     public static readonly RawTxCodec Instance = new();
 
-    private RawTxCodec() { }
+    /// <summary>Initializes a new instance; use <see cref="Instance"/> for the default singleton.</summary>
+    protected RawTxCodec() { }
 
     /// <inheritdoc />
     /// <returns>The base64-encoded string representation of <paramref name="bytes"/>.</returns>

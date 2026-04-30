@@ -3,7 +3,7 @@ namespace CometBFT.Client.Core.Exceptions;
 /// <summary>
 /// Exception thrown when a CometBFT gRPC operation fails.
 /// </summary>
-public sealed class CometBftGrpcException : CometBftClientException
+public class CometBftGrpcException : CometBftClientException
 {
     /// <summary>
     /// Gets the numeric gRPC status code associated with this error, if available.
