@@ -144,13 +144,11 @@ per-connection rate-limit budgets predictable.
 
 ---
 
-## 6. Existing streams — unchanged
+## 6. Existing subscriptions — unchanged
 
-| Stream | `tm.event` | Status |
-|--------|-----------|--------|
-| `NewBlockStream` | `NewBlock` | Unchanged |
-| `NewBlockHeaderStream` | `NewBlockHeader` | Unchanged |
-| `TxStream` | `Tx` | Unchanged |
-| `NewRoundStream` | `NewRound` | Unchanged |
-| `NewRoundStepStream` | `NewRoundStep` | Unchanged |
-| `VoteStream` | `Vote` | Unchanged |
+| Subscription | `tm.event` | API surface | Status |
+|--------|-----------|--------|--------|
+| `NewBlock` | `NewBlock` | `NewBlockReceived` (event) | Unchanged |
+| `NewBlockHeader` | `NewBlockHeader` | `NewBlockHeaderReceived` (event) | Unchanged |
+| `Tx` | `Tx` | `TxExecuted` (event) | Unchanged |
+| `Vote` | `Vote` | `VoteReceived` (event) | Unchanged |
