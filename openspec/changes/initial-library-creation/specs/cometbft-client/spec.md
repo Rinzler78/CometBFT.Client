@@ -177,7 +177,7 @@ The WebSocket client SHALL subscribe to all CometBFT event types defined in the 
 
 #### Event types covered
 
-**Legacy subscriptions — exposed as .NET events (event handlers)**
+**Legacy subscriptions — exposed as .NET events**
 
 | Event | JSONRPC subscription query | API surface | Payload type |
 |---|---|---|---|
@@ -186,7 +186,7 @@ The WebSocket client SHALL subscribe to all CometBFT event types defined in the 
 | `Tx` | `tm.event='Tx'` | `TxExecuted` (event) | `TxResult<TTx>` |
 | `Vote` | `tm.event='Vote'` | `VoteReceived` (event) | `Vote` |
 
-**New subscriptions (v2.1.0) — exposed as `IObservable<T>` stream properties**
+**Observable streams — exposed as `IObservable<T>` properties (added v2.1.0)**
 
 | Event | JSONRPC subscription query | Stream property | Payload type |
 |---|---|---|---|
@@ -893,7 +893,7 @@ Sub-label for LATEST BLOCK: `LatestBlockTime`.
 #### Background service
 
 `DashboardBackgroundService` implements `BackgroundService` and:
-- Subscribes to WS via legacy event handlers: `NewBlockReceived`, `NewBlockHeaderReceived`, `TxExecuted`, `VoteReceived`; and via `IObservable<T>` stream properties: `ValidatorSetUpdatesStream` (returns `ValidatorSetUpdatesData`); optionally `NewBlockEventsStream` (returns `NewBlockEventsData`, category `"events"`) and `ConsensusInternalStream` (category `"consensus"`) when subscription budget allows
+- Subscribes to WS via legacy events (`NewBlockReceived`, `NewBlockHeaderReceived`, `TxExecuted`, `VoteReceived`) and Observable stream properties: `ValidatorSetUpdatesStream` (returns `ValidatorSetUpdatesData`); optionally `NewBlockEventsStream` (returns `NewBlockEventsData`, category `"events"`) and `ConsensusInternalStream` (category `"consensus"`) when subscription budget allows
 - On `NewBlock`: calls `ICometBftRestClient.GetBlockAsync()` to enrich the block row, then `ICometBftRestClient.GetNumUnconfirmedTxsAsync()` for mempool count
 - On startup: calls `ICometBftRestClient.GetStatusAsync()` (chain meta), `ICometBftRestClient.GetValidatorsAsync()` (validators), `ICometBftRestClient.GetNetInfoAsync()` (peers)
 - Periodic timer every 30 s: refreshes node info and peer count

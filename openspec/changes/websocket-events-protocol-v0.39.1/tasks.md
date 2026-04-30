@@ -60,6 +60,6 @@
 - [x] `samples/CometBFT.Client.Demo.Dashboard/Services/DashboardBackgroundService.cs` — added NewBlockEvents subscription
 
 ## Phase 8 — Release
-- [ ] PR `release/v2.1.0` → `develop`
-- [ ] Merge `develop` → `master`
-- [ ] Tag `v2.1.0`
+- [x] PR `release/v2.1.0` → `develop`
+- [x] Merge `develop` → `master`
+- [x] Tag `v2.1.0`

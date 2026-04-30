@@ -36,6 +36,30 @@ mkdir -p "${ARTIFACT_DIR}"
 dotnet pack "${PACKAGE_PROJECT}" --configuration Release --output "${ARTIFACT_DIR}" \
   /p:_ProjectReferencePackAssets=all >/dev/null
 
+# Assert the generated nuspec has no ghost sub-package dependencies.
+python3 - "${ARTIFACT_DIR}" <<'PY'
+import zipfile, glob, sys
+artifact_dir = sys.argv[1]
+nupkgs = [p for p in glob.glob(f'{artifact_dir}/*.nupkg') if '.symbols.' not in p]
+if not nupkgs:
+    sys.exit(f'No .nupkg found in {artifact_dir}')
+ghosts = ['CometBFT.Client.Core', 'CometBFT.Client.Grpc', 'CometBFT.Client.Rest', 'CometBFT.Client.WebSocket']
+errors = []
+for nupkg in nupkgs:
+    with zipfile.ZipFile(nupkg) as z:
+        nuspec_names = [n for n in z.namelist() if n.endswith('.nuspec') and '.symbols.' not in n]
+        if not nuspec_names:
+            errors.append(f'{nupkg}: no .nuspec found inside archive')
+            continue
+        content = z.read(nuspec_names[0]).decode()
+    found = [g for g in ghosts if f'id="{g}"' in content]
+    if found:
+        errors.append(f'{nupkg}: ghost dependencies {found}')
+if errors:
+    sys.exit('ERROR: Ghost dependencies detected:\n' + '\n'.join(errors))
+print(f'Nuspec assertion passed: no ghost dependencies ({len(nupkgs)} package(s) checked).')
+PY
+
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
 

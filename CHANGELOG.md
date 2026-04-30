@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-04-30
+
 ### Added
 - **WebSocket — `Disconnected` / `Reconnected` events** (`ICometBftWebSocketClient`,
   `CometBftWebSocketClient`): two new lifecycle events on the WebSocket interface.
@@ -18,8 +20,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   appends an event-log entry; `OnWsReconnected` restores it to `"Reconnected"` (`isConnected: true`)
   with a corresponding log entry. The UI now reflects the full connection lifecycle instead of
   remaining stuck on `"Connected"`.
+- **API docs** (`ICometBftWebSocketClient`): XML `<remarks>` documenting the concurrent
+  burst-subscribe pattern (`Task.WhenAll`), `ErrorOccurred` pre-wiring requirement, relay
+  rate-limit behaviour (`max_subscriptions_per_client = 5`), and `*Stream` observable
+  lifecycle (pre-initialized at construction, safe to subscribe before `ConnectAsync`).
+- **Sample** (`CometBFT.Client.Sample`): updated to demonstrate the `Task.WhenAll`
+  burst-subscribe pattern; serial `await` replaced to avoid the 30–45 s relay ACK stall.
+- **Tests** (`CometBFT.Client.Demo.Dashboard.Tests`): new test assembly covering
+  `MainWindowViewModel` (8 tests), `Resilient` helper (4 tests), and WebSocket
+  subscribe rate-limit behaviour (3 tests — burst of 7 with limit 5 → exactly 2 rejections
+  via `ErrorOccurred`).
+- **Pre-commit hook** `dotnet-vulnerable`: detects vulnerable NuGet packages (including
+  transitive dependencies via `--include-transitive`) on every `.csproj` /
+  `packages.lock.json` change. Mirrors the `NU1902` gate in CI restore and prevents
+  vulnerable packages from reaching the remote.
 
 ### Fixed
+- **Packaging — NuGet ghost dependencies** (`Rinzler78.CometBFT.Client`): v2.1.0 nuspec
+  declared phantom `CometBFT.Client.Core/Grpc/Rest/WebSocket` dependencies that caused
+  `NU1101` restore failures for consumers. All sub-project DLLs are bundled inside the
+  single package; the nuspec now lists only the three `Microsoft.Extensions.*` dependencies.
 - **Demo Dashboard — handler leak** (`DashboardBackgroundService`): event handler registrations
   moved inside the `try` block so the `finally` clause always deregisters them, even if an
   exception is raised before `ConnectAsync`.
@@ -44,23 +64,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to `IReadOnlyList<CometBftEvent>` in `proposal.md` and `spec-diff.md`; added two-level
   structure note (`CometBftEvent.Type` + `CometBftEvent.Attributes`).
 
-### Added
-- **API docs** (`ICometBftWebSocketClient`): XML `<remarks>` documenting the concurrent
-  burst-subscribe pattern (`Task.WhenAll`), `ErrorOccurred` pre-wiring requirement, relay
-  rate-limit behaviour (`max_subscriptions_per_client = 5`), and `*Stream` observable
-  lifecycle (pre-initialized at construction, safe to subscribe before `ConnectAsync`).
-- **Sample** (`CometBFT.Client.Sample`): updated to demonstrate the `Task.WhenAll`
-  burst-subscribe pattern; serial `await` replaced to avoid the 30–45 s relay ACK stall.
-- **Tests** (`CometBFT.Client.Demo.Dashboard.Tests`): new test assembly covering
-  `MainWindowViewModel` (8 tests), `Resilient` helper (4 tests), and WebSocket
-  subscribe rate-limit behaviour (3 tests — burst of 7 with limit 5 → exactly 2 rejections
-  via `ErrorOccurred`).
-- **Pre-commit hook** `dotnet-vulnerable`: detects vulnerable NuGet packages (including
-  transitive dependencies via `--include-transitive`) on every `.csproj` /
-  `packages.lock.json` change. Mirrors the `NU1902` gate in CI restore and prevents
-  vulnerable packages from reaching the remote.
-
 ### Changed
+- **Build tooling — pack/push centralized** (`scripts/publish.sh`): `dotnet pack` and
+  `dotnet nuget push` removed from `.github/workflows/publish.yml`; the workflow delegates
+  to `scripts/publish.sh` so `_ProjectReferencePackAssets=all` is always applied and a
+  nuspec ghost-dependency assertion runs before any push.
+- **Pre-commit hook** `dotnet-outdated` is now `always_run`: previously triggered only on
+  `.csproj` file changes; now runs on every commit to match CI behavior and prevent outdated
+  packages from reaching the remote regardless of which files were staged.
 - **CI — E2E resilience**: `continue-on-error: true` removed from the `e2e-tests` job.
   `Rest_Flow` and `Grpc_Flow` E2E tests now catch network-layer exceptions
   (`HttpRequestException`, `OperationCanceledException`) and call `Assert.Skip` so
@@ -68,6 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`JsonException`, assertion failures) still fail the job.
 
 ### Dependencies
+- `Microsoft.NET.Test.Sdk` 18.5.0 → 18.5.1 (test dependency).
+- `Avalonia` / `Avalonia.Desktop` / `Avalonia.Themes.Fluent` / `Avalonia.Headless.XUnit`
+  12.0.1 → 12.0.2 (sample/test dependency).
 - `WireMock.Net` 2.3.0 → 2.4.0 (test dependency): resolves `OpenTelemetry.Api` and
   `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.14.0 moderate-severity CVEs
   (advisory IDs: g94r-2vxg-569j, mr8r-92fq-pj8p, q834-8qmm-v933).
