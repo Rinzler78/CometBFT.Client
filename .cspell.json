@@ -153,6 +153,7 @@
     "reportgenerator",
     "ReportGenerator",
     "Rinzler",
+    "laddr",
     "rpc",
     "semver",
     "SemVer",
