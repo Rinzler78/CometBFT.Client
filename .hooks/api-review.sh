@@ -205,8 +205,10 @@ section "E. Sealed / non-sealed policy"
 
 DOMAIN_DIR="$REPO_ROOT/src/CometBFT.Client.Core/Domain"
 
-# E1 — Protocol-pure types must remain sealed
-SEALED_REQUIRED=("Vote" "ProtocolVersion" "GenesisChunk" "NetworkInfo" "NetworkPeer" "RawTxCodec")
+# E1 — Types that must remain sealed (codecs only; domain types are intentionally extensible)
+# Vote, ProtocolVersion, GenesisChunk, NetworkInfo, NetworkPeer were unsealed in v2.2.0 to
+# enable extension by higher-level layers (Cosmos SDK, Osmosis).
+SEALED_REQUIRED=("RawTxCodec")
 for t in "${SEALED_REQUIRED[@]}"; do
     file="$DOMAIN_DIR/${t}.cs"
     if [ ! -f "$file" ]; then
