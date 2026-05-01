@@ -185,7 +185,10 @@ string? NormalizePath(string fileName, string? packageName)
     var srcIndex = normalized.IndexOf("src/", StringComparison.OrdinalIgnoreCase);
     if (srcIndex >= 0)
     {
-        normalized = normalized[srcIndex..];
+        var afterSrc = normalized[(srcIndex + 4)..];
+        normalized = afterSrc.StartsWith("CometBFT.Client.", StringComparison.OrdinalIgnoreCase)
+            ? afterSrc
+            : normalized[srcIndex..];
     }
 
     if (!normalized.StartsWith("CometBFT.Client.", StringComparison.OrdinalIgnoreCase)

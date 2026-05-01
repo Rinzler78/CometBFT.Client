@@ -4,6 +4,7 @@ using WireMock.ResponseBuilders;
 using WireMock.Server;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Extensions;
+using CometBFT.Client.TestInfrastructure;
 using Xunit;
 
 namespace CometBFT.Client.Fixture.Tests;

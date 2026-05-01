@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Shared in-process test infrastructure (PassiveWebSocketServer, etc.) for CometBFT.Client test projects.</Description>
+    <!-- Not a test runner — no Microsoft.NET.Test.Sdk, no threshold enforcement -->
+    <IsTestProject>false</IsTestProject>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <EnablePackageValidation>false</EnablePackageValidation>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CometBFT.Client.Core\CometBFT.Client.Core.csproj" />
+  </ItemGroup>
+
+</Project>

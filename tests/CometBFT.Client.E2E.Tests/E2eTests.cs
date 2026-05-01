@@ -268,10 +268,14 @@ public sealed class E2eTests
 
 internal static class EndpointConfiguration
 {
+    // Cosmos Hub mainnet (chain-id: cosmoshub-4) accessed via Lava Network decentralized RPC relay.
     private const string DefaultRpcUrl = "https://cosmoshub.tendermintrpc.lava.build:443";
     private const string DefaultWsUrl = "wss://cosmoshub.tendermintrpc.lava.build:443/websocket";
     private const string DefaultGrpcUrl = "cosmoshub.grpc.lava.build";
 
+    // By design: if the env var is absent, tests run against Cosmos Hub mainnet via the Lava relay.
+    // To target a different node, set COMETBFT_RPC_URL / COMETBFT_WS_URL / COMETBFT_GRPC_URL.
+    // To skip E2E tests in CI without network access, use: dotnet test --filter "Category!=E2E"
     public static string Require(string variableName)
     {
         var value = Environment.GetEnvironmentVariable(variableName);

@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CometBFT.Client.Extensions\CometBFT.Client.Extensions.csproj" />
+    <ProjectReference Include="..\CometBFT.Client.TestInfrastructure\CometBFT.Client.TestInfrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

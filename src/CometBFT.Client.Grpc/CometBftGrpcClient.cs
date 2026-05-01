@@ -166,9 +166,7 @@ public sealed class CometBftGrpcClient : ICometBftGrpcClient
                 return _apiClient;
             }
 
-            _apiClient = _clientFactory is not null
-                ? await _clientFactory(cancellationToken).ConfigureAwait(false)
-                : throw new InvalidOperationException("No API client or factory configured.");
+            _apiClient = await _clientFactory!(cancellationToken).ConfigureAwait(false);
 
             return _apiClient;
         }

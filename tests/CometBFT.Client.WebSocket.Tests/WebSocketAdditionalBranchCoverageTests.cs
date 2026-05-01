@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using CometBFT.Client.TestInfrastructure;
 using CometBFT.Client.WebSocket;
 using Websocket.Client;
 using Xunit;
