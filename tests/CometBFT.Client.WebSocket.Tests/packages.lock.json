@@ -243,6 +243,12 @@
       "cometbft.client.core": {
         "type": "Project"
       },
+      "cometbft.client.testinfrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "CometBFT.Client.Core": "[1.0.0, )"
+        }
+      },
       "cometbft.client.websocket": {
         "type": "Project",
         "dependencies": {

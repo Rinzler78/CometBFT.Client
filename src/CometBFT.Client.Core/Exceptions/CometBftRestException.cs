@@ -5,7 +5,7 @@ namespace CometBFT.Client.Core.Exceptions;
 /// <summary>
 /// Exception thrown when a CometBFT REST/JSON-RPC request fails.
 /// </summary>
-public sealed class CometBftRestException : CometBftClientException
+public class CometBftRestException : CometBftClientException
 {
     /// <summary>
     /// Gets the HTTP status code returned by the server, if available.

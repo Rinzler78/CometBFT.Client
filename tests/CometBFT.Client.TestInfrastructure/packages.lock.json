@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "cometbft.client.core": {
+        "type": "Project"
+      }
+    }
+  }
+}

@@ -3,7 +3,7 @@ namespace CometBFT.Client.Core.Options;
 /// <summary>
 /// Configuration options for the CometBFT gRPC client.
 /// </summary>
-public sealed class CometBftGrpcOptions
+public class CometBftGrpcOptions
 {
     /// <summary>
     /// Gets or sets the gRPC endpoint URL of the CometBFT node.

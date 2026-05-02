@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json;
 using CometBFT.Client.Core.Events;
 
-namespace CometBFT.Client.WebSocket.Tests;
+namespace CometBFT.Client.TestInfrastructure;
 
 /// <summary>
 /// In-process WebSocket server for wire-level subscription tests.
@@ -13,7 +13,7 @@ namespace CometBFT.Client.WebSocket.Tests;
 /// each request by echoing <c>{"jsonrpc":"2.0","id":N,"result":{}}</c>.
 /// Lets the test drive pushed events via <see cref="PushAsync"/>.
 /// </summary>
-internal sealed class PassiveWebSocketServer : IAsyncDisposable
+public sealed class PassiveWebSocketServer : IAsyncDisposable
 {
     private const string LoopbackHost = "127.0.0.1";
 

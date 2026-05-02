@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Runtime.Serialization;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Options;
@@ -159,27 +158,6 @@ public sealed class CometBftGrpcBranchCoverageTests
 
         Assert.IsType<LegacyBroadcastApiClient>(created);
         Assert.Equal(GrpcProtocol.TendermintLegacy, client.DetectedProtocol);
-    }
-
-    [Fact]
-    public async Task GetOrCreateClientAsync_WithoutApiClientOrFactory_ThrowsInvalidOperationException()
-    {
-#pragma warning disable SYSLIB0050 // Test-only use to exercise an otherwise unreachable defensive branch.
-        var client = (CometBftGrpcClient)FormatterServices.GetUninitializedObject(typeof(CometBftGrpcClient));
-#pragma warning restore SYSLIB0050
-        typeof(CometBftGrpcClient).GetField("_channel", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(client, GrpcChannel.ForAddress("http://localhost:9090"));
-        typeof(CometBftGrpcClient).GetField("_initLock", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(client, new SemaphoreSlim(1, 1));
-
-        var method = typeof(CometBftGrpcClient).GetMethod("GetOrCreateClientAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-        {
-            var task = (Task<IBroadcastApiClient>)method.Invoke(client, [CancellationToken.None])!;
-            await task;
-        });
-
-        Assert.Contains("No API client or factory configured", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

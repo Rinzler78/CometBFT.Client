@@ -7,7 +7,7 @@ namespace CometBFT.Client.Core.Domain;
 /// <param name="Listeners">Configured listener addresses.</param>
 /// <param name="PeerCount">The number of peers returned in the response.</param>
 /// <param name="Peers">Connected peers as seen by the node.</param>
-public sealed record NetworkInfo(
+public record NetworkInfo(
     bool Listening,
     IReadOnlyList<string> Listeners,
     int PeerCount,
@@ -21,7 +21,7 @@ public sealed record NetworkInfo(
 /// <param name="Network">The peer network identifier.</param>
 /// <param name="RemoteIp">The remote IP address.</param>
 /// <param name="ConnectionStatus">The peer connection status string.</param>
-public sealed record NetworkPeer(
+public record NetworkPeer(
     string NodeId,
     string Moniker,
     string Network,
