@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-05-02
+
+### Added
+- **Extensibility — 23 additional types unsealed** (`CometBFT.Client.Core`): completes the
+  v2.0.0 `extensibility-v2` initiative by removing `sealed` from every remaining domain
+  record (14: `Vote`, `ProtocolVersion`, `GenesisChunk`, `NetworkInfo`, `NetworkPeer`,
+  `AbciEventEntry`, `AbciQueryResponse`, `CometBftEvent`, `CompleteProposalData`,
+  `NewBlockEventsData`, `NewEvidenceData`, `NodeInfo`, `ValidatorSetUpdatesData`),
+  the three `CometBft*Exception` types, the four options classes (`CometBftClientOptions`,
+  `CometBftRestOptions`, `CometBftWebSocketOptions`, `CometBftGrpcOptions`),
+  `CometBftEventArgs<T>`, and `RawTxCodec`. `RawTxCodec`'s constructor changes from
+  `private` to `protected` so consumer layers (Cosmos SDK, Osmosis) can subclass it.
+  Existing consumers are unaffected — non-sealed types remain ABI-compatible.
+- **Test infrastructure — `CometBFT.Client.TestInfrastructure` shared project**: extracts
+  `PassiveWebSocketServer` and `WebSocketServerReply` (previously duplicated between
+  `WebSocket.Tests` and `Fixture.Tests`) into a single library consumed by both. Excluded
+  from coverage via a dedicated coverlet collector exclusion entry.
+
+### Fixed
+- **Coverage gate path normalization** (`tools/CometBFT.Client.CoverageGate`): the previous
+  `NormalizePath` rule keyed `src/Assembly/...` paths as `Assembly/src/Assembly/...`
+  (double-prefix), causing the high-coverage WebSocket.Tests XML to merge under a ghost
+  key and aggregate coverage to be reported as ~82%. Fix strips the `src/` segment when
+  it is followed by a `CometBFT.Client.` prefix; aggregate coverage is now reported
+  correctly at 99.56% lines / 97.24% branches.
+- **`CometBftGrpcClient.GetOrCreateClientAsync` null-safety**: `_clientFactory` is now
+  non-nullable and initialized in every constructor (the injected-`IBroadcastApiClient`
+  ctor sets a sentinel lambda returning the pre-built client), removing both the
+  null-forgiving operator and the unreachable defensive throw branch.
+- **REST flaky test** (`CometBftRestClientTests.GetHealthAsync_ThrowsCometBftRestException_…`):
+  no longer relies on stopping the shared WireMock server (port-recycling race under
+  parallel coverage) or on hardcoded port 1; uses a deterministic
+  `HttpMessageHandler` that always throws `HttpRequestException`.
+- **WebSocket branch coverage tests** (`WebSocketBranchCoverageTests`): `Task.Delay`-based
+  drains replaced with `TaskCompletionSource` on `ErrorOccurred` and
+  `PassiveWebSocketServer.WaitForMessagesAsync`, eliminating timing-dependent flakiness.
+- **Integration tests — `IntegrationLocal`**: all 5 tests now pass; previous failures
+  were caused by stale fixture data and incorrect endpoint expectations.
+
+### Changed
+- **Generated code — `[ExcludeFromCodeCoverage]`**: applied to proto-generated partial
+  classes (`CometBFT.Client.Grpc.Proto`, `Tendermint.Client.Grpc.LegacyProto`) and to the
+  STJ source-generated `JsonSerializerContext` partials in `CometBFT.Client.Rest` and
+  `CometBFT.Client.WebSocket`, so the coverage signal reflects hand-written code only.
+- **Pre-push hook** `api-review.sh`: `SEALED_REQUIRED` no longer lists domain types
+  (`Vote`, `ProtocolVersion`, `GenesisChunk`, `NetworkInfo`, `NetworkPeer`) — they are
+  now intentionally extensible. The fallback grep also handles both `record` and `class`
+  declarations and searches the full `src/CometBFT.Client.Core` tree (previously only
+  `Domain/`, missing `RawTxCodec` under `Codecs/`).
+- **E2E tests** (`E2eTests.EndpointConfiguration`): default endpoints documented as
+  Cosmos Hub mainnet (`cosmoshub-4`) accessed via the Lava Network decentralized RPC
+  relay; an explicit comment documents how to override with `COMETBFT_RPC_URL` /
+  `COMETBFT_WS_URL` / `COMETBFT_GRPC_URL` and how to skip E2E in CI without network
+  (`dotnet test --filter "Category!=E2E"`).
+
+### Removed
+- **Grpc branch-coverage test** `GetOrCreateClientAsync_WithoutApiClientOrFactory_…`:
+  removed the SYSLIB0050 `FormatterServices.GetUninitializedObject` reflection-based
+  test; the defensive branch it covered no longer exists (see the `_clientFactory`
+  non-nullable refactor above).
+
+### Dependencies
+- `Grpc.Net.Client` 2.76.0 → 2.80.0 (transport dependency; required by the
+  `dotnet-outdated` pre-commit hook).
+
 ## [2.2.0] - 2026-04-30
 
 ### Added
