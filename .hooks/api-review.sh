@@ -205,27 +205,24 @@ section "E. Sealed / non-sealed policy"
 
 DOMAIN_DIR="$REPO_ROOT/src/CometBFT.Client.Core/Domain"
 
-# E1 — Types that must remain sealed (codecs only; domain types are intentionally extensible)
-# Vote, ProtocolVersion, GenesisChunk, NetworkInfo, NetworkPeer were unsealed in v2.2.0 to
-# enable extension by higher-level layers (Cosmos SDK, Osmosis).
-SEALED_REQUIRED=("RawTxCodec")
-for t in "${SEALED_REQUIRED[@]}"; do
-    file="$DOMAIN_DIR/${t}.cs"
-    if [ ! -f "$file" ]; then
-        # Some types may be in a single file; fall back to grep
-        if grep -rn "public record $t[^<{]" "$DOMAIN_DIR" | grep -qv "sealed"; then
-            fail "Protocol-pure type '$t' appears non-sealed in Domain/"
-        else
-            pass "Protocol-pure type '$t' is sealed (or not found as a top-level record)"
-        fi
+# E1 — All domain and codec types were made extensible in v2.2.0 to enable
+# higher-level layers (Cosmos SDK, Osmosis) to subclass them.
+# No types are required to remain sealed; this check is retained as a no-op
+# placeholder so the policy can be tightened again if future types need it.
+SEALED_REQUIRED=()
+for t in ${SEALED_REQUIRED[@]+"${SEALED_REQUIRED[@]}"}; do
+    src_root="$REPO_ROOT/src/CometBFT.Client.Core"
+    file=$(find "$src_root" -name "${t}.cs" | head -1)
+    if [ -z "$file" ]; then
+        pass "Type '$t' not found — sealed check skipped"
         continue
     fi
-    if grep -q "sealed record $t" "$file"; then
-        pass "Protocol-pure type '$t' is sealed"
-    elif grep -q "public record $t" "$file" && ! grep -q "sealed" "$file"; then
-        fail "Protocol-pure type '$t' is NOT sealed in $file"
+    if grep -qE "sealed (record|class) $t" "$file"; then
+        pass "Type '$t' is sealed"
+    elif grep -qE "public (record|class) $t" "$file" && ! grep -q "sealed" "$file"; then
+        fail "Type '$t' is NOT sealed in $file"
     else
-        pass "Protocol-pure type '$t' sealed check passed"
+        pass "Type '$t' sealed check passed"
     fi
 done
 

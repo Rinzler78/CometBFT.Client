@@ -67,11 +67,17 @@ public sealed class CometBftRestClientTests : IDisposable
     [Fact]
     public async Task GetHealthAsync_ThrowsCometBftRestException_WhenRequestFails()
     {
-        // Port 1 is always closed — avoids races with WireMock port recycling under parallel coverage runs
-        using var deadHttp = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:1/") };
+        using var handler = new AlwaysFailingHandler();
+        using var deadHttp = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
         var deadClient = new CometBftRestClient(deadHttp, Options.Create(new CometBftRestOptions()));
 
         await Assert.ThrowsAsync<CometBftRestException>(() => deadClient.GetHealthAsync());
+    }
+
+    private sealed class AlwaysFailingHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => throw new HttpRequestException("Simulated network failure");
     }
 
     [Fact]
