@@ -13,9 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Extensibility — 23 additional types unsealed** (`CometBFT.Client.Core`): completes the
   v2.0.0 `extensibility-v2` initiative by removing `sealed` from every remaining domain
   record (14: `Vote`, `ProtocolVersion`, `GenesisChunk`, `NetworkInfo`, `NetworkPeer`,
-  `AbciEventEntry`, `AbciQueryResponse`, `CometBftEvent`, `CompleteProposalData`,
-  `NewBlockEventsData`, `NewEvidenceData`, `NodeInfo`, `ValidatorSetUpdatesData`),
-  the three `CometBft*Exception` types, the four options classes (`CometBftClientOptions`,
+  `AbciEventEntry`, `AbciQueryResponse`, `AbciProofOps`, `AbciProofOp`, `CometBftEvent`,
+  `CompleteProposalData`, `NewBlockEventsData`, `NewEvidenceData`,
+  `ValidatorSetUpdatesData`), the three `CometBft*Exception` types, the four options
+  classes (`CometBftClientOptions`,
   `CometBftRestOptions`, `CometBftWebSocketOptions`, `CometBftGrpcOptions`),
   `CometBftEventArgs<T>`, and `RawTxCodec`. `RawTxCodec`'s constructor changes from
   `private` to `protected` so consumer layers (Cosmos SDK, Osmosis) can subclass it.
