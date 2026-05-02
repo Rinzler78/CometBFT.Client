@@ -1,15 +1,14 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using CometBFT.Client.Core.Events;
 
-namespace CometBFT.Client.WebSocket.Tests;
+namespace CometBFT.Client.TestInfrastructure;
 
 /// <summary>
 /// Typed JSON-RPC reply envelope emitted by the passive test server.
-/// Every server frame goes through <see cref="JsonSerializer"/> on this record —
+/// Every server frame goes through <see cref="System.Text.Json.JsonSerializer"/> on this record —
 /// no hardcoded JSON lives in the fixture.
 /// </summary>
-internal sealed record WebSocketServerReply(
+public sealed record WebSocketServerReply(
     [property: JsonPropertyName("jsonrpc")] string JsonRpc,
     [property: JsonPropertyName("id")] int Id,
     [property: JsonPropertyName("result"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -27,10 +26,10 @@ internal sealed record WebSocketServerReply(
 }
 
 /// <summary>Empty JSON object emitted as <c>result</c> on a successful ACK.</summary>
-internal sealed record WebSocketServerResult();
+public sealed record WebSocketServerResult();
 
 /// <summary>JSON-RPC error payload returned by the server (HTTP-like: code + message).</summary>
-internal sealed record WebSocketServerError(
+public sealed record WebSocketServerError(
     [property: JsonPropertyName("code")] int Code,
     [property: JsonPropertyName("message")] string Message,
     [property: JsonPropertyName("data"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

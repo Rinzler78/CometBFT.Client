@@ -3,7 +3,7 @@ namespace CometBFT.Client.Core.Exceptions;
 /// <summary>
 /// Exception thrown when a CometBFT WebSocket operation fails.
 /// </summary>
-public sealed class CometBftWebSocketException : CometBftClientException
+public class CometBftWebSocketException : CometBftClientException
 {
     /// <summary>
     /// Initializes a new instance of <see cref="CometBftWebSocketException"/>.

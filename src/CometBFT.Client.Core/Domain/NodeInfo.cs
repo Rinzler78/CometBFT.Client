@@ -25,7 +25,7 @@ public record NodeInfo(
 /// <param name="P2P">The P2P protocol version.</param>
 /// <param name="Block">The block protocol version.</param>
 /// <param name="App">The application protocol version.</param>
-public sealed record ProtocolVersion(
+public record ProtocolVersion(
     ulong P2P,
     ulong Block,
     ulong App);

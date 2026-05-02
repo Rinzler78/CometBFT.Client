@@ -3,7 +3,7 @@ namespace CometBFT.Client.Core.Options;
 /// <summary>
 /// Configuration options for the CometBFT REST/JSON-RPC 2.0 client.
 /// </summary>
-public sealed class CometBftRestOptions
+public class CometBftRestOptions
 {
     /// <summary>
     /// Gets or sets the base URL of the CometBFT RPC endpoint.

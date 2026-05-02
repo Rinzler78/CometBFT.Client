@@ -8,7 +8,7 @@ namespace CometBFT.Client.Core.Domain;
 /// <param name="Round">The consensus round.</param>
 /// <param name="ValidatorAddress">The hex-encoded address of the validator that cast the vote.</param>
 /// <param name="Timestamp">The UTC timestamp of the vote.</param>
-public sealed record Vote(
+public record Vote(
     int Type,
     long Height,
     int Round,

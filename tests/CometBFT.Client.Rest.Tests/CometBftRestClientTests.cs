@@ -67,9 +67,17 @@ public sealed class CometBftRestClientTests : IDisposable
     [Fact]
     public async Task GetHealthAsync_ThrowsCometBftRestException_WhenRequestFails()
     {
-        _server.Stop();
+        using var handler = new AlwaysFailingHandler();
+        using var deadHttp = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+        var deadClient = new CometBftRestClient(deadHttp, Options.Create(new CometBftRestOptions()));
 
-        await Assert.ThrowsAsync<CometBftRestException>(() => _client.GetHealthAsync());
+        await Assert.ThrowsAsync<CometBftRestException>(() => deadClient.GetHealthAsync());
+    }
+
+    private sealed class AlwaysFailingHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => throw new HttpRequestException("Simulated network failure");
     }
 
     [Fact]

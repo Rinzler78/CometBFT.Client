@@ -5,4 +5,4 @@ namespace CometBFT.Client.Core.Domain;
 /// (tm.event='ValidatorSetUpdates').
 /// </summary>
 /// <param name="ValidatorUpdates">The updated validator set.</param>
-public sealed record ValidatorSetUpdatesData(IReadOnlyList<Validator> ValidatorUpdates);
+public record ValidatorSetUpdatesData(IReadOnlyList<Validator> ValidatorUpdates);

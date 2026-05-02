@@ -22,7 +22,7 @@ namespace CometBFT.Client.Grpc;
 public sealed class CometBftGrpcClient : ICometBftGrpcClient
 {
     private readonly GrpcChannel _channel;
-    private readonly Func<CancellationToken, Task<IBroadcastApiClient>>? _clientFactory;
+    private readonly Func<CancellationToken, Task<IBroadcastApiClient>> _clientFactory;
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private IBroadcastApiClient? _apiClient;
     private bool _disposed;
@@ -65,6 +65,7 @@ public sealed class CometBftGrpcClient : ICometBftGrpcClient
         _channel = channel ?? throw new ArgumentNullException(nameof(channel));
         ArgumentNullException.ThrowIfNull(apiClient);
         _apiClient = apiClient;
+        _clientFactory = _ => Task.FromResult<IBroadcastApiClient>(apiClient);
     }
 
     /// <summary>
@@ -166,9 +167,7 @@ public sealed class CometBftGrpcClient : ICometBftGrpcClient
                 return _apiClient;
             }
 
-            _apiClient = _clientFactory is not null
-                ? await _clientFactory(cancellationToken).ConfigureAwait(false)
-                : throw new InvalidOperationException("No API client or factory configured.");
+            _apiClient = await _clientFactory(cancellationToken).ConfigureAwait(false);
 
             return _apiClient;
         }

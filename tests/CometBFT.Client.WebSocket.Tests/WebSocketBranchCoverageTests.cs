@@ -8,6 +8,7 @@ using NSubstitute;
 using CometBFT.Client.Core.Domain;
 using CometBFT.Client.Core.Events;
 using CometBFT.Client.Core.Options;
+using CometBFT.Client.TestInfrastructure;
 using CometBFT.Client.WebSocket;
 using Websocket.Client;
 using Xunit;
@@ -416,15 +417,16 @@ public sealed class WebSocketBranchCoverageTests
         await server.StartAsync();
 
         await using var client = new CometBftWebSocketClient(OptionsFor(server.Url));
-        Exception? captured = null;
-        client.ErrorOccurred += (_, args) => captured = args.Value;
+        var errorReceived = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.ErrorOccurred += (_, args) => errorReceived.TrySetResult(args.Value);
 
         await client.ConnectAsync();
         await client.SubscribeNewBlockAsync();
-        await Task.Delay(300);
+
+        var captured = await errorReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.NotNull(captured);
-        Assert.Contains("ACK", captured!.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ACK", captured.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -436,13 +438,13 @@ public sealed class WebSocketBranchCoverageTests
         await using var client = new CometBftWebSocketClient(OptionsFor(server.Url, 500));
         await client.ConnectAsync();
         await client.SubscribeNewBlockAsync();
-        await Task.Delay(150);
+        await server.WaitForMessagesAsync(count: 1, TimeSpan.FromSeconds(5));
 
         client.OnReconnected(new ReconnectionInfo(ReconnectionType.Lost));
-        await Task.Delay(150);
+        await server.WaitForMessagesAsync(count: 2, TimeSpan.FromSeconds(5));
 
-        var subscribeMessages = server.Messages.Count(message => message.Contains("NewBlock", StringComparison.Ordinal));
-        Assert.True(subscribeMessages >= 2, $"Expected at least 2 subscribe messages, got {subscribeMessages}.");
+        var subscribeCount = server.CountSubscribes(WebSocketEventTopic.NewBlock);
+        Assert.True(subscribeCount >= 2, $"Expected at least 2 subscribe messages, got {subscribeCount}.");
     }
 
     [Fact]

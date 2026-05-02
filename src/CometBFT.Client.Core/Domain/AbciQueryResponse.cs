@@ -12,7 +12,7 @@ namespace CometBFT.Client.Core.Domain;
 /// <param name="ProofOps">Merkle proof operations (non-null only when prove=true was requested).</param>
 /// <param name="Height">Block height at which the query was evaluated.</param>
 /// <param name="Codespace">Registered error codespace (empty when Code=0).</param>
-public sealed record AbciQueryResponse(
+public record AbciQueryResponse(
     uint Code,
     string Log,
     string Info,
@@ -27,7 +27,7 @@ public sealed record AbciQueryResponse(
 /// A sequence of Merkle proof operations returned by an ABCI query with prove=true.
 /// </summary>
 /// <param name="Ops">Individual proof operation steps.</param>
-public sealed record AbciProofOps(IReadOnlyList<AbciProofOp> Ops);
+public record AbciProofOps(IReadOnlyList<AbciProofOp> Ops);
 
 /// <summary>
 /// A single Merkle proof operation step.
@@ -35,4 +35,4 @@ public sealed record AbciProofOps(IReadOnlyList<AbciProofOp> Ops);
 /// <param name="Type">Proof type identifier (e.g. "ics23:iavl").</param>
 /// <param name="Key">Key covered by this proof step.</param>
 /// <param name="Data">Serialized proof data.</param>
-public sealed record AbciProofOp(string Type, IReadOnlyList<byte> Key, IReadOnlyList<byte> Data);
+public record AbciProofOp(string Type, IReadOnlyList<byte> Key, IReadOnlyList<byte> Data);

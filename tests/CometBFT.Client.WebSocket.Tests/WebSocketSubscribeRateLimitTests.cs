@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using CometBFT.Client.Core.Events;
 using CometBFT.Client.Core.Options;
+using CometBFT.Client.TestInfrastructure;
 using CometBFT.Client.WebSocket;
 using Xunit;
 

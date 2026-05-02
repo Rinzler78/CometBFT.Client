@@ -4,6 +4,7 @@ using CometBFT.Client.Core.Codecs;
 using CometBFT.Client.Core.Exceptions;
 using CometBFT.Client.Core.Interfaces;
 using CometBFT.Client.Core.Options;
+using CometBFT.Client.TestInfrastructure;
 using CometBFT.Client.WebSocket;
 using CometBFT.Client.WebSocket.Internal;
 using Websocket.Client;
