@@ -103,10 +103,10 @@
       },
       "Microsoft.Extensions.DependencyInjection": {
         "type": "Transitive",
-        "resolved": "10.0.7",
-        "contentHash": "91F/o3emPV/+xY/ip3s2LqDNF14kjttlVtq0BXgg6p4MnCzeSZxnUJm+t6WRrtD3JdGo88/oX+z7OwK4y8PZuw==",
+        "resolved": "10.0.8",
+        "contentHash": "daf62xHIrq8pnE709hgaZZN9tSam9TGGepWe1+bE6V3GEuVwJiMs6ib+38lfMCyAJAHiX0vapxBhsuMSV7U+cg==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.7"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.8"
         }
       },
       "Microsoft.Extensions.Diagnostics": {
@@ -235,6 +235,7 @@
         "type": "Project",
         "dependencies": {
           "CometBFT.Client.Core": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection": "[10.0.8, )",
           "Microsoft.Extensions.Http": "[10.0.7, )",
           "Microsoft.Extensions.Http.Polly": "[10.0.7, )",
           "Microsoft.Extensions.Options": "[10.0.7, )"
